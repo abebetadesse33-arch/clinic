@@ -1,0 +1,68 @@
+services:
+  # ==========================================
+  # DEVELOPMENT APP (BUN LIVE WATCH / HOT RELOAD)
+  # ==========================================
+  app-dev:
+    image: oven/bun:1-alpine
+    container_name: Nini_clinical_app_dev
+    working_dir: /app
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/clinic_enterprise
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    command: sh -c "bun install && bun run dev"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - Nini_network
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: Nini_postgres_dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=clinic_enterprise
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d clinic_enterprise" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - Nini_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: Nini_redis_dev
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - Nini_network
+
+networks:
+  Nini_network:
+    driver: bridge
+
+volumes:
+  pgdata_dev:
+    driver: local

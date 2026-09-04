@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#005C4B"/>
+      <stop offset="50%" stop-color="#0D8268"/>
+      <stop offset="100%" stop-color="#04382D"/>
+    </linearGradient>
+    <linearGradient id="crossGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8F4F0"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <!-- Background with smooth rounded corners -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  
+  <!-- Outer Glow Ring -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="#52B788" stroke-width="4" stroke-opacity="0.3" stroke-dasharray="12 12"/>
+  <circle cx="256" cy="256" r="148" fill="#FAF8F5" fill-opacity="0.08" stroke="#FAF8F5" stroke-width="6" stroke-opacity="0.2"/>
+
+  <!-- Iconic Cross and Heartbeat Pulse Symbol -->
+  <g filter="url(#cardShadow)">
+    <!-- Vertical Cross Bar -->
+    <rect x="224" y="140" width="64" height="232" rx="24" fill="url(#crossGrad)"/>
+    <!-- Horizontal Cross Bar -->
+    <rect x="140" y="224" width="232" height="64" rx="24" fill="url(#crossGrad)"/>
+    
+    <!-- Heartbeat Accent Line -->
+    <path d="M176 256 H220 L236 216 L256 296 L276 236 L292 256 H336" fill="none" stroke="#005C4B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Emerald Energy Dot -->
+    <circle cx="330" cy="180" r="16" fill="#52B788"/>
+  </g>
+</svg>

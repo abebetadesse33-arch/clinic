@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NiniMed Health</string>
+    <string name="title_activity_main">NiniMed Health</string>
+    <string name="package_name">org.ninimed.health</string>
+    <string name="custom_url_scheme">org.ninimed.health</string>
+</resources>

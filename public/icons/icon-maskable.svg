@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="maskGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#005C4B"/>
+      <stop offset="100%" stop-color="#04382D"/>
+    </linearGradient>
+  </defs>
+  <!-- Full Bleed Square for Safe Area Adaptive Masking -->
+  <rect width="512" height="512" fill="url(#maskGrad)"/>
+  
+  <!-- Safe Zone Elements (within 80% circle, i.e., r=204) -->
+  <g transform="translate(256, 256) scale(0.8) translate(-256, -256)">
+    <!-- Vertical Cross -->
+    <rect x="224" y="140" width="64" height="232" rx="24" fill="#FFFFFF"/>
+    <!-- Horizontal Cross -->
+    <rect x="140" y="224" width="232" height="64" rx="24" fill="#FFFFFF"/>
+    <!-- Pulse Line -->
+    <path d="M176 256 H220 L236 216 L256 296 L276 236 L292 256 H336" fill="none" stroke="#005C4B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="330" cy="180" r="16" fill="#52B788"/>
+  </g>
+</svg>

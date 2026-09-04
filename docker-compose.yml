@@ -1,0 +1,87 @@
+services:
+  # ==========================================
+  # 1. Nini CLINICAL APPLICATION (BUN + NEXTJS)
+  # ==========================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: Nini_clinical_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/clinic_enterprise
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY_1=${GEMINI_API_KEY_1:-}
+      - GEMINI_API_KEY_2=${GEMINI_API_KEY_2:-}
+      - GEMINI_API_KEY_3=${GEMINI_API_KEY_3:-}
+      - NEXT_PUBLIC_APP_NAME=NiniMed Enterprise CDSS
+      - NEXT_PUBLIC_APP_VERSION=3.0.0-enterprise
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:-NiniMedClinicBot}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - Nini_network
+
+  # ==========================================
+  # 2. POSTGRESQL 16 (WITH PGVECTOR FOR RAG)
+  # ==========================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: Nini_postgres_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=clinic_enterprise
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d clinic_enterprise" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - Nini_network
+
+  # ==========================================
+  # 3. REDIS (SESSION, CACHING & QUEUE)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: Nini_redis_cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - Nini_network
+
+# ==========================================
+# NETWORKS & VOLUMES
+# ==========================================
+networks:
+  Nini_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local

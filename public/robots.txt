@@ -1,0 +1,5 @@
+# robots.txt for NiniMed
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Allow: /

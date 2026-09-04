@@ -1,0 +1,65 @@
+{
+  "name": "NiniMed Health | 24/7 Clinical Network",
+  "short_name": "NiniMed",
+  "description": "24/7 Primary Care, Diagnostic Labs, Pharmacy Dispensing & Telehealth Network in Debre Birhan, Ethiopia.",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0A1612",
+  "theme_color": "#005C4B",
+  "categories": ["medical", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Book Appointment",
+      "short_name": "Book Visit",
+      "description": "Schedule an in-person or virtual consultation with a physician",
+      "url": "/patient/book",
+      "icons": [{ "src": "/icons/shortcut-calendar.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "Find Clinic GPS",
+      "short_name": "Clinics",
+      "description": "Locate nearest Debre Birhan clinic branch with turn-by-turn GPS",
+      "url": "/locations",
+      "icons": [{ "src": "/icons/shortcut-map.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "24/7 Symptom Triage",
+      "short_name": "AI Triage",
+      "description": "Check symptoms and submit a clinical case instantly",
+      "url": "/patient/submit-case",
+      "icons": [{ "src": "/icons/shortcut-chat.svg", "sizes": "96x96" }]
+    },
+    {
+      "name": "My Prescriptions & Labs",
+      "short_name": "Rx & Labs",
+      "description": "View lab test results and medication dispensing records",
+      "url": "/patient/dashboard",
+      "icons": [{ "src": "/icons/shortcut-rx.svg", "sizes": "96x96" }]
+    }
+  ],
+  "prefer_related_applications": false
+}
