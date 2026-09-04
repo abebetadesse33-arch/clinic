@@ -97,7 +97,7 @@ export default function NavigationHeader() {
     <>
       <header ref={navRef} className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/90 backdrop-blur-xl">
         {/* Top 24/7 On-Demand Healthcare Sub-bar */}
-        <div className="bg-gradient-to-r from-[#ecfeff] via-[#f0fdf4] to-[#f8fafc] text-slate-700 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-slate-200">
+        <div className="hidden sm:block bg-gradient-to-r from-[#ecfeff] via-[#f0fdf4] to-[#f8fafc] text-slate-700 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-slate-200">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5 text-[#0f766e] font-medium">
@@ -606,7 +606,7 @@ export default function NavigationHeader() {
                   </Link>
                   <Link
                     href="/patient/book"
-                    className="btn-pill-primary text-xs py-2 px-3 sm:px-4 shadow-sm"
+                    className="btn-pill-primary text-xs py-2 px-3 sm:px-4 shadow-sm hidden sm:inline-flex"
                   >
                     Book Visit
                   </Link>
@@ -767,7 +767,7 @@ export default function NavigationHeader() {
                 }
                 window.location.href = "/signin?redirect=" + encodeURIComponent("/patient/treat-me-now");
               }}
-              className="w-full py-2.5 rounded-2xl bg-[#FEF7E6] border border-[#F9E2A8] text-[#B8801C] font-bold text-xs flex items-center justify-center gap-2"
+              className="hidden w-full py-2.5 rounded-2xl bg-[#FEF7E6] border border-[#F9E2A8] text-[#B8801C] font-bold text-xs items-center justify-center gap-2"
             >
               <Zap className="w-4 h-4 fill-[#E5A93C] text-[#E5A93C]" />
               <span>Launch Treat Me Now™</span>

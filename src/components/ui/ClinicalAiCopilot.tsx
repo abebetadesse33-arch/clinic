@@ -189,7 +189,7 @@ I am grounded in live clinical records and evidence-based medicine. How can I as
   return (
     <>
       {/* Floating Launcher Button */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 z-50 flex items-center gap-2">
         {!isOpen && (
           <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 text-slate-300 text-xs shadow-lg border border-slate-700 backdrop-blur-md animate-fade-in">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />

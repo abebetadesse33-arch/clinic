@@ -53,6 +53,7 @@
 html {
   scroll-behavior: smooth;
   color-scheme: light;
+  overflow-x: hidden;
 }
 
 html.dark {
@@ -80,7 +81,15 @@ html.dark body {
 }
 
 * {
+  box-sizing: border-box;
   border-color: rgba(148, 163, 184, 0.22);
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
 }
 
 ::selection {

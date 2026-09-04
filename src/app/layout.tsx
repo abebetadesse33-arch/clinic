@@ -48,14 +48,14 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="min-h-screen flex flex-col antialiased pb-16 md:pb-0 transition-colors duration-200 bg-transparent text-slate-800 dark:text-slate-100">
+      <body className="min-h-screen flex flex-col overflow-x-hidden antialiased pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0 transition-colors duration-200 bg-transparent text-slate-800 dark:text-slate-100">
         <QueryProvider>
           <ThemeProvider>
             <LanguageProvider>
               <ClinicProvider>
               <PwaRegistrar />
               <NavigationHeader />
-              <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+              <main className="flex-1 min-w-0 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
                 <div className="w-full overflow-x-hidden">
                   {children}
                 </div>
