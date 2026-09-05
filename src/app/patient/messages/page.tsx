@@ -3,8 +3,15 @@
 import React from "react";
 import CareTeamChat from "@/components/onemedical/CareTeamChat";
 import { MessageSquare, ShieldCheck, Clock, PhoneCall } from "lucide-react";
+import Link from "next/link";
+import { useClinic } from "@/context/ClinicContext";
 
 export default function PatientMessagesPage() {
+  const { isAuthenticated } = useClinic();
+  const treatMeNowHref = isAuthenticated
+    ? "/patient/treat-me-now"
+    : `/signin?redirect=${encodeURIComponent("/patient/treat-me-now")}`;
+
   return (
     <div className="space-y-6 py-6 max-w-4xl mx-auto">
       {/* Header */}
@@ -31,9 +38,9 @@ export default function PatientMessagesPage() {
       {/* Triage Disclaimer */}
       <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E7E2D8] text-xs text-[#687B74] flex items-center justify-between">
         <span>For urgent concerns after hours, use <strong>Treat Me Now™</strong> or call our 24/7 Nurse Hotline.</span>
-        <a href="/patient/treat-me-now" className="text-[#005C4B] font-bold hover:underline">
+        <Link href={treatMeNowHref} className="text-[#005C4B] font-bold hover:underline">
           Launch Treat Me Now →
-        </a>
+        </Link>
       </div>
     </div>
   );

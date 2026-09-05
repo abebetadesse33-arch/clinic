@@ -25,8 +25,9 @@ export default function PwaRegistrar() {
     }
 
     // 2. Check if already installed
+    let isStandalone = false;
     if (typeof window !== "undefined") {
-      const isStandalone =
+      isStandalone =
         window.matchMedia("(display-mode: standalone)").matches ||
         (window.navigator as any).standalone === true;
       setIsInstalled(isStandalone);

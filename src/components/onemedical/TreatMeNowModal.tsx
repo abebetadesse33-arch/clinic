@@ -20,7 +20,7 @@ const COMMON_CONCERNS = [
 ];
 
 export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
-  const { currentUser, patients, isAuthenticated, currentRole } = useClinic();
+  const { currentUser, patients, isAuthenticated } = useClinic();
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedConcern, setSelectedConcern] = useState<string>("");
@@ -40,7 +40,15 @@ export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
     initials: "AM",
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace(`/signin?redirect=${encodeURIComponent("/patient/treat-me-now")}`);
+    }
+  }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     fetch("/api/v1/public/providers")
       .then((r) => r.json())
       .then((d) => {
@@ -54,7 +62,9 @@ export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
         }
       })
       .catch(() => { });
-  }, []);
+  }, [isAuthenticated]);
+
+  if (!isAuthenticated) return null;
 
   const handleStartTriage = () => {
     if (!selectedConcern) return;

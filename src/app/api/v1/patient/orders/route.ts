@@ -4,6 +4,8 @@ import { clinicalOrders, patients } from "@/db/schema";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 import { eq, and, desc, or, lte } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/v1/patient/orders - Patient portal orders with staged result release policy
 export async function GET(req: NextRequest) {
   try {

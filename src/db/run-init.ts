@@ -11,6 +11,7 @@ async function main() {
     console.log("✅ Database initialized successfully with all new tables!");
   } catch (err) {
     console.error("❌ Init error:", err);
+    process.exitCode = 1;
   } finally {
     await sql.end();
   }

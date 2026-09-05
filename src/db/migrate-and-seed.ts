@@ -486,6 +486,8 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
 
+      ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS summary TEXT;
+
       CREATE TABLE IF NOT EXISTS user_roles (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -609,28 +611,6 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
-
-      -- Patient consents schema alignment
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001';
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS version TEXT DEFAULT '1.0';
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS ip_address TEXT;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS user_agent TEXT;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS signature_url TEXT;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP;
-
-      -- Patient registrations schema alignment
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_token TEXT;
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMP;
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS submitted_data JSONB DEFAULT '{}';
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS duplicate_patient_id UUID REFERENCES patients(id);
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS invited_by_user_id UUID REFERENCES users(id);
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS activated_patient_id UUID REFERENCES patients(id);
-
-      -- Automation rules schema alignment
-      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS description TEXT;
-      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS escalation_timeout_minutes INTEGER DEFAULT 1440;
-      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
 
       CREATE OR REPLACE FUNCTION trg_sync_notifications_columns()
       RETURNS TRIGGER AS $$
@@ -756,6 +736,26 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
+
+      -- Align optional columns after their base tables exist.
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001';
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS version TEXT DEFAULT '1.0';
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS ip_address TEXT;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS user_agent TEXT;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS signature_url TEXT;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP;
+
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_token TEXT;
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMP;
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS submitted_data JSONB DEFAULT '{}';
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS duplicate_patient_id UUID REFERENCES patients(id);
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS invited_by_user_id UUID REFERENCES users(id);
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS activated_patient_id UUID REFERENCES patients(id);
+
+      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS escalation_timeout_minutes INTEGER DEFAULT 1440;
+      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
 
       CREATE TABLE IF NOT EXISTS config_audit_logs (
           id BIGSERIAL PRIMARY KEY,
@@ -1700,6 +1700,11 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS transaction_ref TEXT;
       ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
       ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS encounter_id UUID REFERENCES encounters(id);
+    ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS route TEXT DEFAULT 'Oral';
+    ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS indication TEXT;
+    ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dispense_quantity INTEGER;
+    ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS pharmacist_id UUID REFERENCES users(id);
+    ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dispensed_at TIMESTAMP;
 
       ALTER TABLE lab_orders ADD COLUMN IF NOT EXISTS price NUMERIC(10, 2) DEFAULT 0.00;
       ALTER TABLE lab_orders ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'ETB';
@@ -3228,13 +3233,13 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       DELETE FROM patients WHERE mrn = 'MRN-89210';
       DELETE FROM family_groups WHERE name = 'The Vance Family';
 
-      -- Seed Primary Super Admin User (password: Admin@2026!)
+    -- Seed Primary Super Admin User
       INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_active)
       VALUES (
           '00000000-0000-0000-0000-000000000099',
           '00000000-0000-0000-0000-000000000001',
-          'admin@Ninimed.org',
-          encode(digest('Admin@2026!', 'sha256'), 'hex'),
+          'abebetadesse1@gmail.com',
+          encode(digest('Ninielda@&1', 'sha256'), 'hex'),
           'System Super Administrator',
           'system_admin',
           'Enterprise IT & Clinical Governance',
@@ -3243,7 +3248,8 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       ON CONFLICT (email) DO UPDATE SET
           role = 'system_admin',
           full_name = 'System Super Administrator',
-          password_hash = encode(digest('Admin@2026!', 'sha256'), 'hex'),
+          email = 'abebetadesse1@gmail.com',
+          password_hash = encode(digest('Ninielda@&1', 'sha256'), 'hex'),
           is_active = TRUE;
 
       INSERT INTO suppliers (id, tenant_id, name, contact_person, email, phone, address, lead_time_days)

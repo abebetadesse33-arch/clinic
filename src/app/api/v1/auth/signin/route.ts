@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { createHash } from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       .from(users)
       .where(
         or(
-          eq(users.email, normalizedIdentifier),
+          sql`lower(${users.email}) = ${normalizedIdentifier}`,
           eq(users.nationalId, cleanNationalId),
           eq(users.phone, identifier)
         )

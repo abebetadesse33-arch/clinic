@@ -10,6 +10,8 @@ import {
 } from "@/db/schema";
 import { desc, count, sql } from "drizzle-orm";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/v1/reports/custom
 export async function GET(_req: NextRequest) {
   try {
