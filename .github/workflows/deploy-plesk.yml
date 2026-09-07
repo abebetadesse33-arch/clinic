@@ -45,7 +45,7 @@ jobs:
           if ! grep -Eq -- '-----BEGIN (OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----' "$RUNNER_TEMP/plesk-deploy-key" || ! grep -Eq -- '-----END (OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----' "$RUNNER_TEMP/plesk-deploy-key"; then
             printf 'PLESK_SSH_PRIVATE_KEY must contain a complete PEM/OpenSSH private-key block (for example, BEGIN OPENSSH PRIVATE KEY). Configure the raw key contents, not a file path, public key, or base64 value.\n'
             exit 1
-          }
+          fi
           echo "Plesk deployment secrets are configured."
 
       - name: Set up Bun
