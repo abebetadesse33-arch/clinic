@@ -82,60 +82,38 @@ jobs:
             exit 1
           }
 
-      - name: Upload package
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.PLESK_HOST }}
-          port: ${{ secrets.PLESK_SSH_PORT || '22' }}
-          username: ${{ secrets.PLESK_USERNAME }}
-          password: ${{ secrets.PLESK_PASSWORD }}
-          timeout: 30s
-          command_timeout: 10m
-          debug: true
-          source: deploy.tar.gz
-          target: /tmp/ninimed-deploy-${{ github.sha }}
-          strip_components: 0
-
-      - name: Release package on Plesk
-        uses: appleboy/ssh-action@v1
+      - name: Upload and release package on Plesk
+        shell: bash
         env:
+          SSHPASS: ${{ secrets.PLESK_PASSWORD }}
+          PLESK_HOST: ${{ secrets.PLESK_HOST }}
+          PLESK_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
+          PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
-        with:
-          host: ${{ secrets.PLESK_HOST }}
-          port: ${{ secrets.PLESK_SSH_PORT || '22' }}
-          username: ${{ secrets.PLESK_USERNAME }}
-          password: ${{ secrets.PLESK_PASSWORD }}
-          timeout: 30s
-          command_timeout: 10m
-          envs: DEPLOY_PATH,PLESK_DOMAIN,RELEASE_ID
-          script_stop: true
-          script: |
-            set -Eeuo pipefail
-            PACKAGE_DIR="/tmp/ninimed-deploy-${RELEASE_ID}"
-            RELEASE_DIR="${DEPLOY_PATH}/releases/${RELEASE_ID}"
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends sshpass
 
-            mkdir -p "${DEPLOY_PATH}/releases"
-            mkdir -p "${RELEASE_DIR}"
-            tar -xzf "${PACKAGE_DIR}/deploy.tar.gz" -C "${RELEASE_DIR}"
-            test -f "${RELEASE_DIR}/server.js"
-            node --check "${RELEASE_DIR}/server.js"
+          ssh_options=(
+            -o ConnectTimeout=30
+            -o ServerAliveInterval=15
+            -o ServerAliveCountMax=2
+            -o StrictHostKeyChecking=yes
+            -p "$PLESK_PORT"
+          )
+          known_hosts="$RUNNER_TEMP/plesk-known-hosts"
+          ssh-keyscan -T 15 -p "$PLESK_PORT" "$PLESK_HOST" > "$known_hosts" 2>/dev/null
+          test -s "$known_hosts"
+          ssh_options+=( -o UserKnownHostsFile="$known_hosts" )
 
-            ln -sfn "${RELEASE_DIR}" "${DEPLOY_PATH}/current"
-            rm -rf "${DEPLOY_PATH}/.next" "${DEPLOY_PATH}/public" "${DEPLOY_PATH}/node_modules"
-            ln -sfn "${DEPLOY_PATH}/current/.next" "${DEPLOY_PATH}/.next"
-            ln -sfn "${DEPLOY_PATH}/current/public" "${DEPLOY_PATH}/public"
-            ln -sfn "${DEPLOY_PATH}/current/node_modules" "${DEPLOY_PATH}/node_modules"
+          remote="${PLESK_USERNAME}@${PLESK_HOST}"
+          package_dir="/tmp/ninimed-deploy-${RELEASE_ID}"
+          remote_script="${package_dir}/plesk-release.sh"
 
-            rm -rf "${PACKAGE_DIR}"
-            find "${DEPLOY_PATH}/releases" -mindepth 1 -maxdepth 1 -type d ! -name "${RELEASE_ID}" -exec rm -rf {} +
-
-            if command -v plesk >/dev/null 2>&1; then
-              plesk bin nodejs --restart "${PLESK_DOMAIN}"
-            elif [ -x /usr/local/psa/bin/nodejs ]; then
-              /usr/local/psa/bin/nodejs --restart "${PLESK_DOMAIN}"
-            else
-              echo "Plesk nodejs CLI was not found; the application was not restarted." >&2
-              exit 1
-            fi
+          timeout 5m sshpass -e ssh "${ssh_options[@]}" "$remote" "mkdir -p '$package_dir'"
+          timeout 2m sshpass -e ssh "${ssh_options[@]}" "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
+          timeout 10m sshpass -e ssh "${ssh_options[@]}" "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
+          timeout 10m sshpass -e ssh "${ssh_options[@]}" "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"

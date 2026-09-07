@@ -92,13 +92,13 @@ The workflow is triggered by pushes to `main` and can also be started manually w
 5. In Plesk, confirm the application root points to `current` and the startup file is `server.js`.
 6. Open `https://app.example.com/api/v1/system/health` and the application home page.
 
-The workflow builds on GitHub, packages `.next/standalone`, `.next/static`, and `public`, uploads the package, creates a release, switches the `current` symlink, and asks Plesk to restart the application.
+The workflow builds on GitHub, packages `.next/standalone`, `.next/static`, and `public`, then uses bounded native SSH streams to upload the package and [scripts/plesk-release.sh](scripts/plesk-release.sh) to create the release, switch the `current` symlink, and restart the application. The GitHub runner installs `sshpass`; the Plesk SSH user must have `tar`, `node`, and permission to write the deployment path.
 
 ## 5. Rollback
 
 The workflow removes old releases after switching to the new release. For a rollback, deploy the desired commit again from GitHub using **Run workflow**. This recreates a clean release from that commit and switches `current` back to it.
 
-The workflow requires the Plesk Node.js CLI to restart the application. If the CLI is unavailable to the SSH user, the deployment fails after uploading the release; restart/configure the Node.js application from **Plesk > Domains > app.example.com > Node.js**, then rerun the workflow.
+The workflow requires the Plesk Node.js CLI to restart the application. If the CLI is unavailable to the SSH user, the deployment fails after uploading the release; restart/configure the Node.js application from **Plesk > Domains > app.example.com > Node.js**, then rerun the workflow. The workflow now fails fast when the SSH endpoint is unreachable instead of waiting inside an SCP action.
 
 ## 6. Realtime notifications and infrastructure
 
