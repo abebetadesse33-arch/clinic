@@ -1589,8 +1589,11 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
           tenant_id UUID REFERENCES organizations(id),
           patient_id UUID REFERENCES patients(id) ON DELETE SET NULL,
           personal JSONB DEFAULT '{}' NOT NULL,
+          patient_info JSONB DEFAULT '{}' NOT NULL,
           complaint JSONB DEFAULT '{}' NOT NULL,
+          complaint_details JSONB DEFAULT '{}' NOT NULL,
           history JSONB DEFAULT '{}' NOT NULL,
+          medical_history JSONB DEFAULT '{}' NOT NULL,
           symptoms JSONB DEFAULT '{}' NOT NULL,
           files_attached JSONB DEFAULT '[]' NOT NULL,
           assigned_handler_id TEXT,
@@ -1601,6 +1604,7 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
           handler_notes JSONB DEFAULT '[]' NOT NULL,
           timeline JSONB DEFAULT '[]' NOT NULL,
           submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
 
@@ -1991,7 +1995,10 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       ALTER TABLE cases ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'routine';
       ALTER TABLE cases ADD COLUMN IF NOT EXISTS assigned_provider_id UUID REFERENCES users(id);
       ALTER TABLE cases ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
-            ALTER TABLE cases ADD COLUMN IF NOT EXISTS patient_info JSONB DEFAULT '{}' NOT NULL;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS patient_info JSONB DEFAULT '{}' NOT NULL;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS complaint_details JSONB DEFAULT '{}' NOT NULL;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS medical_history JSONB DEFAULT '{}' NOT NULL;
+    ALTER TABLE cases ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL;
 
       -- ==========================================
       -- DYNAMIC CONFIGURATION & CMS TABLES

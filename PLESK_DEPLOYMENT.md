@@ -76,6 +76,8 @@ NEXT_PUBLIC_API_URL
 
 `PLESK_SSH_PRIVATE_KEY` is the private key for the Plesk system user. Never place it in the repository or in a workflow file.
 
+The workflow also accepts the legacy secret name `SSH_PRIVATE_KEY` as a fallback. Prefer `PLESK_SSH_PRIVATE_KEY` for new setup. The key must include the complete OpenSSH private-key block, including its `BEGIN` and `END` lines.
+
 The workflow is triggered by pushes to `main` and can also be started manually with **Run workflow**.
 
 ## 4. First deployment

@@ -16,6 +16,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate deployment secrets
+        shell: bash
+        env:
+          PLESK_HOST: ${{ secrets.PLESK_HOST }}
+          PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
+          PLESK_SSH_PRIVATE_KEY: ${{ secrets.PLESK_SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          PLESK_DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
+          PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
+        run: |
+          set -Eeuo pipefail
+          missing=()
+          [ -n "$PLESK_HOST" ] || missing+=(PLESK_HOST)
+          [ -n "$PLESK_USERNAME" ] || missing+=(PLESK_USERNAME)
+          [ -n "$PLESK_SSH_PRIVATE_KEY" ] || missing+=(PLESK_SSH_PRIVATE_KEY-or-SSH_PRIVATE_KEY)
+          [ -n "$PLESK_DEPLOY_PATH" ] || missing+=(PLESK_DEPLOY_PATH)
+          [ -n "$PLESK_DOMAIN" ] || missing+=(PLESK_DOMAIN)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf 'Missing GitHub Actions secret(s): %s\n' "${missing[*]}"
+            exit 1
+          fi
+          echo "Plesk deployment secrets are configured."
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -49,7 +71,7 @@ jobs:
         with:
           host: ${{ secrets.PLESK_HOST }}
           username: ${{ secrets.PLESK_USERNAME }}
-          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY }}
+          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
           source: deploy.tar.gz
           target: /tmp/ninimed-deploy-${{ github.sha }}
           strip_components: 0
@@ -63,7 +85,7 @@ jobs:
         with:
           host: ${{ secrets.PLESK_HOST }}
           username: ${{ secrets.PLESK_USERNAME }}
-          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY }}
+          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
           envs: DEPLOY_PATH,PLESK_DOMAIN,RELEASE_ID
           script_stop: true
           script: |
