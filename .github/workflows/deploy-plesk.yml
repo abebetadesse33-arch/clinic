@@ -103,18 +103,10 @@ jobs:
             -o ConnectTimeout=30
             -o ServerAliveInterval=15
             -o ServerAliveCountMax=2
-            -o StrictHostKeyChecking=yes
+            -o StrictHostKeyChecking=accept-new
             -p "$PLESK_PORT"
           )
           known_hosts="$RUNNER_TEMP/plesk-known-hosts"
-          scan_status=0
-          ssh-keyscan -T 15 -p "$PLESK_PORT" "$PLESK_HOST" > "$known_hosts" 2>/dev/null || scan_status=$?
-          if [ ! -s "$known_hosts" ]; then
-            echo "SSH host-key discovery failed for ${PLESK_HOST}:${PLESK_PORT} (exit ${scan_status})." >&2
-            echo "Verify that PLESK_HOST is a hostname/IP and PLESK_SSH_PORT is the public SSH port." >&2
-            exit 1
-          fi
-          echo "SSH host key discovered for ${PLESK_HOST}:${PLESK_PORT}."
           ssh_options+=( -o UserKnownHostsFile="$known_hosts" )
 
           remote="${PLESK_USERNAME}@${PLESK_HOST}"
