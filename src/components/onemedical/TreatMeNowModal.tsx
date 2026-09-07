@@ -8,6 +8,7 @@ import { useClinic } from "@/context/ClinicContext";
 
 interface TreatMeNowModalProps {
   onClose: () => void;
+  pageMode?: boolean;
 }
 
 const COMMON_CONCERNS = [
@@ -19,8 +20,8 @@ const COMMON_CONCERNS = [
   { id: "rx-renewal", label: "Emergency Rx Refill", icon: "💊", desc: "Temporary 30-day bridge supply" },
 ];
 
-export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
-  const { currentUser, patients, isAuthenticated } = useClinic();
+export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNowModalProps) {
+  const { currentUser, patients, isAuthenticated, currentRole } = useClinic();
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedConcern, setSelectedConcern] = useState<string>("");
@@ -40,15 +41,7 @@ export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
     initials: "AM",
   });
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace(`/signin?redirect=${encodeURIComponent("/patient/treat-me-now")}`);
-    }
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
+  React.useEffect(() => {
     fetch("/api/v1/public/providers")
       .then((r) => r.json())
       .then((d) => {
@@ -62,9 +55,7 @@ export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
         }
       })
       .catch(() => { });
-  }, [isAuthenticated]);
-
-  if (!isAuthenticated) return null;
+  }, []);
 
   const handleStartTriage = () => {
     if (!selectedConcern) return;
@@ -129,10 +120,10 @@ export default function TreatMeNowModal({ onClose }: TreatMeNowModalProps) {
   };
 
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
+    <div className={pageMode ? "min-h-screen bg-[#FAF8F5] p-4 sm:p-8" : "drawer-backdrop"} onClick={pageMode ? undefined : onClose}>
       <div
-        className="drawer-content p-6 sm:p-8"
-        onClick={(e) => e.stopPropagation()}
+        className={pageMode ? "max-w-2xl mx-auto bg-white border border-[#E7E2D8] rounded-3xl p-6 sm:p-8 shadow-warm-lg" : "drawer-content p-6 sm:p-8"}
+        onClick={pageMode ? undefined : (e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#F2EFE9]">

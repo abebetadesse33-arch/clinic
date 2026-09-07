@@ -12,6 +12,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!body.userRole || body.userRole === "guest" || body.userRole === "patient") {
+      return NextResponse.json(
+        { error: "Access denied. NiniMed AI Copilot is restricted to authorized clinical staff." },
+        { status: 403 }
+      );
+    }
+
     const startTime = Date.now();
     const result = await executeClinicalCopilot(body);
     const latencyMs = Date.now() - startTime;

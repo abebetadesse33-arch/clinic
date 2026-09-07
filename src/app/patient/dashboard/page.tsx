@@ -191,8 +191,8 @@ function PatientDashboardContent() {
         )}
 
         {/* Sub-Navigation Tabs & Patient Context Switcher */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-2 border-b border-[#E7E2D8]">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide min-w-0">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-hide min-w-0">
             {[
               { id: "overview", label: "Dashboard", icon: Activity },
               { id: "cases", label: "My Cases & AI Triage", icon: Sparkles },
@@ -208,12 +208,13 @@ function PatientDashboardContent() {
               <button
                 key={id}
                 onClick={() => setActiveTab(id as any)}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === id
-                    ? "bg-[#005C4B] text-white shadow-sm"
-                    : "bg-white text-[#33413C] border border-[#E7E2D8] hover:bg-[#FAF8F5]"
-                  }`}
+                className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  activeTab === id
+                    ? "bg-teal-700 dark:bg-teal-600 text-white shadow-sm scale-[1.02]"
+                    : "bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750"
+                }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={`w-3.5 h-3.5 ${activeTab === id ? "text-white" : "text-teal-600 dark:text-teal-400"}`} />
                 <span>{label}</span>
               </button>
             ))}

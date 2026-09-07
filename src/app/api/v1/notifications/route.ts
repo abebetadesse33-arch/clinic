@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notifications, users } from "@/db/schema";
 import { eq, desc, and, inArray, or } from "drizzle-orm";
-import type { NotificationRecord, NotificationPriority } from "@/lib/types/clinical";
+import { getAuthenticatedSessionUser, requireAuthenticatedUser } from "@/lib/security/auth-session";
+import type { NotificationPriority } from "@/lib/types/clinical";
 
 export const dynamic = "force-dynamic";
 
@@ -10,27 +11,25 @@ const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuthenticatedUser(request);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
+    const sessionUser = auth.user;
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId") || request.cookies.get("Nini_session")?.value;
-    const role = searchParams.get("role");
+    const role = searchParams.get("role") || sessionUser.role;
     const category = searchParams.get("category");
     const unreadOnly = searchParams.get("unreadOnly") === "true";
     const priority = searchParams.get("priority") as NotificationPriority | null;
     const limit = parseInt(searchParams.get("limit") ?? "60", 10);
 
     const conditions: any[] = [];
-    const isSystemAdmin = role === "system_admin" || role === "tenant_admin";
+    const isSystemAdmin = sessionUser.role === "system_admin" || sessionUser.role === "tenant_admin";
 
-    // If NOT system admin, filter strictly under respective privilege/role/user
     if (!isSystemAdmin) {
-      if (userId && userId.length === 36 && role) {
-        conditions.push(
-          // @ts-ignore
-          or(eq(notifications.recipientUserId, userId), eq(notifications.targetRole, role))
-        );
-      } else if (userId && userId.length === 36 && userId.includes("-")) {
-        conditions.push(eq(notifications.recipientUserId, userId));
-      } else if (role) {
+      conditions.push(eq(notifications.recipientUserId, sessionUser.id));
+      if (role) {
         conditions.push(eq(notifications.targetRole, role));
       }
     } else if (role && searchParams.get("filterRole")) {
@@ -117,20 +116,20 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = await requireAuthenticatedUser(request);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
     const body = await request.json();
-    const { ids, markAllRead, userId } = body as { ids?: string[]; markAllRead?: boolean; userId?: string };
+    const { ids, markAllRead } = body as { ids?: string[]; markAllRead?: boolean };
+    const currentUserId = auth.user.id;
 
     if (markAllRead) {
-      if (userId && userId.length === 36 && userId.includes("-")) {
-        await db
-          .update(notifications)
-          .set({ isRead: true, readAt: new Date() })
-          .where(eq(notifications.recipientUserId, userId));
-      } else {
-        await db
-          .update(notifications)
-          .set({ isRead: true, readAt: new Date() });
-      }
+      await db
+        .update(notifications)
+        .set({ isRead: true, readAt: new Date() })
+        .where(eq(notifications.recipientUserId, currentUserId));
       return NextResponse.json({ success: true, data: { markedRead: true } });
     }
 
@@ -140,9 +139,9 @@ export async function PATCH(request: NextRequest) {
         await db
           .update(notifications)
           .set({ isRead: true, readAt: new Date() })
-          .where(inArray(notifications.id, validUuids));
+          .where(and(inArray(notifications.id, validUuids), eq(notifications.recipientUserId, currentUserId)));
       }
-      return NextResponse.json({ success: true, data: { markedRead: ids.length } });
+      return NextResponse.json({ success: true, data: { markedRead: validUuids.length } });
     }
 
     return NextResponse.json({ success: false, error: "ids or markAllRead required" }, { status: 400 });
@@ -154,11 +153,15 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionUserId = request.cookies.get("Nini_session")?.value;
+    const auth = await requireAuthenticatedUser(request);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
+    const sessionUserId = auth.user.id;
     const body = await request.json();
     const {
       recipientUserId,
-      senderUserId,
       type,
       title,
       body: msgBody,
@@ -179,8 +182,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enforce server session identity: Server session takes priority over client-supplied senderUserId
-    const effectiveSenderUserId = sessionUserId || senderUserId || undefined;
+    // Enforce server session identity: the authenticated session user is the only sender actor.
+    const effectiveSenderUserId = sessionUserId;
 
     // Route through the central dispatch (handles SSE bus + Telegram + DB)
     const { dispatchNotification } = await import("@/lib/notifications/notification-service");

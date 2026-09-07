@@ -138,6 +138,7 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
   { value: "TOXICOLOGY_SCREEN_POSITIVE", label: "Toxicology Screen Positive", category: "Laboratory & Diagnostics", color: "text-red-600", iconName: "TestTube", description: "Immunoassay detection of controlled substance or poison." },
   { value: "GENETIC_TEST_ORDERED", label: "Genetic Test Ordered", category: "Laboratory & Diagnostics", color: "text-purple-400", iconName: "Dna", description: "Next-generation sequencing or PCR target requested." },
   { value: "GENETIC_RESULT_READY", label: "Genetic Result Ready", category: "Laboratory & Diagnostics", color: "text-purple-400", iconName: "Dna", description: "Variant calling and molecular pathology report signed." },
+  { value: "PHARMACOGENOMIC_ALERT", label: "Pharmacogenomic Alert", category: "Laboratory & Diagnostics", color: "text-red-500", iconName: "Dna", description: "A metabolizer phenotype requires medication safety review or adjustment." },
   { value: "NUTRITIONAL_BIOCHEMISTRY_FLAG", label: "Nutritional Biochemistry Flag", category: "Laboratory & Diagnostics", color: "text-orange-400", iconName: "HeartPulse", description: "Severe albumin, prealbumin, or micronutrient deficit." },
   { value: "LIPID_PROFILE_ABNORMAL", label: "Lipid Profile Abnormal", category: "Laboratory & Diagnostics", color: "text-amber-400", iconName: "Activity", description: "Severe hypertriglyceridemia or LDL elevation." },
   { value: "LIVER_FUNCTION_ABNORMAL", label: "Liver Function Abnormal", category: "Laboratory & Diagnostics", color: "text-red-500", iconName: "Activity", description: "Acute transaminitis (ALT/AST) or elevated bilirubin." },
@@ -153,6 +154,7 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
   // ── Pharmacy & Therapeutics
   { value: "PRESCRIPTION_SIGNED", label: "Prescription Signed", category: "Pharmacy & Therapeutics", color: "text-emerald-400", iconName: "Pill", description: "Physician authorized prescription order." },
   { value: "MEDICATION_ORDER_MODIFIED", label: "Medication Order Modified", category: "Pharmacy & Therapeutics", color: "text-amber-400", iconName: "Pill", description: "Dosage, frequency, or route updated." },
+  { value: "DRUG_INTERACTION_DETECTED", label: "Drug Interaction Detected", category: "Pharmacy & Therapeutics", color: "text-red-500", iconName: "AlertTriangle", description: "Clinical decision support detected a hazardous co-prescription." },
   { value: "MEDICATION_DISPENSED", label: "Medication Dispensed", category: "Pharmacy & Therapeutics", color: "text-emerald-400", iconName: "PackageCheck", description: "Pharmacist completed bottle fill and patient counseling." },
   { value: "MEDICATION_ADMINISTERED", label: "Medication Administered", category: "Pharmacy & Therapeutics", color: "text-blue-400", iconName: "Syringe", description: "Bedside nursing barcode medication scan recorded." },
   { value: "CONTROLLED_SUBSTANCE_ORDERED", label: "Controlled Substance Ordered", category: "Pharmacy & Therapeutics", color: "text-violet-400", iconName: "Lock", description: "Schedule II-V narcotic requires dual sign-off." },
@@ -169,6 +171,8 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
   { value: "SECOND_OPINION_REQUESTED", label: "Second Opinion Requested", category: "Specialist Consultations & Referrals", color: "text-violet-400", iconName: "Stethoscope", description: "External expert second opinion docket initialized." },
   { value: "SECOND_OPINION_RECEIVED", label: "Second Opinion Received", category: "Specialist Consultations & Referrals", color: "text-emerald-400", iconName: "Stethoscope", description: "Independent expert evaluation returned." },
   { value: "EXTERNAL_REFERRAL_RECEIVED", label: "External Referral Received", category: "Specialist Consultations & Referrals", color: "text-teal-400", iconName: "Users", description: "Inbound transfer or referral from external clinic." },
+  { value: "REFERRAL_RECEIVED", label: "Referral Received", category: "Specialist Consultations & Referrals", color: "text-teal-400", iconName: "Users", description: "An inbound referral has been received and requires intake routing." },
+  { value: "REFERRAL_COMPLETED", label: "Referral Completed", category: "Specialist Consultations & Referrals", color: "text-emerald-400", iconName: "Users", description: "The full referral lifecycle has been completed and documented." },
 
   // ── Billing, RCM & Subscriptions
   { value: "PAYMENT_COMPLETED", label: "Payment Completed", category: "Billing, RCM & Subscriptions", color: "text-blue-400", iconName: "CreditCard", description: "Successful cash, wallet, or card transaction." },
@@ -185,6 +189,7 @@ export const TRIGGER_OPTIONS: TriggerOption[] = [
   // ── Compliance & Quality Assurance
   { value: "STAFF_LICENSE_EXPIRING", label: "Staff License Expiring", category: "Compliance & Quality Assurance", color: "text-red-400", iconName: "FileText", description: "Medical licensure expires within 90/30 days." },
   { value: "STAFF_CREDENTIAL_VERIFIED", label: "Staff Credential Verified", category: "Compliance & Quality Assurance", color: "text-emerald-400", iconName: "BadgeCheck", description: "HR validated medical council board certificate." },
+  { value: "CONSENT_REVOKED", label: "Consent Revoked", category: "Compliance & Quality Assurance", color: "text-red-500", iconName: "Lock", description: "Clinical research or telemedicine consent was withdrawn." },
   { value: "AUDIT_LOG_ANOMALY", label: "Audit Log Anomaly", category: "Compliance & Quality Assurance", color: "text-red-500", iconName: "FileWarning", description: "Suspicious chart access or security policy breach." },
   { value: "DATA_BREACH_SUSPECTED", label: "Data Breach Suspected", category: "Compliance & Quality Assurance", color: "text-red-600", iconName: "ShieldAlert", description: "High-volume data export or anomalous IP traffic." },
   { value: "REGULATORY_REPORT_DUE", label: "Regulatory Report Due", category: "Compliance & Quality Assurance", color: "text-amber-400", iconName: "FileText", description: "Ministry of Health or public health statutory report due." },
@@ -232,6 +237,7 @@ export const STEP_ACTIONS: StepActionOption[] = [
   { value: "SUGGEST_DIAGNOSIS", label: "Suggest Differential Diagnosis", category: "AI & Decision Support", description: "Post ranked diagnostic possibilities into EHR chart draft.", iconName: "Stethoscope" },
   { value: "SUGGEST_TREATMENT_PLAN", label: "Suggest Evidence-Based Treatment", category: "AI & Decision Support", description: "Pull CPIC/WHO therapy guideline recommendations.", iconName: "ClipboardList" },
   { value: "RUN_DRUG_INTERACTION_CHECK", label: "Run Drug Interaction Check", category: "AI & Decision Support", description: "Cross-reference all active medications for pharmacokinetic clashes.", iconName: "AlertTriangle" },
+  { value: "DRUG_INTERACTION_DETECTED", label: "Record Drug Interaction", category: "Pharmacy & Therapeutics", description: "Record a hazardous co-prescription and route it for pharmacist review.", iconName: "AlertTriangle" },
   { value: "RUN_PHARMACOGENOMIC_CHECK", label: "Run Pharmacogenomic Allele Check", category: "AI & Decision Support", description: "Match patient genome variants to drug metabolism risks.", iconName: "Dna" },
   { value: "IDENTIFY_CARE_GAPS", label: "Identify Care Gaps", category: "AI & Decision Support", description: "Highlight missing preventive interventions or diabetic eye/foot exams.", iconName: "BrainCircuit" },
   { value: "GENERATE_PROACTIVE_INSIGHT", label: "Generate Proactive Care Insight", category: "AI & Decision Support", description: "Surface longitudinal biometric pattern shifts to physician.", iconName: "BrainCircuit" },

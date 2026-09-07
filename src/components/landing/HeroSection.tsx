@@ -1,24 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, HeartPulse, Clock, MapPin, Users, Pill, Zap, ShieldCheck, CheckCircle2 } from "lucide-react";
-import TreatMeNowModal from "../onemedical/TreatMeNowModal";
+import { ArrowRight, Clock, MapPin, Users, Pill, Zap, ShieldCheck } from "lucide-react";
 
 export function HeroSection() {
-  const [showTreatMeNow, setShowTreatMeNow] = useState(false);
-
-  const scrollToSymptomChecker = () => {
-    const el = document.getElementById("ada-symptom-checker");
-    el?.scrollIntoView({ behavior: "smooth" });
-  };
-
   return (
     <>
-      <section className="relative pt-6 pb-16 px-4 sm:px-8 max-w-7xl mx-auto">
-        <div className="luxury-gradient-surface luxury-shadow rounded-[32px] border border-white/70 p-6 sm:p-8 lg:p-10 relative overflow-hidden">
+      <section className="relative pt-4 sm:pt-6 pb-10 sm:pb-16 px-4 sm:px-8 max-w-7xl mx-auto" aria-labelledby="home-hero-title">
+        <div className="luxury-gradient-surface luxury-shadow rounded-[28px] sm:rounded-[32px] border border-white/70 p-5 sm:p-8 lg:p-12 relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.9),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(134,239,172,0.18),transparent_28%)]" />
-          <div className="relative z-10 text-center max-w-5xl mx-auto space-y-6">
+          <div className="relative z-10 text-center max-w-5xl mx-auto space-y-5 sm:space-y-6">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-emerald-200 text-emerald-700 text-xs font-bold shadow-sm backdrop-blur-md">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -27,32 +19,31 @@ export function HeroSection() {
               <span>24/7 Virtual Urgent Care Active · Same-Day Appointments Available</span>
             </div>
 
-            <h1 className="text-4xl sm:text-6xl font-bold text-slate-900 tracking-tight leading-[1.08] font-serif-heading">
+            <h1 id="home-hero-title" className="text-[2.35rem] sm:text-6xl font-bold text-slate-900 tracking-tight leading-[1.06] font-serif-heading">
               Doctor’s appointments you might <br className="hidden sm:inline" />
               <span className="bg-gradient-to-r from-emerald-700 via-teal-600 to-cyan-600 bg-clip-text text-transparent italic">actually look forward to.</span>
             </h1>
 
-            <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
               From 24/7 on-demand video visits with on-call physicians to un-rushed appointments in calming, quiet offices with on-site blood labs — this is healthcare reimagined around your life.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
               <Link
                 href="/patient/book"
-                className="btn-pill-primary w-full sm:w-auto text-sm py-4 px-8 flex items-center justify-center gap-2 group shadow-lg shadow-emerald-600/20"
+                className="btn-pill-primary min-h-11 w-full sm:w-auto text-sm py-3.5 px-8 flex items-center justify-center gap-2 group shadow-lg shadow-emerald-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#005C4B] focus-visible:ring-offset-2"
               >
                 <span>Book Appointment</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
 
-              <button
-                type="button"
-                onClick={() => setShowTreatMeNow(true)}
-                className="btn-pill-secondary w-full sm:w-auto text-sm py-4 px-8 shadow-md shadow-slate-200"
+              <Link
+                href="/services/virtual-urgent-care/triage"
+                className="btn-pill-secondary min-h-11 w-full sm:w-auto text-sm py-3.5 px-8 shadow-md shadow-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#005C4B] focus-visible:ring-offset-2"
               >
                 <Zap className="w-4 h-4" />
                 <span>Treat Me Now™ (24/7 Virtual)</span>
-              </button>
+              </Link>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-10 text-left">
@@ -103,7 +94,6 @@ export function HeroSection() {
         </div>
       </section>
 
-      {showTreatMeNow && <TreatMeNowModal onClose={() => setShowTreatMeNow(false)} />}
     </>
   );
 }

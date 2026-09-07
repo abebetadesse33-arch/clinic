@@ -85,38 +85,45 @@ export default function HomePage() {
   return (
     <div className="space-y-4">
       {/* Workspace View Mode Switcher Header */}
-      <div className="flex items-center justify-between px-1 py-1">
-        <div className="flex items-center gap-2.5">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400 font-semibold">Workspace Mode</span>
-          <div className="flex items-center p-1 rounded-2xl bg-white/60 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-700/80 text-xs shadow-[0_18px_34px_-26px_rgba(15,23,42,0.28)] backdrop-blur-xl">
+      <div className="glass-panel rounded-2xl p-2 sm:p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm border border-slate-200/80 dark:border-slate-800/80">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center p-1 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/90 dark:border-slate-700/80 text-xs shadow-xs">
             <button
+              type="button"
               onClick={() => setViewMode("specialist")}
-              className={`px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-semibold flex items-center gap-2 transition-all ${
                 viewMode === "specialist"
-                  ? "bg-teal-500/15 text-teal-700 border border-teal-200 shadow-sm dark:bg-teal-500/10 dark:text-teal-200 dark:border-teal-400/30"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                  ? "bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-200 shadow-sm border border-teal-500/20"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
-              <Stethoscope className="w-3.5 h-3.5" />
+              <Stethoscope className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
               <span>Specialist Workstation</span>
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("modular_grid")}
-              className={`px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-semibold flex items-center gap-2 transition-all ${
                 viewMode === "modular_grid"
-                  ? "bg-teal-500/15 text-teal-700 border border-teal-200 shadow-sm dark:bg-teal-500/10 dark:text-teal-200 dark:border-teal-400/30"
-                  : "text-slate-500 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                  ? "bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-200 shadow-sm border border-teal-500/20"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
               <span>Modular Widget Grid</span>
             </button>
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-          <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
-          <span>Logged in as <strong className="text-slate-700 dark:text-slate-200">{currentUser.fullName}</strong></span>
+        <div className="flex items-center gap-3 text-xs">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-teal-500/10 dark:bg-teal-500/15 border border-teal-500/20 text-teal-800 dark:text-teal-300 font-medium">
+            <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+            <span className="capitalize">{currentRole.replace("_", " ")} Workspace</span>
+          </div>
+          <span className="text-slate-300 dark:text-slate-700 hidden md:inline">•</span>
+          <span className="hidden md:inline text-slate-600 dark:text-slate-400">
+            Active: <strong className="text-slate-900 dark:text-slate-100">{currentUser.fullName}</strong>
+          </span>
         </div>
       </div>
 

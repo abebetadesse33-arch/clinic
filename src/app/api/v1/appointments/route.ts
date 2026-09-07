@@ -6,20 +6,7 @@ import { eq, desc, and, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
-
-// Mock auth session retriever (replace with real implementation: NextAuth, Supabase, etc.)
-async function getAuthenticatedSessionUserId(req: NextRequest): Promise<string | null> {
-  try {
-    const authHeader = req.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      // In production, decode JWT here or use next-auth getServerSession.
-      return "00000000-0000-0000-0000-systemadmin1";
-    }
-  } catch (err) {
-    console.error("Auth extraction error", err);
-  }
-  return null;
-}
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 const MAIN_FACILITY_ID = "11111111-0000-0000-0000-000000000001";
@@ -162,6 +149,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const sessionUserId = await getAuthenticatedSessionUserId(req);
+
+    if (!sessionUserId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: a valid authenticated session is required." },
+        { status: 401 }
+      );
+    }
 
     const body = await req.json();
     const validated = createAppointmentSchema.parse(body);

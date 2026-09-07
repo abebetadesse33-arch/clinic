@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { referrals, patients, users, notifications } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -168,6 +170,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const sessionUserId = await getAuthenticatedSessionUserId(request);
+    if (!sessionUserId) {
+      return NextResponse.json({ success: false, error: "Unauthorized: authenticated session required" }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       patientId,
@@ -194,15 +201,7 @@ export async function POST(request: NextRequest) {
       targetPatientId = firstPat?.id;
     }
 
-    let targetUserId = referringUserId;
-    if (!targetUserId) {
-      const sessionId = request.cookies.get("Nini_session")?.value;
-      targetUserId = sessionId;
-      if (!targetUserId) {
-        const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
-        targetUserId = firstUser?.id;
-      }
-    }
+    const targetUserId = sessionUserId;
 
     if (!targetPatientId || !targetUserId || !clinicalReason) {
       return NextResponse.json(
@@ -293,6 +292,20 @@ export async function POST(request: NextRequest) {
       console.warn("Referral notification dispatch error (non-fatal):", notifErr);
     }
 
+    await executeWorkflowsForTrigger({
+      triggerEvent: "SPECIALIST_REFERRAL_CREATED",
+      patientId: targetPatientId,
+      triggeredByUserId: sessionUserId,
+      subjectLabel: `${resolvedWard} referral`,
+      patientActionUrl: `/patient/referrals?patientId=${targetPatientId}`,
+      metadata: {
+        referralId: newReferral.id,
+        receivingRole: newReferral.receivingRole,
+        priority: newReferral.priority,
+        status: newReferral.status,
+      },
+    });
+
     return NextResponse.json({ success: true, data: newReferral }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating referral:", error);
@@ -302,6 +315,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const sessionUserId = await getAuthenticatedSessionUserId(request);
+    if (!sessionUserId) {
+      return NextResponse.json({ success: false, error: "Unauthorized: authenticated session required" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, status, responseNotes } = body;
 
@@ -337,6 +355,29 @@ export async function PATCH(request: NextRequest) {
           relatedEntityId: id,
         });
       } catch {}
+    }
+
+    if (updated) {
+      const triggerEvent = status === "completed"
+        ? "SPECIALIST_REFERRAL_COMPLETED"
+        : status === "accepted" || status === "approved"
+          ? "SPECIALIST_REFERRAL_ACCEPTED"
+          : null;
+
+      if (triggerEvent) {
+        await executeWorkflowsForTrigger({
+          triggerEvent,
+          patientId: updated.patientId,
+          triggeredByUserId: sessionUserId,
+          subjectLabel: `${updated.receivingRole.replace(/_/g, " ")} referral`,
+          patientActionUrl: `/patient/referrals?patientId=${updated.patientId}`,
+          metadata: {
+            referralId: updated.id,
+            status: updated.status,
+            responseNotes: updated.responseNotes,
+          },
+        });
+      }
     }
 
     return NextResponse.json({ success: true, data: updated });

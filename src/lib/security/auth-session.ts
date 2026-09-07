@@ -112,3 +112,14 @@ export async function requireAuthenticatedUser(
 
   return { user };
 }
+
+export function isAuthorizedForRole(
+  userRole: string,
+  allowedRoles: string[]
+): boolean {
+  if (!userRole || !Array.isArray(allowedRoles) || allowedRoles.length === 0) {
+    return false;
+  }
+
+  return allowedRoles.includes(userRole);
+}

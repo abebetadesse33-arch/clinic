@@ -1,6 +1,12 @@
 // Ambient type definitions for Next.js modules
 // Ensures IDE TypeScript server resolves types in containerized dev environments
 
+declare namespace NodeJS {
+  interface ProcessEnv {
+    NEXT_PUBLIC_ANDROID_APK_URL?: string;
+  }
+}
+
 declare module "next/server" {
   export class NextRequest extends Request {
     readonly nextUrl: URL;

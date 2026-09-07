@@ -6,6 +6,7 @@ import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -45,6 +46,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validated = createLabResultSchema.parse(body);
+    const sessionUserId = await getAuthenticatedSessionUserId(req);
+    if (!sessionUserId) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: authenticated laboratory session required" },
+        { status: 401 }
+      );
+    }
 
     const numVal = parseFloat(validated.value);
     let isAbnormal = validated.isAbnormal || false;
@@ -120,6 +128,7 @@ export async function POST(req: NextRequest) {
     // 2. Audit Logging
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,
+      userId: sessionUserId,
       action: "LAB_RESULT_ENTERED",
       entityType: "lab_results",
       entityId: newResult.id,
@@ -143,6 +152,7 @@ export async function POST(req: NextRequest) {
         actionText: `View Test Results & Notes`,
         relatedEntityType: "lab_results",
         relatedEntityId: newResult.id,
+        senderUserId: sessionUserId,
         metadata: {
           resultId: newResult.id,
           orderId: validated.labOrderId,
@@ -170,6 +180,7 @@ export async function POST(req: NextRequest) {
         actionText: `Review & Acknowledge Result`,
         relatedEntityType: "lab_results",
         relatedEntityId: newResult.id,
+        senderUserId: sessionUserId,
         metadata: {
           resultId: newResult.id,
           orderId: validated.labOrderId,
@@ -191,6 +202,7 @@ export async function POST(req: NextRequest) {
       body: `Result published for ${patientName} (${patientMrn}). Turnaround checkpoint logged.`,
       priority: "low",
       targetRole: "lab_technician",
+      senderUserId: sessionUserId,
       actionUrl: `/biologist?orderId=${validated.labOrderId || ""}&tab=results`,
       actionText: "View Archival Log",
       relatedEntityType: "lab_results",
@@ -199,9 +211,9 @@ export async function POST(req: NextRequest) {
 
     // Fire workflow engine for patient portal
     executeWorkflowsForTrigger({
-      triggerEvent: "LAB_RESULT_VERIFIED",
+      triggerEvent: isAbnormal ? "LAB_RESULT_CRITICAL" : "LAB_RESULT_READY",
       patientId: validated.patientId,
-      triggeredByUserId: linkedDoctorId || undefined,
+      triggeredByUserId: sessionUserId,
       subjectLabel: `${newResult.testName}: ${newResult.value} ${newResult.unit} (${interpretation})`,
       patientActionUrl: `/patient/orders?orderId=${validated.labOrderId || newResult.id}&resultId=${newResult.id}&view=result`,
       metadata: {
@@ -212,6 +224,7 @@ export async function POST(req: NextRequest) {
         unit: newResult.unit,
         interpretation,
         isAbnormal,
+        authenticatedSessionId: sessionUserId,
       },
     }).catch((err) => console.error("[WorkflowExecutor:lab-result]", err));
 

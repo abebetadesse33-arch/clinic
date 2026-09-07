@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { formConfigurations, formFields, formSubmissions } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,11 @@ export async function POST(
     const { formKey } = params;
     const body = await request.json();
 
+    const auth = await requireAuthenticatedUser(request);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
     const [form] = await db
       .select()
       .from(formConfigurations)
@@ -74,14 +80,11 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 });
     }
 
-    // Insert into formSubmissions
-    const userId = request.headers.get("x-user-id") || null;
-
     const [submission] = await db
       .insert(formSubmissions)
       .values({
         formKey,
-        submittedByUserId: userId,
+        submittedByUserId: auth.user.id,
         data: body,
         status: "submitted",
       })

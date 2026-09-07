@@ -1,13 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { Calendar, Zap, Pill, FlaskConical, ArrowRight, Video, Clock, Sparkles } from "lucide-react";
-import TreatMeNowModal from "./TreatMeNowModal";
 
 export default function QuickActionGrid() {
-  const [showTreatMeNow, setShowTreatMeNow] = useState(false);
-
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -39,8 +36,8 @@ export default function QuickActionGrid() {
         </Link>
 
         {/* 2. Treat Me Now (24/7 Virtual Urgent Care) */}
-        <button
-          onClick={() => setShowTreatMeNow(true)}
+        <Link
+          href="/services/virtual-urgent-care/triage"
           className="group relative text-left bg-gradient-to-br from-[#0B3B32] to-[#005C4B] text-white rounded-2xl p-5 border border-[#08493B] hover:shadow-warm-md transition-all duration-200 flex flex-col justify-between"
         >
           <div>
@@ -67,7 +64,7 @@ export default function QuickActionGrid() {
             <span>Start triage (0 min wait)</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
-        </button>
+        </Link>
 
         {/* 3. Submit Health Case */}
         <Link
@@ -124,8 +121,6 @@ export default function QuickActionGrid() {
         </Link>
       </div>
 
-      {/* Treat Me Now Modal */}
-      {showTreatMeNow && <TreatMeNowModal onClose={() => setShowTreatMeNow(false)} />}
     </>
   );
 }

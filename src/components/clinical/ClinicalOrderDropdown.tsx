@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   Zap,
@@ -16,9 +17,7 @@ import {
   Plus,
   ArrowRight,
 } from "lucide-react";
-import ClinicalOrderModal, {
-  HospitalDepartment,
-} from "./ClinicalOrderModal";
+import { HospitalDepartment } from "./ClinicalOrderModal";
 
 export interface DepartmentItem {
   id: HospitalDepartment;
@@ -129,6 +128,7 @@ export default function ClinicalOrderDropdown({
 }: ClinicalOrderDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedDeptForModal, setSelectedDeptForModal] = useState<HospitalDepartment | null>(null);
+  const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -143,7 +143,7 @@ export default function ClinicalOrderDropdown({
   }, []);
 
   const handleOpenDepartment = (dept: HospitalDepartment) => {
-    setSelectedDeptForModal(dept);
+    router.push(`/clinical/orders?patientId=${encodeURIComponent(patient.id)}&department=${dept}`);
     setIsOpen(false);
   };
 
@@ -231,17 +231,6 @@ export default function ClinicalOrderDropdown({
         </div>
       )}
 
-      {/* Active Order Requisition Modal */}
-      {selectedDeptForModal && (
-        <ClinicalOrderModal
-          patient={patient}
-          initialDepartment={selectedDeptForModal}
-          onClose={() => setSelectedDeptForModal(null)}
-          onOrderDispatched={(order) => {
-            if (onOrderCompleted) onOrderCompleted(order);
-          }}
-        />
-      )}
     </div>
   );
 }

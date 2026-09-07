@@ -43,12 +43,17 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const search = searchParams.get("search")?.trim() || "";
+    const patientId = searchParams.get("patientId")?.trim() || "";
     const priority = searchParams.get("priority");
     const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID;
 
     const conditions = [eq(patients.tenantId, tenantId)];
 
-    if (search) {
+    if (patientId) {
+      conditions.push(eq(patients.id, patientId));
+    }
+
+    if (search && !patientId) {
       conditions.push(
         or(
           ilike(patients.firstName, `%${search}%`),

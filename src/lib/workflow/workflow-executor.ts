@@ -54,6 +54,26 @@ export interface WorkflowExecutionResult {
   executedAt: string;
 }
 
+function matchesWorkflowConditions(
+  conditions: unknown,
+  context: WorkflowExecutionContext
+): boolean {
+  if (!conditions || typeof conditions !== "object" || Array.isArray(conditions)) return true;
+
+  const values = {
+    triggerEvent: context.triggerEvent,
+    patientId: context.patientId,
+    ...(context.metadata || {}),
+  } as Record<string, unknown>;
+
+  return Object.entries(conditions as Record<string, unknown>).every(([key, expected]) => {
+    const actual = values[key];
+    if (actual === undefined || actual === null) return false;
+    if (Array.isArray(expected)) return expected.includes(actual);
+    return actual === expected;
+  });
+}
+
 // ─── Step → Patient Notification Mapping ─────────────────────────────────────
 
 function buildPatientNotification(
@@ -69,6 +89,7 @@ function buildPatientNotification(
     SUGGEST_DIAGNOSIS: { title: "🧠 AI Diagnosis Suggestions Ready", body: `Your physician is reviewing AI-assisted diagnostic suggestions for ${s}.`, priority: "normal" },
     SUGGEST_TREATMENT_PLAN: { title: "💡 Treatment Plan Suggested", body: `An evidence-based treatment plan for ${s} has been proposed and is under physician review.`, priority: "normal" },
     RUN_DRUG_INTERACTION_CHECK: { title: "⚠️ Medication Safety Check Done", body: `A drug interaction check for your ${s} medications has been completed.`, priority: "normal" },
+    DRUG_INTERACTION_DETECTED: { title: "🚨 Medication Safety Alert", body: `Your care team identified a potential medication interaction involving ${s} and is reviewing it now.`, priority: "critical" },
     GENERATE_PROACTIVE_INSIGHT: { title: "💡 Care Insight Available", body: `Your care team has received a proactive health insight about ${s}. Please check your care plan.`, priority: "normal" },
     IDENTIFY_CARE_GAPS: { title: "📋 Care Gap Identified", body: `Your care team identified a care gap for ${s}. A follow-up has been scheduled for you.`, priority: "high" },
 
@@ -112,6 +133,7 @@ function buildPatientNotification(
     ENROLL_IN_RPM_PROGRAM: { title: "📡 Remote Monitoring Enrolled", body: `You have been enrolled in a remote monitoring program. Your care team will track your vitals from home.`, priority: "high" },
     COMPLETE_RPM_PROGRAM: { title: "🏁 Monitoring Program Complete", body: `Congratulations! You have successfully completed your remote monitoring program. A final report is ready.`, priority: "normal" },
     SEND_RPM_REMINDER: { title: "⏰ Vitals Reading Reminder", body: `Please take your daily readings (blood pressure / blood glucose) as part of your remote monitoring program.`, priority: "normal" },
+    TRIGGER_RPM_CHECK_AI: { title: "🤖 RPM Health Check Started", body: `Your remote monitoring health check for ${s} has started. Please answer the care questions in your portal.`, priority: "normal" },
 
     // Laboratory & Biochemical
     CREATE_LAB_ORDER: { title: "📋 Lab Order Placed", body: `A diagnostic lab order for ${s} has been placed and sent to the laboratory.`, priority: "normal" },
@@ -136,6 +158,7 @@ function buildPatientNotification(
     SEND_BIOCHEMICAL_ALERT: { title: "⚠️ Clinical Alert on Your Labs", body: `Your medical team has been notified of important findings in your ${s} lab report.`, priority: "high" },
     REFER_TO_BIOCHEMIST: { title: "🔬 Specialist Biochemist Consulted", body: `A specialist biochemist has been asked to review your ${s} results for an expert opinion.`, priority: "high" },
     CREATE_BIOCHEMICAL_CONSULT: { title: "📋 Expert Consultation Ready", body: `A formal biochemical consultation report for ${s} has been added to your medical record.`, priority: "normal" },
+    DOCUMENT_MEDICAL_NECESSITY: { title: "📄 Clinical Documentation Updated", body: `Required clinical documentation for ${s} has been prepared for care and coverage review.`, priority: "low" },
     UPLOAD_IMAGING_STUDY: { title: "🖼️ Imaging Study Uploaded", body: `Your ${s} imaging study has been successfully uploaded to the system.`, priority: "normal" },
     CREATE_RADIOLOGY_REPORT: { title: "📸 Radiology Report Prepared", body: `A radiologist has completed your imaging study analysis. Your doctor will review the findings shortly.`, priority: "normal" },
     FLAG_CRITICAL_IMAGING_FINDING: { title: "🚨 Critical Imaging Finding", body: `An urgent finding has been identified in your imaging study. Your care team is responding immediately.`, priority: "critical" },
@@ -258,7 +281,7 @@ export async function executeWorkflowsForTrigger(
 
   try {
     // 1. Fetch active workflows matching this trigger
-    const matchedWorkflows = await db
+    const candidateWorkflows = await db
       .select()
       .from(workflowDefinitions)
       .where(
@@ -268,6 +291,10 @@ export async function executeWorkflowsForTrigger(
           eq(workflowDefinitions.isActive, true)
         )
       );
+
+    const matchedWorkflows = candidateWorkflows.filter((workflow) =>
+      matchesWorkflowConditions(workflow.conditions, ctx)
+    );
 
     if (matchedWorkflows.length === 0) {
       return [];

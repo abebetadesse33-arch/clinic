@@ -4,8 +4,6 @@ import { encounters, encounterEvents, sagaTransactions, stateSlaViolations, user
 import { sql } from "drizzle-orm";
 import { getKeyPoolStatus } from "@/lib/ai/gemini-rest-client";
 
-export const dynamic = "force-dynamic";
-
 export async function GET(_req: NextRequest) {
   const startTime = Date.now();
 

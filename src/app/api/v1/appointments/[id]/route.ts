@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { appointments, auditLogs, notifications, patients } from "@/db/schema";
+import { appointments, auditLogs, patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { dispatchNotification } from "@/lib/notifications/notification-service";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -39,6 +41,12 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
+    const sessionUserId = auth.user.id;
     const body = await req.json();
     const { status, scheduledDate, scheduledTime, notes, reason, specialty, clinicianId, cancelReason, rescheduleReason } = body;
 
@@ -86,6 +94,7 @@ export async function PATCH(
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,
+      userId: sessionUserId,
       action: actionType,
       entityType: "appointments",
       entityId: updated.id,
@@ -109,28 +118,46 @@ export async function PATCH(
         : `Your appointment is now confirmed for ${updated.scheduledDate} at ${updated.scheduledTime}.`;
 
       if (patientUserId && patientUserId.length === 36) {
-        await db.insert(notifications).values({
-          organizationId: DEFAULT_TENANT_ID,
-          recipientUserId: patientUserId,
-          senderUserId: updated.clinicianId || "00000000-0000-0000-0000-000000000099",
-          type: "system_alert",
+        await dispatchNotification({
+          category: "appointments",
+          type: "appointment_status_changed",
           title: notifTitle,
           body: notifBody,
           priority: "normal",
-          actionUrl: `/patient/appointments`,
+          recipientUserId: patientUserId,
+          senderUserId: sessionUserId,
+          actionUrl: "/patient/appointments",
+          actionText: "View Appointment",
+          relatedEntityType: "appointments",
+          relatedEntityId: updated.id,
+          metadata: {
+            status: updated.status,
+            scheduledDate: updated.scheduledDate,
+            scheduledTime: updated.scheduledTime,
+            actorUserId: sessionUserId,
+          },
         });
       }
 
       if (updated.clinicianId && updated.clinicianId.length === 36) {
-        await db.insert(notifications).values({
-          organizationId: DEFAULT_TENANT_ID,
-          recipientUserId: updated.clinicianId,
-          senderUserId: patientUserId || updated.clinicianId,
-          type: "system_alert",
+        await dispatchNotification({
+          category: "appointments",
+          type: "schedule_update",
           title: `🔔 Schedule Update: ${notifTitle}`,
           body: `Patient ${patientRec ? `${patientRec.firstName} ${patientRec.lastName}` : "Record"} appointment on ${updated.scheduledDate} at ${updated.scheduledTime} status changed to ${updated.status}.`,
           priority: "normal",
-          actionUrl: `/appointments`,
+          recipientUserId: updated.clinicianId,
+          senderUserId: sessionUserId,
+          actionUrl: "/appointments",
+          actionText: "Open Schedule",
+          relatedEntityType: "appointments",
+          relatedEntityId: updated.id,
+          metadata: {
+            appointmentId: updated.id,
+            patientId: updated.patientId,
+            status: updated.status,
+            actorUserId: sessionUserId,
+          },
         });
       }
     } catch (nErr) {
@@ -153,10 +180,15 @@ export async function PATCH(
 
 // DELETE /api/v1/appointments/[id]
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
     const [deleted] = await db
       .update(appointments)
       .set({ status: "cancelled", updatedAt: new Date() })

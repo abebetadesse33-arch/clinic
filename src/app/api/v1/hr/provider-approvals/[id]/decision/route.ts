@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { providerProfiles, providerSchedules, notifications, auditLogs } from "@/db/schema";
+import { providerProfiles, providerSchedules, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { dispatchNotification } from "@/lib/notifications/notification-service";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -12,8 +14,14 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
     const body = await req.json();
-    const { action, feedback, reviewerId } = body;
+    const { action, feedback } = body;
+    const reviewerId = auth.user.id;
 
     if (action !== "approve" && action !== "reject") {
       return NextResponse.json({ success: false, error: "Action must be 'approve' or 'reject'" }, { status: 400 });
@@ -54,17 +62,25 @@ export async function POST(
 
     // Notify Provider of HR Decision
     try {
-      await db.insert(notifications).values({
-        organizationId: DEFAULT_TENANT_ID,
-        recipientUserId: existing.userId,
-        senderUserId: reviewerId || "00000000-0000-0000-0000-000000000001",
-        type: "system_alert",
+      await dispatchNotification({
+        category: "appointments",
+        type: action === "approve" ? "profile_approved" : "profile_revision_requested",
         title: action === "approve" ? "✅ Profile & Schedule Approved by HR" : "⚠️ HR Requested Changes on Profile",
         body: action === "approve"
           ? "Your clinical profile, services, and weekly availability are now active and publicly bookable for patients."
           : `HR requested revisions on your submission: "${feedback || "Please review license credentials or schedule buffers."}"`,
-        actionUrl: "/provider/profile",
         priority: "high",
+        recipientUserId: existing.userId,
+        senderUserId: reviewerId,
+        actionUrl: "/provider/profile",
+        actionText: "Review Decision",
+        relatedEntityType: "provider_profiles",
+        relatedEntityId: updated.id,
+        metadata: {
+          profileId: updated.id,
+          reviewerId,
+          decision: newStatus,
+        },
       });
     } catch { }
 
@@ -72,6 +88,7 @@ export async function POST(
     try {
       await db.insert(auditLogs).values({
         tenantId: DEFAULT_TENANT_ID,
+        userId: reviewerId,
         action: action === "approve" ? "HR_APPROVED_PROVIDER_PROFILE" : "HR_REJECTED_PROVIDER_PROFILE",
         entityType: "provider_profiles",
         entityId: updated.id,

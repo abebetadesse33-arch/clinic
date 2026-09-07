@@ -22,6 +22,7 @@ interface Props {
   onClose: () => void;
   patientId?: string;
   patientName?: string;
+  pageMode?: boolean;
 }
 
 export default function ShareMedicalRecordModal({
@@ -29,6 +30,7 @@ export default function ShareMedicalRecordModal({
   onClose,
   patientId,
   patientName = "Patient",
+  pageMode = false,
 }: Props) {
   const [durationHours, setDurationHours] = useState(24);
   const [doctorName, setDoctorName] = useState("");
@@ -42,7 +44,7 @@ export default function ShareMedicalRecordModal({
   const [copiedLink, setCopiedLink] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  if (!isOpen && !pageMode) return null;
 
   const handleGenerateSharePass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,10 +92,10 @@ export default function ShareMedicalRecordModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className={pageMode ? "min-h-screen bg-slate-950 p-4 sm:p-8" : "fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in"}
+      onClick={pageMode ? undefined : (e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-lg relative bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-white">
+      <div className={pageMode ? "w-full max-w-lg relative bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-white mx-auto" : "w-full max-w-lg relative bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-white"}>
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-colors"

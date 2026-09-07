@@ -41,7 +41,8 @@ interface Message {
 }
 
 export default function ClinicalAiCopilot() {
-  const { currentRole, selectedPatient } = useClinic();
+  const { currentRole, isGuest, isAuthenticated, selectedPatient } = useClinic();
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputMessage, setInputMessage] = useState("");
@@ -66,6 +67,21 @@ I am grounded in live clinical records and evidence-based medicine. How can I as
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // AI Copilot is exclusively for licensed clinical staff / administrators, NOT guests or patients
+  const isPatientOrGuest = !isAuthenticated || isGuest || currentRole === "guest" || currentRole === "patient";
+
+  // Auto-close if role transitions to guest or patient
+  useEffect(() => {
+    if (isPatientOrGuest && isOpen) {
+      setIsOpen(false);
+    }
+  }, [isPatientOrGuest, isOpen]);
+
   // Auto-scroll to bottom of chat
   useEffect(() => {
     if (isOpen) {
@@ -73,8 +89,10 @@ I am grounded in live clinical records and evidence-based medicine. How can I as
     }
   }, [messages, isOpen]);
 
-  // Keyboard shortcut listener (Alt + A or Ctrl + J)
+  // Keyboard shortcut listener (Alt + A or Ctrl + J) - only for authorized clinical staff
   useEffect(() => {
+    if (isPatientOrGuest) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.altKey && e.key.toLowerCase() === "a") || (e.ctrlKey && e.key.toLowerCase() === "j")) {
         e.preventDefault();
@@ -83,7 +101,7 @@ I am grounded in live clinical records and evidence-based medicine. How can I as
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isPatientOrGuest]);
 
   const handleSendMessage = async (textToSend?: string, modeOverride?: typeof contextMode) => {
     const query = (textToSend || inputMessage).trim();
@@ -186,10 +204,14 @@ I am grounded in live clinical records and evidence-based medicine. How can I as
     }
   };
 
+  if (!mounted || isPatientOrGuest) {
+    return null;
+  }
+
   return (
     <>
       {/* Floating Launcher Button */}
-      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 md:bottom-6 md:right-6 z-50 flex items-center gap-2">
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
         {!isOpen && (
           <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 text-slate-300 text-xs shadow-lg border border-slate-700 backdrop-blur-md animate-fade-in">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />

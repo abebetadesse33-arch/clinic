@@ -18,6 +18,10 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const { currentUser } = useClinic();
 
+  if (pathname.startsWith("/mobile-clinic")) {
+    return null;
+  }
+
   const NAV_ITEMS = [
     {
       label: "Home",

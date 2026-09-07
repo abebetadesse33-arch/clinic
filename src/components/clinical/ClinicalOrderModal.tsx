@@ -64,9 +64,6 @@ export interface ClinicalProtocol {
   isCustom?: boolean;
 }
 
-export { HOSPITAL_DEPARTMENTS } from "./ClinicalOrderDropdown";
-
-
 // Map database string keys to Lucide React components
 const ICON_MAP: Record<string, React.ElementType> = {
   FlaskConical,
@@ -123,6 +120,7 @@ interface ClinicalOrderModalProps {
   initialDepartment?: HospitalDepartment;
   onClose: () => void;
   onOrderDispatched?: (order: any) => void;
+  pageMode?: boolean;
 }
 
 export default function ClinicalOrderModal({
@@ -130,9 +128,10 @@ export default function ClinicalOrderModal({
   initialDepartment = "laboratory",
   onClose,
   onOrderDispatched,
+  pageMode = false,
 }: ClinicalOrderModalProps) {
   const { currentUser } = useClinic();
-
+  
   // ─── STATE ──────────────────────────────────────────────────────────────────
   const [departments, setDepartments] = useState<DepartmentConfig[]>(FALLBACK_DEPARTMENTS);
   const [protocols, setProtocols] = useState<ClinicalProtocol[]>([]);
@@ -147,12 +146,20 @@ export default function ClinicalOrderModal({
   const [clinicalIndication, setClinicalIndication] = useState("");
   const [instructions, setInstructions] = useState("");
 
+  // Laboratory collection and routing details
+  const [selectedLabProtocolId, setSelectedLabProtocolId] = useState("");
+  const [specimenType, setSpecimenType] = useState("blood");
+  const [collectionSite, setCollectionSite] = useState("outpatient-phlebotomy");
+  const [containerType, setContainerType] = useState("serum-gel-tube");
+  const [fastingRequired, setFastingRequired] = useState(false);
+  const [resultRouting, setResultRouting] = useState("ordering-clinician");
+  
   // Routing State
   const [isDoctorExplicitlyRequested, setIsDoctorExplicitlyRequested] = useState(false);
   const [requestedDoctorName, setRequestedDoctorName] = useState("");
   const [patientWillingToWait, setPatientWillingToWait] = useState(false);
   const [hasExistingAppointment, setHasExistingAppointment] = useState(false);
-
+  
   // Submission & UI State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successOrder, setSuccessOrder] = useState<any | null>(null);
@@ -202,15 +209,20 @@ export default function ClinicalOrderModal({
     return () => { isMounted = false; };
   }, []);
 
-  const activeConfig = useMemo(() =>
-    departments.find((d) => d.id === selectedDept) || departments[0],
-    [departments, selectedDept]);
+  const activeConfig = useMemo(() => 
+    departments.find((d) => d.id === selectedDept) || departments[0], 
+  [departments, selectedDept]);
 
   const activeProtocols = useMemo(() => {
     return protocols
       .filter((p) => p.departmentId === selectedDept)
       .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.items.some(i => i.toLowerCase().includes(searchQuery.toLowerCase())));
   }, [protocols, selectedDept, searchQuery]);
+
+  const laboratoryProtocols = useMemo(
+    () => protocols.filter((protocol) => protocol.departmentId === "laboratory"),
+    [protocols]
+  );
 
   // ─── HANDLERS ───────────────────────────────────────────────────────────────
 
@@ -228,6 +240,12 @@ export default function ClinicalOrderModal({
 
     // Deduplicate items
     setItems((prev) => Array.from(new Set([...prev, ...protocol.items])));
+  };
+
+  const handleSelectLaboratoryProtocol = (protocolId: string) => {
+    setSelectedLabProtocolId(protocolId);
+    const protocol = laboratoryProtocols.find((item) => item.id === protocolId);
+    if (protocol) handleAddProtocolItems(protocol);
   };
 
   const handleAddCustomItem = () => {
@@ -260,7 +278,7 @@ export default function ClinicalOrderModal({
 
       const res = await fetch("/api/v1/clinical/protocols", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-clinic-role": currentUser?.role || "" },
         body: JSON.stringify(payload),
       });
 
@@ -270,7 +288,7 @@ export default function ClinicalOrderModal({
         setIsCreatingProtocol(false);
         setNewProtocolName("");
 
-        // Ensure playBookingAlertBeep exists before calling it
+        // Fixed the TypeScript error: use an existing method like playBookingAlertBeep
         if (soundAlerts && typeof soundAlerts.playBookingAlertBeep === 'function') {
           soundAlerts.playBookingAlertBeep();
         }
@@ -311,6 +329,14 @@ export default function ClinicalOrderModal({
           clinicalIndication: clinicalIndication.trim(),
           instructions: instructions.trim(),
           items,
+          laboratoryDetails: selectedDept === "laboratory" ? {
+            protocolId: selectedLabProtocolId || null,
+            specimenType,
+            collectionSite,
+            containerType,
+            fastingRequired,
+            resultRouting,
+          } : undefined,
           isDoctorExplicitlyRequested,
           requestedDoctorName: isDoctorExplicitlyRequested ? requestedDoctorName : undefined,
           patientWillingToWait: isDoctorExplicitlyRequested ? patientWillingToWait : false,
@@ -349,9 +375,9 @@ export default function ClinicalOrderModal({
   const DepartmentIcon = ICON_MAP[activeConfig.iconName] || Activity;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-5 animate-fade-in">
-      <div className="bg-[#0f111a] border border-slate-800 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden ring-1 ring-white/10">
-
+    <div className={pageMode ? "min-h-screen bg-slate-950 p-3 sm:p-6" : "fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-3 sm:p-5 animate-fade-in"}>
+      <div className={pageMode ? "bg-[#0f111a] border border-slate-800 rounded-3xl shadow-2xl w-full max-w-5xl mx-auto min-h-[calc(100vh-1.5rem)] flex flex-col overflow-hidden ring-1 ring-white/10" : "bg-[#0f111a] border border-slate-800 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden ring-1 ring-white/10"}>
+        
         {/* ─── HEADER ────────────────────────────────────────────────────────── */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-gradient-to-r from-[#141824] to-[#0f111a]">
           <div className="flex items-center gap-4">
@@ -395,7 +421,7 @@ export default function ClinicalOrderModal({
             <div className="p-5 bg-slate-900/90 border border-slate-800 rounded-2xl max-w-md mx-auto text-left text-sm space-y-3 shadow-inner">
               <div className="flex justify-between border-b border-slate-800 pb-2 text-slate-400">
                 <span>Routing Target:</span>
-                <span className="font-bold text-white flex items-center gap-1.5"><Database className="w-3.5 h-3.5" /> {activeConfig.badge}</span>
+                <span className="font-bold text-white flex items-center gap-1.5"><Database className="w-3.5 h-3.5"/> {activeConfig.badge}</span>
               </div>
               <div className="flex justify-between border-b border-slate-800 pb-2 text-slate-400">
                 <span>Primary Directive:</span>
@@ -429,11 +455,11 @@ export default function ClinicalOrderModal({
           </div>
         ) : (
           <form onSubmit={handleSubmitOrder} className="flex-1 flex flex-col overflow-hidden">
-
+            
             {/* ─── DEPARTMENT STRIP ──────────────────────────────────────────── */}
             <div className="px-6 py-3 border-b border-slate-800 bg-[#0a0c13] flex items-center gap-2 overflow-x-auto custom-scrollbar shrink-0 shadow-inner">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 mr-2 shrink-0 flex items-center gap-1">
-                <Building className="w-3.5 h-3.5" /> Route To:
+                <Building className="w-3.5 h-3.5"/> Route To:
               </span>
               {departments.map((dept) => {
                 const Icon = ICON_MAP[dept.iconName] || Activity;
@@ -443,10 +469,11 @@ export default function ClinicalOrderModal({
                     key={dept.id}
                     type="button"
                     onClick={() => setSelectedDept(dept.id)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${isSelected
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border ${
+                      isSelected
                         ? "bg-teal-500 text-slate-950 border-teal-400 shadow-md shadow-teal-900/50"
                         : "bg-slate-900/60 text-slate-400 border-slate-800 hover:border-slate-600 hover:text-white hover:bg-slate-800"
-                      }`}
+                    }`}
                   >
                     <Icon className={`w-4 h-4 ${isSelected ? "text-slate-950" : dept.iconColor}`} />
                     <span>{dept.label.split(" ")[0]}</span>
@@ -456,10 +483,10 @@ export default function ClinicalOrderModal({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#0f111a]">
-
+              
               {/* ─── PROTOCOL BROWSER & ACUITY ─────────────────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
+                
                 {/* Left Column: Protocols */}
                 <div className="lg:col-span-7 space-y-4">
                   <div className="flex items-center justify-between">
@@ -526,14 +553,15 @@ export default function ClinicalOrderModal({
                             key={p}
                             type="button"
                             onClick={() => setPriority(p)}
-                            className={`flex-1 py-2 rounded-lg text-xs font-extrabold uppercase transition-all ${priority === p
+                            className={`flex-1 py-2 rounded-lg text-xs font-extrabold uppercase transition-all ${
+                              priority === p
                                 ? p === "stat"
                                   ? "bg-rose-600 text-white shadow-md shadow-rose-900/20"
                                   : p === "urgent"
-                                    ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-900/20"
-                                    : "bg-teal-500 text-slate-950 shadow-md shadow-teal-900/20"
+                                  ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-900/20"
+                                  : "bg-teal-500 text-slate-950 shadow-md shadow-teal-900/20"
                                 : "text-slate-500 hover:bg-slate-800 hover:text-slate-300"
-                              }`}
+                            }`}
                           >
                             {p === "stat" ? "⚡ STAT" : p}
                           </button>
@@ -559,13 +587,97 @@ export default function ClinicalOrderModal({
 
               <div className="h-px w-full bg-slate-800" />
 
+              {selectedDept === "laboratory" && (
+                <section className="p-5 rounded-3xl bg-cyan-950/20 border border-cyan-500/25 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-cyan-200 flex items-center gap-2">
+                        <FlaskConical className="w-4 h-4 text-cyan-400" /> Laboratory Order Details
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-1">Select a validated laboratory protocol, then complete specimen collection and result routing details.</p>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-400">LIS routing</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="text-[11px] text-slate-300 font-extrabold uppercase tracking-wider block">Laboratory Protocol</label>
+                      <select
+                        value={selectedLabProtocolId}
+                        onChange={(event) => handleSelectLaboratoryProtocol(event.target.value)}
+                        className="w-full bg-slate-950 border border-cyan-500/30 focus:border-cyan-400 rounded-xl px-4 py-3 text-sm font-semibold text-white focus:outline-none"
+                      >
+                        <option value="">Select a laboratory protocol...</option>
+                        {laboratoryProtocols.map((protocol) => (
+                          <option key={protocol.id} value={protocol.id}>{protocol.name}</option>
+                        ))}
+                      </select>
+                      {laboratoryProtocols.length === 0 && (
+                        <p className="text-[10px] text-amber-300">No saved laboratory protocols found. Use the protocol cards above or add individual assays below.</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Specimen Type</label>
+                      <select value={specimenType} onChange={(event) => setSpecimenType(event.target.value)} className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
+                        <option value="blood">Blood</option>
+                        <option value="urine">Urine</option>
+                        <option value="stool">Stool</option>
+                        <option value="swab">Swab / Culture</option>
+                        <option value="sputum">Sputum</option>
+                        <option value="csf">CSF</option>
+                        <option value="other">Other specimen</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Collection Site</label>
+                      <select value={collectionSite} onChange={(event) => setCollectionSite(event.target.value)} className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
+                        <option value="outpatient-phlebotomy">Outpatient phlebotomy</option>
+                        <option value="inpatient-ward">Inpatient ward</option>
+                        <option value="emergency">Emergency / triage</option>
+                        <option value="icu">ICU / critical care</option>
+                        <option value="external-lab">External collection site</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Tube / Container</label>
+                      <select value={containerType} onChange={(event) => setContainerType(event.target.value)} className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
+                        <option value="serum-gel-tube">Serum gel / gold top</option>
+                        <option value="edta-tube">EDTA / lavender top</option>
+                        <option value="citrate-tube">Citrate / light blue top</option>
+                        <option value="heparin-tube">Heparin / green top</option>
+                        <option value="sterile-container">Sterile specimen container</option>
+                        <option value="culture-bottle">Blood culture bottles</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] text-slate-400 font-bold uppercase tracking-wider block">Result Routing</label>
+                      <select value={resultRouting} onChange={(event) => setResultRouting(event.target.value)} className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none">
+                        <option value="ordering-clinician">Ordering clinician</option>
+                        <option value="ward-team">Ward care team</option>
+                        <option value="emergency-team">Emergency team + clinician</option>
+                        <option value="patient-portal">Clinician review, then patient portal</option>
+                      </select>
+                    </div>
+
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-200 cursor-pointer">
+                      <input type="checkbox" checked={fastingRequired} onChange={(event) => setFastingRequired(event.target.checked)} className="w-4 h-4 accent-cyan-500" />
+                      <span><strong className="block">Fasting required</strong><span className="text-[10px] text-slate-500">Flag fasting instructions for collection staff and patient.</span></span>
+                    </label>
+                  </div>
+                </section>
+              )}
+
               {/* ─── DYNAMIC ITEMS BUILDER ─────────────────────────────────────── */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm text-slate-200 font-bold flex items-center gap-2">
                     <FlaskConical className="w-4 h-4 text-teal-400" /> Specific Assays, Tests, or Procedures
                   </label>
-
+                  
                   {/* Admin / Physician Privilege: Save Protocol */}
                   {items.length > 0 && !isCreatingProtocol && (
                     <button
@@ -818,12 +930,13 @@ export default function ClinicalOrderModal({
                 <button
                   type="submit"
                   disabled={isSubmitting || !orderTitle.trim() || items.length === 0}
-                  className={`flex-1 sm:flex-none px-8 py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 active:scale-95 ${priority === "stat"
+                  className={`flex-1 sm:flex-none px-8 py-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 active:scale-95 ${
+                    priority === "stat"
                       ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/40"
                       : priority === "urgent"
-                        ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-900/20"
-                        : "bg-teal-500 hover:bg-teal-400 text-slate-950 shadow-teal-900/30"
-                    }`}
+                      ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-900/20"
+                      : "bg-teal-500 hover:bg-teal-400 text-slate-950 shadow-teal-900/30"
+                  }`}
                 >
                   {isSubmitting ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
@@ -832,8 +945,8 @@ export default function ClinicalOrderModal({
                   )}
                   <span>
                     {isSubmitting
-                      ? "Dispatching Order..."
-                      : `Dispatch ${priority.toUpperCase()} Order to ${activeConfig.label.split(" ")[0]}`}
+                      ? "Transmitting..."
+                      : `Dispatch ${priority.toUpperCase()} Order`}
                   </span>
                 </button>
               </div>

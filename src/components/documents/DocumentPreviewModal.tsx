@@ -39,12 +39,14 @@ interface DocumentPreviewModalProps {
   document: ClinicalDocument | null;
   onClose: () => void;
   onDownload?: (doc: ClinicalDocument) => void;
+  pageMode?: boolean;
 }
 
 export default function DocumentPreviewModal({
   document: clinicalDoc,
   onClose,
   onDownload,
+  pageMode = false,
 }: DocumentPreviewModalProps) {
   const [zoomLevel, setZoomLevel] = useState(100);
 
@@ -87,8 +89,8 @@ export default function DocumentPreviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-[#E7E2D8] dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className={pageMode ? "min-h-screen bg-slate-100 dark:bg-slate-950 p-4 sm:p-8" : "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 animate-fade-in"}>
+      <div className={pageMode ? "bg-white dark:bg-slate-900 rounded-3xl border border-[#E7E2D8] dark:border-slate-800 shadow-2xl w-full max-w-4xl min-h-[calc(100vh-2rem)] mx-auto flex flex-col overflow-hidden" : "bg-white dark:bg-slate-900 rounded-3xl border border-[#E7E2D8] dark:border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"}>
         {/* Header Bar */}
         <div className="px-6 py-4 border-b border-[#F2EFE9] dark:border-slate-800 flex items-center justify-between bg-[#FAF8F5] dark:bg-slate-950">
           <div className="flex items-center gap-3">

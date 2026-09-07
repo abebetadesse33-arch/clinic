@@ -13,9 +13,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { and, eq, desc, asc, like, inArray, sql } from 'drizzle-orm';
+import { and, eq, desc, asc, like, sql } from 'drizzle-orm';
 import { patients, users, encounters } from '@/db/schema';
-import type { WidgetDataRequest, WidgetDataResponse, MyPatientsWidgetData } from '@/lib/types/widget-data';
+import { requireAuthenticatedUser, isAuthorizedForRole } from '@/lib/security/auth-session';
+import type { WidgetDataResponse, MyPatientsWidgetData } from '@/lib/types/widget-data';
 
 // TODO: Integrate NextAuth when installed
 // import { getServerSession } from 'next-auth/next';
@@ -38,24 +39,13 @@ async function GET(
     // ==========================================
     // 1. AUTHENTICATION & AUTHORIZATION
     // ==========================================
-    // TODO: Integrate NextAuth session verification
-    // const session = await getServerSession();
-    // if (!session || !session.user?.email) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-    
-    const userEmail = request.headers.get('x-user-email');
-
-    if (!userEmail) {
-      return NextResponse.json(
-        { error: 'Unauthorized: missing x-user-email header' },
-        { status: 401 }
-      );
+    const authResult = await requireAuthenticatedUser(request);
+    if ('response' in authResult) {
+      return authResult.response;
     }
 
-    // Fetch user to get role and organization
     const currentUser = await db.query.users.findFirst({
-      where: eq(users.email, userEmail),
+      where: eq(users.id, authResult.user.id),
     });
 
     if (!currentUser) {
@@ -65,7 +55,14 @@ async function GET(
       );
     }
 
-    // Verify role matches requested dashboard
+    const allowedRoles = ['physician', 'nurse_practitioner', 'nurse', 'care_coordinator'];
+    if (!isAuthorizedForRole(currentUser.role, allowedRoles)) {
+      return NextResponse.json(
+        { error: 'Forbidden: insufficient role permissions for dashboard access' },
+        { status: 403 }
+      );
+    }
+
     if (currentUser.role !== params.role) {
       return NextResponse.json(
         { error: 'Forbidden: Role mismatch' },

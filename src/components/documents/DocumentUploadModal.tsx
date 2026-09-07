@@ -19,12 +19,14 @@ interface DocumentUploadModalProps {
   onClose: () => void;
   onUploaded: () => void;
   defaultPatientId?: string;
+  pageMode?: boolean;
 }
 
 export default function DocumentUploadModal({
   onClose,
   onUploaded,
   defaultPatientId,
+  pageMode = false,
 }: DocumentUploadModalProps) {
   const [patientId, setPatientId] = useState(defaultPatientId || "00000000-0000-0000-0000-000000000001");
   const [patientName, setPatientName] = useState("Sara Tesfaye");
@@ -76,8 +78,8 @@ export default function DocumentUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-[#E7E2D8] dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden">
+    <div className={pageMode ? "min-h-screen bg-slate-100 dark:bg-slate-950 p-4 sm:p-8" : "fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-sm p-4 animate-fade-in"}>
+      <div className={pageMode ? "bg-white dark:bg-slate-900 rounded-3xl border border-[#E7E2D8] dark:border-slate-800 shadow-2xl w-full max-w-lg mx-auto overflow-hidden" : "bg-white dark:bg-slate-900 rounded-3xl border border-[#E7E2D8] dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden"}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-[#F2EFE9] dark:border-slate-800 flex items-center justify-between bg-[#FAF8F5] dark:bg-slate-950">
           <div className="flex items-center gap-2.5">

@@ -3,12 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Activity, ShieldCheck, Menu, X, ChevronRight, Phone, HeartPulse, Zap } from "lucide-react";
-import TreatMeNowModal from "../onemedical/TreatMeNowModal";
 
 export function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showTreatMeNow, setShowTreatMeNow] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,13 +19,14 @@ export function LandingNavbar() {
   return (
     <>
       <header
+        aria-label="NiniMed public navigation"
         className={`sticky top-0 z-50 w-full transition-all duration-300 ${
           scrolled
             ? "bg-white/95 border-b border-[#E7E2D8] backdrop-blur-md shadow-warm"
             : "bg-transparent border-b border-transparent"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 min-h-20 py-3 flex items-center justify-between gap-4">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-10 h-10 rounded-2xl bg-[#005C4B] flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-105 transition-transform">
@@ -62,13 +61,13 @@ export function LandingNavbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-3">
-            <button
-              onClick={() => setShowTreatMeNow(true)}
+            <Link
+              href="/services/virtual-urgent-care/triage"
               className="btn-pill-ghost text-xs flex items-center gap-1.5 text-[#005C4B]"
             >
               <Zap className="w-3.5 h-3.5 fill-[#E5A93C] text-[#E5A93C]" />
               <span>Treat Me Now™</span>
-            </button>
+            </Link>
             <Link
               href="/signin"
               className="btn-pill-secondary text-xs py-2 px-4"
@@ -86,8 +85,11 @@ export function LandingNavbar() {
 
           {/* Mobile Hamburger Toggle */}
           <button
+            type="button"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded-xl bg-white border border-[#E7E2D8] text-[#162E27]"
+            className="lg:hidden min-w-11 min-h-11 p-2 rounded-xl bg-white border border-[#E7E2D8] text-[#162E27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#005C4B]"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -95,7 +97,7 @@ export function LandingNavbar() {
 
         {/* Mobile Drawer Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-b border-[#E7E2D8] bg-white/98 backdrop-blur-2xl px-6 py-6 space-y-4 animate-fade-in">
+          <div className="lg:hidden border-b border-[#E7E2D8] bg-white/98 backdrop-blur-2xl px-6 py-6 space-y-4 animate-fade-in shadow-warm" role="dialog" aria-label="Mobile navigation">
             <nav className="flex flex-col space-y-3 text-sm font-semibold text-[#162E27]">
               <a
                 href="#services"
@@ -127,15 +129,13 @@ export function LandingNavbar() {
               </a>
             </nav>
             <div className="flex flex-col gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  setShowTreatMeNow(true);
-                }}
+              <Link
+                href="/services/virtual-urgent-care/triage"
+                onClick={() => setMobileMenuOpen(false)}
                 className="btn-pill-terracotta w-full text-xs text-center"
               >
                 Treat Me Now™ (24/7 Virtual)
-              </button>
+              </Link>
               <Link
                 href="/patient/book"
                 onClick={() => setMobileMenuOpen(false)}
@@ -148,7 +148,6 @@ export function LandingNavbar() {
         )}
       </header>
 
-      {showTreatMeNow && <TreatMeNowModal onClose={() => setShowTreatMeNow(false)} />}
     </>
   );
 }

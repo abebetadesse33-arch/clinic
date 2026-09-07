@@ -153,9 +153,9 @@ export const SYSTEM_ROLE_PROFILES: Record<Role, User> = {
     role: "tenant_admin",
   },
   system_admin: {
-    id: "00000000-0000-0000-0000-000000000099",
-    fullName: "System Super Administrator",
-    email: "admin@Ninimed.org",
+    id: "5c254614-7cb0-4e72-a7cb-7bbe0a98c42d",
+    fullName: "Abebe Tadesse",
+    email: "abebetadesse1@gmail.com",
     role: "system_admin",
   },
   auditor: {

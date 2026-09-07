@@ -2,15 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { workflowDefinitions, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import {
-  TRIGGER_OPTIONS,
-  STEP_ACTIONS,
-  PREBUILT_WORKFLOW_TEMPLATES,
+import { 
+  TRIGGER_OPTIONS, 
+  STEP_ACTIONS, 
+  PREBUILT_WORKFLOW_TEMPLATES 
 } from "@/lib/workflow/workflow-definitions";
+import { INTENSIVE_WORKFLOW_TEMPLATES } from "@/lib/workflow/workflow-templates-intensive";
+import { INTENSIVE_WORKFLOW_TEMPLATES_PT2 } from "@/lib/workflow/workflow-templates-intensive-pt2";
+import { REFERRAL_LABORATORY_WORKFLOW_TEMPLATES } from "@/lib/workflow/workflow-templates-referral-laboratory";
 
 export const dynamic = "force-dynamic";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
+
+const ALL_WORKFLOW_TEMPLATES = [
+  ...PREBUILT_WORKFLOW_TEMPLATES,
+  ...INTENSIVE_WORKFLOW_TEMPLATES,
+  ...INTENSIVE_WORKFLOW_TEMPLATES_PT2,
+  ...REFERRAL_LABORATORY_WORKFLOW_TEMPLATES,
+];
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,7 +35,7 @@ export async function GET(req: NextRequest) {
         data: {
           triggers: TRIGGER_OPTIONS,
           actions: STEP_ACTIONS,
-          templates: PREBUILT_WORKFLOW_TEMPLATES,
+          templates: ALL_WORKFLOW_TEMPLATES,
         },
       });
     }
@@ -39,7 +49,107 @@ export async function GET(req: NextRequest) {
     }
 
     if (view === "templates") {
-      return NextResponse.json({ success: true, data: PREBUILT_WORKFLOW_TEMPLATES });
+      const page = parseInt(searchParams.get("page") || "1");
+      const limit = parseInt(searchParams.get("limit") || "50");
+      const search = searchParams.get("search")?.toLowerCase();
+      const categoryFilter = searchParams.get("category");
+      const specialtyFilter = searchParams.get("specialty");
+      const offset = (page - 1) * limit;
+
+      const allTemplates = ALL_WORKFLOW_TEMPLATES;
+
+      let filtered = allTemplates;
+
+      // Search by name or description
+      if (search) {
+        filtered = filtered.filter((t) =>
+          t.name.toLowerCase().includes(search) ||
+          t.description.toLowerCase().includes(search)
+        );
+      }
+
+      // Filter by category
+      if (categoryFilter) {
+        filtered = filtered.filter((t) => t.category === categoryFilter);
+      }
+
+      // Filter by specialty
+      if (specialtyFilter) {
+        filtered = filtered.filter((t) => (t as any).specialty === specialtyFilter);
+      }
+
+      // Paginate
+      const paginated = filtered.slice(offset, offset + limit);
+      const totalCount = filtered.length;
+      const totalPages = Math.ceil(totalCount / limit);
+
+      return NextResponse.json({
+        success: true,
+        data: paginated,
+        pagination: { page, limit, totalCount, totalPages, hasMore: page < totalPages },
+        meta: {
+          searchTerm: search,
+          categoryFilter,
+          specialtyFilter,
+        },
+      });
+    }
+    // Enhanced templates with intensive list support
+    if (view === "templates-intensive") {
+      const allTemplates = ALL_WORKFLOW_TEMPLATES;
+
+      // Group by category
+      const byCategory = allTemplates.reduce(
+        (acc, t) => {
+          const cat = t.category;
+          if (!acc[cat]) acc[cat] = [];
+          acc[cat].push(t);
+          return acc;
+        },
+        {} as Record<string, typeof allTemplates>
+      );
+
+      // Group by specialty (if available)
+      const bySpecialty = allTemplates.reduce(
+        (acc, t) => {
+          const spec = (t as any).specialty || "General";
+          if (!acc[spec]) acc[spec] = [];
+          acc[spec].push(t);
+          return acc;
+        },
+        {} as Record<string, typeof allTemplates>
+      );
+
+      return NextResponse.json({
+        success: true,
+        data: allTemplates,
+        totalTemplates: allTemplates.length,
+        groupedByCategory: Object.keys(byCategory).map((cat) => ({
+          category: cat,
+          count: byCategory[cat].length,
+          templates: byCategory[cat],
+        })),
+        groupedBySpecialty: Object.keys(bySpecialty).map((spec) => ({
+          specialty: spec,
+          count: bySpecialty[spec].length,
+          templates: bySpecialty[spec],
+        })),
+      });
+    }
+    // New: Template categories enumeration
+    if (view === "template-categories") {
+      const allTemplates = ALL_WORKFLOW_TEMPLATES;
+      const categories = [...new Set(allTemplates.map((t) => t.category))].sort();
+      const specialties = [
+        ...new Set(allTemplates.map((t) => (t as any).specialty).filter(Boolean)),
+      ].sort();
+
+      return NextResponse.json({
+        success: true,
+        categories,
+        specialties,
+        totalTemplates: allTemplates.length,
+      });
     }
 
     let workflows = await db
@@ -71,7 +181,7 @@ export async function GET(req: NextRequest) {
       meta: {
         totalTriggersAvailable: TRIGGER_OPTIONS.length,
         totalActionsAvailable: STEP_ACTIONS.length,
-        templatesAvailable: PREBUILT_WORKFLOW_TEMPLATES.length,
+        templatesAvailable: ALL_WORKFLOW_TEMPLATES.length,
       },
     });
   } catch (err: unknown) {
@@ -162,7 +272,7 @@ export async function POST(req: NextRequest) {
     // ── 5. Deploy Pre-built End-to-End Template ────────────────────────────
     if (action === "load_template") {
       const { templateId } = body;
-      const template = PREBUILT_WORKFLOW_TEMPLATES.find((t) => t.id === templateId);
+      const template = ALL_WORKFLOW_TEMPLATES.find((t) => t.id === templateId);
 
       if (!template) {
         return NextResponse.json({ error: `Template '${templateId}' not found.` }, { status: 404 });
@@ -221,7 +331,7 @@ export async function POST(req: NextRequest) {
     // ── 6. Seed All Pre-built Laboratory & Clinical Templates ───────────────
     if (action === "seed_all_templates") {
       const deployed = [];
-      for (const t of PREBUILT_WORKFLOW_TEMPLATES) {
+      for (const t of ALL_WORKFLOW_TEMPLATES) {
         const [existing] = await db
           .select()
           .from(workflowDefinitions)

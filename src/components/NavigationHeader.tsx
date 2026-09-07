@@ -12,7 +12,6 @@ import {
   canAccessRoute,
 } from "../lib/security/roles-permissions";
 import CommandPalette from "./CommandPalette";
-import TreatMeNowModal from "./onemedical/TreatMeNowModal";
 import ThemeToggle from "./ui/ThemeToggle";
 import LanguageSelector from "./ui/LanguageSelector";
 import NotificationBell from "./layout/NotificationBell";
@@ -46,6 +45,7 @@ import {
   HelpCircle,
   FileText,
   Sliders,
+  Search,
 } from "lucide-react";
 
 export default function NavigationHeader() {
@@ -62,10 +62,17 @@ export default function NavigationHeader() {
   // Dropdown states
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
-  const [showTreatMeNow, setShowTreatMeNow] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const navRef = useRef<HTMLDivElement>(null);
+
+  // Global command palette event listener
+  useEffect(() => {
+    const handleOpenPalette = () => setIsCommandPaletteOpen(true);
+    window.addEventListener("open-command-palette", handleOpenPalette);
+    return () => window.removeEventListener("open-command-palette", handleOpenPalette);
+  }, []);
 
   // Close dropdowns on route change or outside click
   useEffect(() => {
@@ -85,6 +92,10 @@ export default function NavigationHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  if (pathname.startsWith("/mobile-clinic")) {
+    return null;
+  }
+
   const isPatientOrGuest = isGuest || currentRole === "guest" || currentRole === "patient";
   const isAdminRole = (currentRole === "system_admin" || currentRole === "tenant_admin") &&
     (currentRole === "system_admin" || Boolean(currentUser?.isAdminGrantedBySuperAdmin));
@@ -95,33 +106,33 @@ export default function NavigationHeader() {
 
   return (
     <>
-      <header ref={navRef} className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/90 backdrop-blur-xl">
+      <header ref={navRef} className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl transition-colors">
         {/* Top 24/7 On-Demand Healthcare Sub-bar */}
-        <div className="hidden sm:block bg-gradient-to-r from-[#ecfeff] via-[#f0fdf4] to-[#f8fafc] text-slate-700 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-slate-200">
+        <div className="bg-gradient-to-r from-[#ecfeff] via-[#f0fdf4] to-[#f8fafc] dark:from-slate-950 dark:via-emerald-950/40 dark:to-slate-900 text-slate-700 dark:text-slate-300 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-slate-200 dark:border-slate-800 transition-colors">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-[#0f766e] font-medium">
+              <span className="flex items-center gap-1.5 text-teal-700 dark:text-teal-300 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>24/7 On-Demand Care Active</span>
               </span>
-              <span className="text-slate-400 hidden sm:inline">•</span>
-              <span className="text-slate-600 hidden sm:inline">
+              <span className="text-slate-400 dark:text-slate-500 hidden sm:inline">•</span>
+              <span className="text-slate-600 dark:text-slate-400 hidden sm:inline">
                 Virtual visits anywhere in minutes or same-day in-office appointments
               </span>
             </div>
 
             <div className="flex items-center gap-4 text-[11px]">
-              <button
-                onClick={() => setShowTreatMeNow(true)}
-                className="text-[#d97706] hover:text-[#b45309] font-bold flex items-center gap-1 transition-colors"
+              <Link
+                href="/services/virtual-urgent-care/triage"
+                className="text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 font-bold flex items-center gap-1 transition-colors"
               >
-                <Zap className="w-3.5 h-3.5" />
+                <Zap className="w-3.5 h-3.5 fill-current" />
                 <span>Treat Me Now™</span>
-              </button>
-              <span className="text-white/40 hidden md:inline">•</span>
-              <span className="hidden md:flex items-center gap-1 text-white/75">
-                <PhoneCall className="w-3 h-3 text-[#E8F4F0]" />
-                <span>24/7 Nurse Hotline: <strong>(888) 663-6331</strong></span>
+              </Link>
+              <span className="text-slate-300 dark:text-slate-700 hidden md:inline">•</span>
+              <span className="hidden md:flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
+                <PhoneCall className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                <span>24/7 Nurse Hotline: <strong className="text-slate-900 dark:text-white font-bold">(888) 663-6331</strong></span>
               </span>
             </div>
           </div>
@@ -570,7 +581,31 @@ export default function NavigationHeader() {
             </div>
 
             {/* Right CTAs & Profile Actions */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Quick Spotlight Search / Command Palette Launcher */}
+              <button
+                type="button"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100/90 dark:bg-slate-850 hover:bg-teal-50/80 dark:hover:bg-slate-800 border border-slate-200/90 dark:border-slate-700/80 text-xs text-slate-600 dark:text-slate-300 hover:text-teal-700 dark:hover:text-teal-300 transition-all shadow-xs group"
+                title="Search EHR records, vitals, tools (Ctrl+K or ⌘K)"
+              >
+                <Search className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-[11px]">Search EHR</span>
+                <kbd className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded shadow-xs">
+                  ⌘K
+                </kbd>
+              </button>
+
+              {/* Mobile Search Icon Button */}
+              <button
+                type="button"
+                onClick={() => setIsCommandPaletteOpen(true)}
+                className="md:hidden p-1.5 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
+                title="Search (⌘K)"
+              >
+                <Search className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              </button>
+
               {/* Localization Selector */}
               <LanguageSelector />
 
@@ -583,11 +618,9 @@ export default function NavigationHeader() {
               {/* Quick Treat Me Now Launcher */}
               <button
                 onClick={() => {
-                  if (!isGuest && currentRole === "patient") {
-                    setShowTreatMeNow(true);
-                    return;
-                  }
-                  window.location.href = "/signin?redirect=" + encodeURIComponent("/patient/treat-me-now");
+                  window.location.href = !isGuest && currentRole === "patient"
+                    ? "/services/virtual-urgent-care/triage"
+                    : "/signin?redirect=" + encodeURIComponent("/services/virtual-urgent-care/triage");
                 }}
                 className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FEF7E6] border border-[#F9E2A8] text-[#B8801C] hover:bg-[#F9E2A8] text-xs font-bold transition-all shadow-sm shrink-0"
               >
@@ -606,7 +639,7 @@ export default function NavigationHeader() {
                   </Link>
                   <Link
                     href="/patient/book"
-                    className="btn-pill-primary text-xs py-2 px-3 sm:px-4 shadow-sm hidden sm:inline-flex"
+                    className="btn-pill-primary text-xs py-2 px-3 sm:px-4 shadow-sm"
                   >
                     Book Visit
                   </Link>
@@ -653,10 +686,15 @@ export default function NavigationHeader() {
 
                   {/* Account Dropdown */}
                   {showRoleMenu && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-2xl border border-[#E7E2D8] dark:border-slate-700 shadow-warm-lg p-2.5 z-50 animate-fade-in">
-                      <div className="px-3 py-2 border-b border-[#F2EFE9] dark:border-slate-700 text-xs">
-                        <span className="font-bold text-[#162E27] dark:text-white block">{currentUser.fullName}</span>
-                        <span className="text-[10px] text-[#687B74] dark:text-slate-400">{currentUser.email}</span>
+                    <div className="absolute right-0 mt-2 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.2)] p-3 z-50 animate-fade-in divide-y divide-slate-100 dark:divide-slate-800/80">
+                      <div className="px-3 py-2.5 mb-1 bg-slate-50/80 dark:bg-slate-800/50 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900 dark:text-white text-xs block truncate">{currentUser.fullName}</span>
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-500/20">
+                            {currentRole === "patient" ? "Patient" : currentRole.replace("_", " ")}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 block truncate mt-0.5">{currentUser.email}</span>
                       </div>
 
                       {/* Patient Links */}
@@ -760,14 +798,11 @@ export default function NavigationHeader() {
             {/* Quick Treat Me Now CTA */}
             <button
               onClick={() => {
-                if (!isGuest && currentRole === "patient") {
-                  setShowTreatMeNow(true);
-                  setMobileMenuOpen(false);
-                  return;
-                }
-                window.location.href = "/signin?redirect=" + encodeURIComponent("/patient/treat-me-now");
+                window.location.href = !isGuest && currentRole === "patient"
+                  ? "/services/virtual-urgent-care/triage"
+                  : "/signin?redirect=" + encodeURIComponent("/services/virtual-urgent-care/triage");
               }}
-              className="hidden w-full py-2.5 rounded-2xl bg-[#FEF7E6] border border-[#F9E2A8] text-[#B8801C] font-bold text-xs items-center justify-center gap-2"
+              className="w-full py-2.5 rounded-2xl bg-[#FEF7E6] border border-[#F9E2A8] text-[#B8801C] font-bold text-xs flex items-center justify-center gap-2"
             >
               <Zap className="w-4 h-4 fill-[#E5A93C] text-[#E5A93C]" />
               <span>Launch Treat Me Now™</span>
@@ -969,8 +1004,11 @@ export default function NavigationHeader() {
         )}
       </header>
 
-      {/* Treat Me Now Modal */}
-      {showTreatMeNow && <TreatMeNowModal onClose={() => setShowTreatMeNow(false)} />}
+      {/* Global Clinical Command Palette & Quick Launcher */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+      />
     </>
   );
 }

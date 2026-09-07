@@ -270,9 +270,9 @@ function MobileClinicContent() {
         {/* Nav tabs */}
         <div className="flex border-t border-[#2d2d4e]">
           {[
-            { id: "home" as AppView, icon: Activity, label: "Dashboard" },
-            { id: "encounter" as AppView, icon: UserPlus, label: "New Encounter" },
-            { id: "inventory" as AppView, icon: Package, label: "Pharmacy" },
+            { id: "home" as AppView, icon: Activity, label: "Home" },
+            { id: "encounter" as AppView, icon: UserPlus, label: "Encounter" },
+            { id: "inventory" as AppView, icon: Package, label: "Stock" },
             { id: "sync" as AppView, icon: Upload, label: "Sync" },
           ].map((tab) => (
             <button

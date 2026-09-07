@@ -17,7 +17,7 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/clinic_enterprise
       - REDIS_URL=redis://redis:6379
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
-    command: sh -c "bun install && bun src/db/run-init.ts && bun run dev"
+    command: sh -c "bun install && bun run dev"
     depends_on:
       postgres:
         condition: service_healthy

@@ -56,11 +56,52 @@ html {
   overflow-x: hidden;
 }
 
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border-radius: 0.75rem;
+  background: #005c4b;
+  color: white;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: transform 160ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 html.dark {
   color-scheme: dark;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 body {
+  min-width: 320px;
+  max-width: 100vw;
+  overflow-x: hidden;
   color: #1f2b3a;
   background:
     radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 24%),
@@ -72,6 +113,26 @@ body {
   transition: background 0.25s ease, color 0.25s ease;
 }
 
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+@media (max-width: 420px) {
+  .install-prompt {
+    border-radius: 1rem;
+  }
+
+  .install-prompt h4 {
+    line-height: 1.25;
+  }
+}
+
 html.dark body {
   color: #e2e8f0;
   background:
@@ -81,15 +142,7 @@ html.dark body {
 }
 
 * {
-  box-sizing: border-box;
   border-color: rgba(148, 163, 184, 0.22);
-}
-
-img,
-video,
-canvas {
-  max-width: 100%;
-  height: auto;
 }
 
 ::selection {
@@ -481,4 +534,328 @@ html.dark .soft-panel:hover {
 
 .soft-muted {
   color: rgba(51, 65, 81, 0.72);
+}
+
+html.dark .soft-muted {
+  color: rgba(203, 213, 225, 0.75);
+}
+
+/* Modern Keyframe Animations for Rich Aesthetics */
+@keyframes subtleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes shimmerEffect {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.animate-subtle-float {
+  animation: subtleFloat 4s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmerEffect 2.5s infinite;
+}
+
+.glow-teal-sm {
+  box-shadow: 0 0 16px -2px rgba(20, 184, 166, 0.35);
+}
+
+.glow-teal-md {
+  box-shadow: 0 0 28px -4px rgba(20, 184, 166, 0.45);
+}
+
+.surface-glass-navbar {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+html.dark .surface-glass-navbar {
+  background: rgba(10, 15, 29, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+}
+
+/* ============================================================
+   UNIVERSAL DARK MODE CONTRAST OVERRIDES
+   One Medical brand colors (#162E27, #33413C, #687B74, etc.)
+   are deep dark greens designed only for light mode.
+   These overrides guarantee legibility on dark backgrounds.
+   We use attribute-substring selectors so every file that
+   uses these colors is fixed without individual edits.
+   ============================================================ */
+
+/* --- Headings & strong text (#162E27, #0B3B32) --- */
+html.dark [class*="text-[#162E27]"],
+html.dark [class*="text-[#0B3B32]"] {
+  color: #f1f5f9 !important;
+}
+
+/* --- Body text (#33413C) --- */
+html.dark [class*="text-[#33413C]"] {
+  color: #e2e8f0 !important;
+}
+
+/* --- Muted / secondary text (#687B74) --- */
+html.dark [class*="text-[#687B74]"] {
+  color: #94a3b8 !important;
+}
+
+/* --- Brand action color (#005C4B) used on text stays readable in dark --- */
+html.dark [class*="text-[#005C4B]"] {
+  color: #34d399 !important;
+}
+
+/* --- Pure white cards on dark backgrounds: exact token match only --- */
+/* [class~="bg-white"] targets the standalone "bg-white" class token only,
+   avoiding false matches on bg-white/70, text-white, hover:bg-white etc. */
+html.dark [class~="bg-white"] {
+  background-color: #1e293b !important;
+}
+
+/* --- White cards with brand border (#E7E2D8) --- */
+html.dark [class*="border-[#E7E2D8]"] {
+  border-color: #334155 !important;
+}
+
+/* --- Warm background hover (#FAF8F5, #E8F4F0) --- */
+html.dark [class*="hover:bg-[#FAF8F5]"]:hover,
+html.dark [class*="bg-[#FAF8F5]"] {
+  background-color: #1e293b !important;
+}
+
+html.dark [class*="bg-[#E8F4F0]"] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+
+/* --- Dark border that renders invisible in dark (#F2EFE9) --- */
+html.dark [class*="border-[#F2EFE9]"] {
+  border-color: #334155 !important;
+}
+
+/* --- Light badge backgrounds for mint/terracotta/gold/sage --- */
+html.dark .badge-mint {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+
+html.dark .badge-terracotta {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(252, 165, 165, 0.3) !important;
+}
+
+html.dark .badge-gold {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+  color: #fcd34d !important;
+  border-color: rgba(253, 211, 77, 0.3) !important;
+}
+
+html.dark .badge-sage {
+  background-color: rgba(100, 116, 139, 0.15) !important;
+  color: #94a3b8 !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+/* --- Pill buttons in dark mode --- */
+html.dark .btn-pill-secondary {
+  background-color: #1e293b !important;
+  color: #34d399 !important;
+  border-color: #34d399 !important;
+}
+
+html.dark .btn-pill-secondary:hover {
+  background-color: rgba(52, 211, 153, 0.12) !important;
+}
+
+html.dark .btn-pill-ghost {
+  color: #cbd5e1 !important;
+}
+
+html.dark .btn-pill-ghost:hover {
+  background-color: rgba(51, 65, 85, 0.6) !important;
+  color: #34d399 !important;
+}
+
+/* --- Warm cards in dark --- */
+html.dark .card-warm {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0;
+}
+
+html.dark .card-warm-hover:hover {
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  box-shadow: 0 12px 30px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* --- Input warm in dark --- */
+html.dark .input-warm {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark .input-warm::placeholder {
+  color: #475569 !important;
+}
+
+html.dark .input-warm:focus {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.18) !important;
+}
+
+/* --- Drawer content in dark --- */
+html.dark .drawer-content {
+  background-color: #0f172a !important;
+  color: #e2e8f0;
+}
+
+/* --- Tab nav buttons without explicit dark classes --- */
+html.dark [class*="bg-white"][class*="border-[#E7E2D8]"][class*="text-[#33413C]"] {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+html.dark [class*="bg-white"][class*="border-[#E7E2D8]"][class*="text-[#33413C]"]:hover {
+  background-color: #263040 !important;
+}
+
+/* --- widget-shell (clinical dashboards) inherits dark glass --- */
+html.dark .widget-shell {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  color: #e2e8f0;
+}
+
+/* --- Scrollbar in dark --- */
+html.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #34d399;
+}
+
+/* ============================================================
+   HIGH CONTRAST MODE  (html.dark.contrast-mode)
+   Applied when user selects the ✦ Clinical High-Contrast theme.
+   Targets WCAG AAA contrast: black bg, white text, vivid accents.
+   ============================================================ */
+
+html.dark.contrast-mode {
+  color-scheme: dark;
+}
+
+html.dark.contrast-mode body {
+  background: #000000 !important;
+  color: #ffffff !important;
+}
+
+html.dark.contrast-mode * {
+  color: #ffffff !important;
+  border-color: #38bdf8 !important;
+}
+
+html.dark.contrast-mode a,
+html.dark.contrast-mode button,
+html.dark.contrast-mode [role="button"] {
+  color: #facc15 !important;
+}
+
+html.dark.contrast-mode a:hover,
+html.dark.contrast-mode button:hover {
+  color: #ffffff !important;
+  text-decoration: underline;
+}
+
+/* Preserve white text on solid colored button backgrounds */
+html.dark.contrast-mode .btn-pill-primary,
+html.dark.contrast-mode .btn-pill-terracotta {
+  background-color: #facc15 !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+
+html.dark.contrast-mode .btn-pill-secondary {
+  background-color: #000000 !important;
+  color: #facc15 !important;
+  border: 2px solid #facc15 !important;
+}
+
+html.dark.contrast-mode .btn-pill-ghost {
+  color: #facc15 !important;
+  border: 1px solid #38bdf8 !important;
+}
+
+html.dark.contrast-mode [class~="bg-white"],
+html.dark.contrast-mode .card-warm,
+html.dark.contrast-mode .glass-panel,
+html.dark.contrast-mode .glass-card,
+html.dark.contrast-mode .soft-panel,
+html.dark.contrast-mode .drawer-content,
+html.dark.contrast-mode .minimal-dashboard-shell,
+html.dark.contrast-mode .widget-shell {
+  background: #000000 !important;
+  border: 2px solid #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+html.dark.contrast-mode .badge-mint,
+html.dark.contrast-mode .badge-terracotta,
+html.dark.contrast-mode .badge-gold,
+html.dark.contrast-mode .badge-sage {
+  background-color: #000000 !important;
+  color: #facc15 !important;
+  border: 1.5px solid #38bdf8 !important;
+}
+
+html.dark.contrast-mode .input-warm {
+  background-color: #000000 !important;
+  border: 2px solid #38bdf8 !important;
+  color: #ffffff !important;
+}
+
+html.dark.contrast-mode .input-warm::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.dark.contrast-mode .input-warm:focus {
+  border-color: #facc15 !important;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.3) !important;
+}
+
+html.dark.contrast-mode *:focus-visible {
+  outline: 3px solid #facc15 !important;
+  outline-offset: 3px !important;
+}
+
+/* Card forest stays dark with vivid border */
+html.dark.contrast-mode .card-forest {
+  background: #000000 !important;
+  border: 2px solid #38bdf8 !important;
+}
+
+/* Skip link */
+html.dark.contrast-mode .skip-link {
+  background: #facc15 !important;
+  color: #000000 !important;
 }

@@ -784,7 +784,7 @@ VALUES (
 ) ON CONFLICT DO NOTHING;
 
 -- -- Insert Primary Super Administrator
-INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_active)
+INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_admin_granted_by_super_admin, is_active)
 VALUES (
     '00000000-0000-0000-0000-000000000099',
     '00000000-0000-0000-0000-000000000001',
@@ -793,12 +793,34 @@ VALUES (
     'System Super Administrator',
     'system_admin',
     'Enterprise IT & Clinical Governance',
+    TRUE,
     TRUE
 )
 ON CONFLICT (email) DO UPDATE SET
     role = 'system_admin',
     full_name = 'System Super Administrator',
     password_hash = encode(digest('Admin@2026!', 'sha256'), 'hex'),
+    is_admin_granted_by_super_admin = TRUE,
+    is_active = TRUE;
+
+-- -- Insert Super Administrator Abebe Tadesse
+INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_admin_granted_by_super_admin, is_active)
+VALUES (
+    '5c254614-7cb0-4e72-a7cb-7bbe0a98c42d',
+    '00000000-0000-0000-0000-000000000001',
+    'abebetadesse1@gmail.com',
+    encode(digest('Ninielda@&1', 'sha256'), 'hex'),
+    'Abebe Tadesse',
+    'system_admin',
+    'System Administration',
+    TRUE,
+    TRUE
+)
+ON CONFLICT (email) DO UPDATE SET
+    role = 'system_admin',
+    full_name = 'Abebe Tadesse',
+    password_hash = encode(digest('Ninielda@&1', 'sha256'), 'hex'),
+    is_admin_granted_by_super_admin = TRUE,
     is_active = TRUE;
 
 -- Insert Subscription Plans

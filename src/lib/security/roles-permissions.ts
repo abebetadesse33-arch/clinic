@@ -240,6 +240,7 @@ export const ROLE_CAPABILITIES_MATRIX: Record<Role, RoleScopeDefinition> = {
     ],
     primaryNavRoutes: [
       { label: "Pharmacy & DDI Suite", path: "/pharmacy", iconName: "Pill" },
+      { label: "Catalog Management Hub", path: "/clinical/catalog", iconName: "Database" },
       { label: "Prescription Queue", path: "/prescriptions", iconName: "FileCheck" },
       { label: "Patient 360", path: "/patients", iconName: "Users" },
       { label: "Clinical CDSS", path: "/", iconName: "Activity" },
@@ -502,6 +503,7 @@ export const ROLE_CAPABILITIES_MATRIX: Record<Role, RoleScopeDefinition> = {
     ],
     primaryNavRoutes: [
       { label: "LIS Lab Workstation", path: "/patients", iconName: "TestTube" },
+      { label: "Catalog Management Hub", path: "/clinical/catalog", iconName: "Database" },
       { label: "Lab Orders Queue", path: "/prescriptions", iconName: "FileCheck" },
       { label: "Clinical Tasks", path: "/tasks", iconName: "CheckSquare" },
     ],
@@ -579,6 +581,7 @@ export const ROLE_CAPABILITIES_MATRIX: Record<Role, RoleScopeDefinition> = {
     ],
     primaryNavRoutes: [
       { label: "Enterprise Command", path: "/admin", iconName: "ShieldAlert" },
+      { label: "Catalog Management Hub", path: "/clinical/catalog", iconName: "Database" },
       { label: "Workflow Operations & Gates", path: "/admin/workflows", iconName: "Workflow" },
       { label: "21 CFR 11 Audit Trail", path: "/audit", iconName: "ShieldCheck" },
       { label: "Population Health", path: "/admin/population-health", iconName: "BarChart3" },

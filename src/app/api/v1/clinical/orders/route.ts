@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
       requestedDoctorId,
       patientWillingToWait = false,
       hasExistingAppointment = false,
+      laboratoryDetails,
     } = body;
 
     if (!patientId || !department || !orderTitle) {
@@ -122,8 +123,15 @@ export async function POST(request: NextRequest) {
       .where(eq(patients.id, patientId))
       .limit(1);
 
-    const patientName = patientRecord ? `${patientRecord.firstName} ${patientRecord.lastName}` : "Patient";
-    const patientMrn = patientRecord?.mrn || `MRN-${patientId.slice(0, 8).toUpperCase()}`;
+    if (!patientRecord) {
+      return NextResponse.json(
+        { success: false, error: "The selected patient could not be found. Refresh the patient list and select a valid patient." },
+        { status: 400 }
+      );
+    }
+
+    const patientName = `${patientRecord.firstName} ${patientRecord.lastName}`;
+    const patientMrn = patientRecord.mrn;
 
     // Resolve Attending Physician / Referrer
     const [firstPhysician] = await db
@@ -171,6 +179,7 @@ export async function POST(request: NextRequest) {
           requestedDoctorName: requestedDoctorName || null,
           patientWillingToWait: Boolean(patientWillingToWait),
           hasExistingAppointment: Boolean(hasExistingAppointment),
+          laboratoryDetails: department === "laboratory" && laboratoryDetails ? laboratoryDetails : null,
           canShowSpecificDoctor: canAssignNamedDoctor,
           assignedDoctorName: canAssignNamedDoctor
             ? requestedDoctorName

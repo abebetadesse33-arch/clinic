@@ -1,13 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { Zap, Video, Clock, ShieldCheck, CheckCircle2, MessageSquare, ArrowRight, AlertCircle } from "lucide-react";
-import TreatMeNowModal from "@/components/onemedical/TreatMeNowModal";
 
 export default function VirtualUrgentCarePage() {
-  const [showTreatMeNow, setShowTreatMeNow] = useState(false);
-
   const urgentSymptoms = [
     { title: "Colds, Flu, Fever & COVID-19", icon: "🤧" },
     { title: "Urinary Tract Infections (UTI)", icon: "💧" },
@@ -35,13 +32,13 @@ export default function VirtualUrgentCarePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-3.5 pt-2">
-            <button
-              onClick={() => setShowTreatMeNow(true)}
+            <Link
+              href="/services/virtual-urgent-care/triage"
               className="btn-pill-terracotta w-full sm:w-auto text-sm py-4 px-8 shadow-warm"
             >
               <Zap className="w-4 h-4 fill-white" />
               <span>Launch 24/7 Virtual Triage</span>
-            </button>
+            </Link>
             <div className="flex items-center gap-2 text-xs text-[#E8F4F0]/80">
               <Clock className="w-4 h-4 text-[#E5A93C]" />
               <span>Current wait: <strong>Under 3 minutes</strong></span>
@@ -75,8 +72,6 @@ export default function VirtualUrgentCarePage() {
         </div>
       </div>
 
-      {/* Treat Me Now Modal */}
-      {showTreatMeNow && <TreatMeNowModal onClose={() => setShowTreatMeNow(false)} />}
     </div>
   );
 }
