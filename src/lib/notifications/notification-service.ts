@@ -8,7 +8,7 @@ import {
   notificationPrivileges,
 } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { sendTelegramNotification } from "./telegram-notifier";
+import { sendTelegramNotification, sendBatchTelegramNotifications } from "./telegram-notifier";
 import { EventEmitter } from "events";
 
 export type NotificationCategory =
@@ -218,18 +218,24 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
             )
           );
 
-        for (const link of telegramLinks) {
-          if (link.telegramChatId) {
-            const res = await sendTelegramNotification({
-              chatId: link.telegramChatId,
-              title: payload.title,
-              body: payload.body,
-              priority: priority,
-              actionUrl,
-              actionText,
-            });
-            if (res.success) telegramCount++;
-          }
+        const telegramPayloads = telegramLinks
+          .filter((link) => Boolean(link.telegramChatId))
+          .map((link) => ({
+            chatId: link.telegramChatId,
+            title: payload.title,
+            body: payload.body,
+            priority: priority,
+            actionUrl,
+            actionText,
+            isMiniApp: Boolean(actionUrl && actionUrl.startsWith("/")),
+          }));
+
+        if (telegramPayloads.length > 0) {
+          const batchResult = await sendBatchTelegramNotifications(telegramPayloads, {
+            concurrency: 12,
+            delayBetweenChunksMs: 80,
+          });
+          telegramCount = batchResult.sent;
         }
       }
     } catch (telegramErr) {
