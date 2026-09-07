@@ -31,17 +31,21 @@ jobs:
           [ -n "$PLESK_HOST" ] || missing+=(PLESK_HOST)
           [ -n "$PLESK_USERNAME" ] || missing+=(PLESK_USERNAME)
           [ -n "$PLESK_SSH_PRIVATE_KEY" ] || missing+=(PLESK_SSH_PRIVATE_KEY-or-SSH_PRIVATE_KEY)
-          [[ "$PLESK_SSH_PORT" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
-          [[ "$PLESK_SSH_PRIVATE_KEY" == *"BEGIN "* && "$PLESK_SSH_PRIVATE_KEY" == *"END "* && "$PLESK_SSH_PRIVATE_KEY" == *" PRIVATE KEY-----"* ]] || {
-            printf 'PLESK_SSH_PRIVATE_KEY must contain a complete OpenSSH private-key block.\n'
-            exit 1
-          }
           [ -n "$PLESK_DEPLOY_PATH" ] || missing+=(PLESK_DEPLOY_PATH)
           [ -n "$PLESK_DOMAIN" ] || missing+=(PLESK_DOMAIN)
           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Missing GitHub Actions secret(s): %s\n' "${missing[*]}"
             exit 1
           fi
+          PLESK_SSH_PRIVATE_KEY="${PLESK_SSH_PRIVATE_KEY//$'\\n'/$'\n'}"
+          PLESK_SSH_PRIVATE_KEY="${PLESK_SSH_PRIVATE_KEY//$'\r'/}"
+          [[ "$PLESK_SSH_PORT" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
+          [[ "$PLESK_SSH_PRIVATE_KEY" == *"BEGIN "* && "$PLESK_SSH_PRIVATE_KEY" == *"END "* && "$PLESK_SSH_PRIVATE_KEY" == *" PRIVATE KEY-----"* ]] || {
+            printf 'PLESK_SSH_PRIVATE_KEY must contain a complete OpenSSH private-key block. Configure the raw multiline key, not a file path or unsupported format.\n'
+            exit 1
+          }
+          printf '%s\n' "$PLESK_SSH_PRIVATE_KEY" > "$RUNNER_TEMP/plesk-deploy-key"
+          chmod 600 "$RUNNER_TEMP/plesk-deploy-key"
           echo "Plesk deployment secrets are configured."
 
       - name: Set up Bun
@@ -78,7 +82,7 @@ jobs:
           host: ${{ secrets.PLESK_HOST }}
           port: ${{ secrets.PLESK_SSH_PORT || '22' }}
           username: ${{ secrets.PLESK_USERNAME }}
-          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          key_path: ${{ runner.temp }}/plesk-deploy-key
           timeout: 30s
           command_timeout: 10m
           source: deploy.tar.gz
@@ -95,7 +99,7 @@ jobs:
           host: ${{ secrets.PLESK_HOST }}
           port: ${{ secrets.PLESK_SSH_PORT || '22' }}
           username: ${{ secrets.PLESK_USERNAME }}
-          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY || secrets.SSH_PRIVATE_KEY }}
+          key_path: ${{ runner.temp }}/plesk-deploy-key
           timeout: 30s
           command_timeout: 10m
           envs: DEPLOY_PATH,PLESK_DOMAIN,RELEASE_ID
