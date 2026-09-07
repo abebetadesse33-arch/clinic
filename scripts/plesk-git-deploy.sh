@@ -8,28 +8,44 @@
 # ==============================================================================
 set -Eeuo pipefail
 
-echo "=== Starting Plesk Git deployment for NiniMed ==="
+echo "=== [1/4] Detecting Node.js / Bun Runtime in Plesk ==="
 
-# Determine Node/Bun package manager
+# Add Plesk's installed Node.js versions to PATH if not already present
+for node_dir in /opt/plesk/node/22/bin /opt/plesk/node/20/bin /opt/plesk/node/18/bin /opt/plesk/node/*/bin; do
+  if [ -d "$node_dir" ]; then
+    export PATH="$node_dir:$PATH"
+    break
+  fi
+done
+
 if command -v bun >/dev/null 2>&1; then
-  echo "Using Bun to install and build..."
-  bun install --frozen-lockfile
+  echo "Using Bun runtime: $(bun --version)"
+  echo "=== [2/4] Installing dependencies ==="
+  bun install --frozen-lockfile || bun install
+  echo "=== [3/4] Building Next.js application ==="
   bun run build
 elif command -v npm >/dev/null 2>&1; then
-  echo "Using npm to install and build..."
+  echo "Using Node.js: $(node --version) | npm: $(npm --version)"
+  echo "=== [2/4] Installing dependencies ==="
   npm install --production=false
-  npm run build
-elif [ -x /opt/plesk/node/20/bin/npm ]; then
-  export PATH="/opt/plesk/node/20/bin:$PATH"
-  npm install --production=false
+  echo "=== [3/4] Building Next.js application ==="
   npm run build
 else
-  echo "Error: Neither bun nor npm was found on PATH." >&2
+  echo "ERROR: Neither bun nor npm/node was found. Please ensure Node.js is enabled in Plesk." >&2
   exit 1
 fi
 
-# Signal Phusion Passenger (Plesk Node.js extension) to reload the application
+# In Next.js standalone mode, ensure server.js and static files are prepared for Plesk
+if [ -f ".next/standalone/server.js" ]; then
+  echo "Syncing standalone server files..."
+  cp -f .next/standalone/server.js ./server.js 2>/dev/null || true
+  mkdir -p .next/standalone/.next
+  cp -rn .next/static .next/standalone/.next/ 2>/dev/null || true
+  cp -rn public .next/standalone/ 2>/dev/null || true
+fi
+
+echo "=== [4/4] Triggering Phusion Passenger application reload ==="
 mkdir -p tmp
 touch tmp/restart.txt
 
-echo "=== Deployment finished. Phusion Passenger reload triggered. ==="
+echo "=== Plesk live deployment completed successfully! ==="
