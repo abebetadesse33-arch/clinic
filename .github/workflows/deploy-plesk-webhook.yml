@@ -1,0 +1,36 @@
+name: Deploy via Plesk Webhook (Instant 30s Zero-SSH)
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual deployment"
+        required: false
+        default: "Manual deployment trigger"
+
+jobs:
+  trigger-plesk-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Plesk Webhook
+        env:
+          PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
+        run: |
+          set -Eeuo pipefail
+          if [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
+            echo "ERROR: Secret PLESK_WEBHOOK_URL is not set." >&2
+            echo "In Plesk > Domains > Git, copy the 'Webhook URL' and add it to GitHub Secrets." >&2
+            exit 1
+          fi
+          echo "Pinging Plesk Deployment Webhook..."
+          response=$(curl -k -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$PLESK_WEBHOOK_URL")
+          http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
+          body=$(echo "$response" | sed '/HTTP_STATUS:/d')
+
+          echo "Response: $body"
+          if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 400 ]; then
+            echo "Deployment webhook triggered successfully (HTTP $http_status)."
+          else
+            echo "Failed to trigger webhook (HTTP $http_status)." >&2
+            exit 1
+          fi

@@ -106,11 +106,78 @@ The application uses server-side SSE for notifications. A single Plesk Node.js p
 
 PostgreSQL and Redis are not created by this workflow. Use managed services or provision them separately, then set `DATABASE_URL` and `REDIS_URL` in Plesk.
 
-## 7. Troubleshooting
+## 7. Fixing "Connection timed out during banner exchange" (Exit code 255)
 
-- **502 Bad Gateway:** verify Node.js support is enabled, the application root is `current`, and `server.js` exists at `current/server.js`.
-- **Database connection errors:** verify `DATABASE_URL`, firewall rules, TLS requirements, and that the database is reachable from the Plesk host.
+If your GitHub Actions run fails with:
+```text
+Connection timed out during banner exchange
+Connection to *** port 22 timed out
+Error: Process completed with exit code 255.
+```
+Follow these 4 server-side checks on your Plesk machine:
+
+### 1. Disable `UseDNS` in SSH (Most Common Cause)
+When connecting from GitHub Actions cloud runners, `sshd` tries to reverse-resolve the runner's IP address. If DNS lookup stalls, it triggers a 30s banner timeout:
+```bash
+# Log in to your server as root and run:
+sudo grep -q "^UseDNS" /etc/ssh/sshd_config && sudo sed -i 's/^UseDNS.*/UseDNS no/' /etc/ssh/sshd_config || echo "UseDNS no" | sudo tee -a /etc/ssh/sshd_config
+sudo systemctl restart sshd || sudo systemctl restart ssh
+```
+
+### 2. Verify Plesk SSH Access Permissions
+By default, Plesk sets SSH access for subscription users to `Forbidden`:
+1. Log into **Plesk**.
+2. Go to **Websites & Domains** > select your domain.
+3. Click **Web Hosting Access**.
+4. Locate **"Access to the server over SSH"**.
+5. Change it from **`Forbidden`** to **`/bin/bash`** (or `/bin/sh`).
+6. Click **Apply** / **OK**.
+
+### 3. Check Fail2ban & Cloud Firewall
+- **Fail2ban**: Go to **Plesk > Tools & Settings > IP Address Banning (Fail2ban)** > check **Banned IP Addresses**. If an IP is listed, unban it.
+- **Custom SSH Port**: Check if your host changed the SSH port (e.g., `2222`, `2200`). If so, add `PLESK_SSH_PORT` under GitHub Secrets.
+- **Cloud Firewall**: In AWS Security Groups, Hetzner Cloud Firewall, or DigitalOcean Cloud Firewall, ensure inbound TCP traffic to your SSH port is allowed from `0.0.0.0/0`.
+
+### 4. Use SSH Private Key (`PLESK_SSH_KEY`) instead of Password
+Password authentication (`sshpass`) is often disabled on hardened servers (`PasswordAuthentication no`).
+1. Generate an SSH key pair (or use an existing one):
+   ```bash
+   ssh-keygen -t ed25519 -C "github-actions-deploy" -f id_ed25519 -N ""
+   ```
+2. Add the public key (`id_ed25519.pub`) to `~/.ssh/authorized_keys` for the Plesk user.
+3. Add the private key (`id_ed25519`) content to GitHub Secrets as `PLESK_SSH_KEY`.
+The workflow will automatically use key authentication, eliminating password prompts and banner hangs.
+
+---
+
+## 8. Alternative: 30-Second Zero-SSH Deployment (Plesk Native Git)
+
+If you cannot or do not want to open SSH port 22 on your server, use Plesk's built-in **Git Extension**. It works over HTTPS and requires **zero SSH setup**:
+
+1. In **Plesk**, go to **Websites & Domains** > **Git**.
+2. Click **Add Repository**:
+   - Repository URL: `https://github.com/<your-org>/<your-repo>.git`
+   - Deployment mode: **Automatic**
+   - In **Additional deployment actions**, paste:
+     ```bash
+     bash scripts/plesk-git-deploy.sh
+     ```
+3. Copy the **Webhook URL** provided by Plesk:
+   `https://your-domain.com:8443/modules/git/public/web-hook.php?uuid=...`
+4. In your **GitHub repository**:
+   - Go to **Settings > Webhooks > Add webhook**.
+   - Paste the Webhook URL.
+   - Content type: `application/json`.
+   - Trigger on: `Just the push event`.
+5. Every `git push` will now deploy live in seconds over HTTPS with zero SSH timeouts! You can also manually trigger it anytime via `.github/workflows/deploy-plesk-webhook.yml`.
+
+---
+
+## 9. General Troubleshooting Checklist
+
+- **502 Bad Gateway:** verify Node.js support is enabled in Plesk, the application root is `current`, and `server.js` exists at `current/server.js`.
+- **Database connection errors:** verify `DATABASE_URL`, firewall rules, TLS requirements, and that PostgreSQL is reachable from the Plesk host.
 - **Assets return 404:** verify `.next/static` and `public` exist under `current`.
-- **Notifications do not update live:** verify the browser can keep an SSE connection to `/api/v1/notifications/stream` and avoid proxy buffering for that endpoint.
-- **Workflow does not restart:** restart the Node.js application manually in Plesk and verify the system user can execute the Plesk CLI.
-- **Build-time environment errors:** add required `NEXT_PUBLIC_*` values as GitHub Actions secrets. Server-only secrets belong only in Plesk.
+- **Notifications do not update live:** verify the browser can keep an SSE connection to `/api/v1/notifications/stream` and disable proxy buffering in Nginx for that path.
+- **Application restart:** Phusion Passenger reloads automatically whenever `tmp/restart.txt` is updated (handled by `scripts/plesk-release.sh` and `scripts/plesk-git-deploy.sh`).
+

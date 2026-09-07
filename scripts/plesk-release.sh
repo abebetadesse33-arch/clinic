@@ -33,11 +33,17 @@ ln -sfn "${deploy_path}/current/node_modules" "${deploy_path}/node_modules"
 
 find "${deploy_path}/releases" -mindepth 1 -maxdepth 1 -type d ! -name "$release_id" -exec rm -rf {} +
 
+# Phusion Passenger (Plesk Node.js engine) restarts when tmp/restart.txt is updated.
+# This works reliably for non-root subscription users without requiring PSA CLI sudo rights.
+mkdir -p "${deploy_path}/tmp" "${deploy_path}/current/tmp"
+touch "${deploy_path}/tmp/restart.txt" "${deploy_path}/current/tmp/restart.txt"
+printf 'Touched tmp/restart.txt to signal Phusion Passenger restart.\n'
+
+# If the Plesk CLI is available and the user has permissions, also issue a CLI restart
 if command -v plesk >/dev/null 2>&1; then
-  plesk bin nodejs --restart "$plesk_domain"
+  plesk bin nodejs --restart "$plesk_domain" 2>/dev/null || true
 elif [ -x /usr/local/psa/bin/nodejs ]; then
-  /usr/local/psa/bin/nodejs --restart "$plesk_domain"
-else
-  printf 'Plesk nodejs CLI was not found; the application was not restarted.\n' >&2
-  exit 1
+  /usr/local/psa/bin/nodejs --restart "$plesk_domain" 2>/dev/null || true
 fi
+
+printf 'Plesk deployment successfully activated for %s.\n' "$plesk_domain"

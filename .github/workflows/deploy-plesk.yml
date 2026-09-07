@@ -22,6 +22,7 @@ jobs:
           PLESK_HOST: ${{ secrets.PLESK_HOST }}
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
+          PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
           PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
           PLESK_DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
@@ -30,9 +31,11 @@ jobs:
           missing=()
           [ -n "$PLESK_HOST" ] || missing+=(PLESK_HOST)
           [ -n "$PLESK_USERNAME" ] || missing+=(PLESK_USERNAME)
-          [ -n "$PLESK_PASSWORD" ] || missing+=(PLESK_PASSWORD)
           [ -n "$PLESK_DEPLOY_PATH" ] || missing+=(PLESK_DEPLOY_PATH)
           [ -n "$PLESK_DOMAIN" ] || missing+=(PLESK_DOMAIN)
+          if [ -z "$PLESK_PASSWORD" ] && [ -z "$PLESK_SSH_KEY" ]; then
+            missing+=( "PLESK_PASSWORD or PLESK_SSH_KEY" )
+          fi
           if [ "${#missing[@]}" -gt 0 ]; then
             printf 'Missing GitHub Actions secret(s): %s\n' "${missing[*]}"
             exit 1
@@ -75,45 +78,97 @@ jobs:
           PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
         run: |
           set -Eeuo pipefail
-          echo "Checking SSH endpoint ${PLESK_HOST}:${PLESK_SSH_PORT}"
-          timeout 15s bash -c "</dev/tcp/${PLESK_HOST}/${PLESK_SSH_PORT}" || {
-            echo "Cannot reach ${PLESK_HOST}:${PLESK_SSH_PORT} from the GitHub runner." >&2
-            echo "Verify PLESK_HOST, PLESK_SSH_PORT, and the server firewall/allowlist." >&2
+          echo "Checking TCP connectivity to ${PLESK_HOST}:${PLESK_SSH_PORT}..."
+          if ! timeout 20s bash -c "</dev/tcp/${PLESK_HOST}/${PLESK_SSH_PORT}" 2>/dev/null; then
+            echo "ERROR: Cannot reach ${PLESK_HOST}:${PLESK_SSH_PORT} from the GitHub runner." >&2
+            echo "Possible reasons:" >&2
+            echo "  1. Plesk or cloud firewall (AWS/Hetzner/DigitalOcean) blocks port ${PLESK_SSH_PORT}." >&2
+            echo "  2. PLESK_SSH_PORT is different (check if Plesk uses a custom SSH port like 2222, 2200)." >&2
+            echo "  3. Fail2ban temporarily banned runner IP." >&2
             exit 1
-          }
+          fi
+          echo "TCP connection to ${PLESK_HOST}:${PLESK_SSH_PORT} succeeded."
 
       - name: Upload and release package on Plesk
         shell: bash
         env:
-          SSHPASS: ${{ secrets.PLESK_PASSWORD }}
           PLESK_HOST: ${{ secrets.PLESK_HOST }}
           PLESK_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
+          PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
+          PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
-          if ! command -v sshpass >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends sshpass
-          fi
 
-          ssh_options=(
-            -o ConnectTimeout=30
-            -o ServerAliveInterval=15
-            -o ServerAliveCountMax=2
-            -o StrictHostKeyChecking=accept-new
-            -p "$PLESK_PORT"
-          )
           known_hosts="$RUNNER_TEMP/plesk-known-hosts"
-          ssh_options+=( -o UserKnownHostsFile="$known_hosts" )
+          mux_socket="$RUNNER_TEMP/ssh_mux_%h_%p_%r"
+
+          ssh_base_options=(
+            -p "$PLESK_PORT"
+            -o StrictHostKeyChecking=accept-new
+            -o UserKnownHostsFile="$known_hosts"
+            -o ConnectTimeout=60
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=6
+            -o IPQoS=throughput
+            -o ControlMaster=auto
+            -o ControlPath="$mux_socket"
+            -o ControlPersist=10m
+          )
+
+          # Configure authentication (SSH key takes precedence over password)
+          if [ -n "${PLESK_SSH_KEY:-}" ]; then
+            echo "Using SSH private key authentication."
+            key_file="$RUNNER_TEMP/plesk_id_rsa"
+            printf '%s\n' "$PLESK_SSH_KEY" > "$key_file"
+            chmod 600 "$key_file"
+            ssh_base_options+=( -i "$key_file" -o IdentitiesOnly=yes )
+            run_ssh() {
+              ssh "${ssh_base_options[@]}" "$@"
+            }
+          else
+            echo "Using SSH password authentication (sshpass)."
+            if ! command -v sshpass >/dev/null 2>&1; then
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends sshpass
+            fi
+            export SSHPASS="$PLESK_PASSWORD"
+            run_ssh() {
+              sshpass -e ssh "${ssh_base_options[@]}" "$@"
+            }
+          fi
 
           remote="${PLESK_USERNAME}@${PLESK_HOST}"
           package_dir="/tmp/ninimed-deploy-${RELEASE_ID}"
           remote_script="${package_dir}/plesk-release.sh"
 
-          timeout 5m sshpass -e ssh "${ssh_options[@]}" "$remote" "mkdir -p '$package_dir'"
-          timeout 2m sshpass -e ssh "${ssh_options[@]}" "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
-          timeout 10m sshpass -e ssh "${ssh_options[@]}" "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
-          timeout 10m sshpass -e ssh "${ssh_options[@]}" "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
+          echo "Establishing SSH connection to ${remote}:${PLESK_PORT} and creating package directory..."
+          if ! timeout 3m run_ssh "$remote" "mkdir -p '$package_dir'"; then
+            echo "----------------------------------------------------------------------------------" >&2
+            echo "ERROR: SSH connection failed or timed out during banner exchange." >&2
+            echo "Diagnose & fix with these 3 quick checks on your Plesk server:" >&2
+            echo "  1. SSH banner timeout / UseDNS:" >&2
+            echo "     In /etc/ssh/sshd_config, ensure 'UseDNS no' is set, then run 'systemctl restart sshd'." >&2
+            echo "  2. Plesk SSH access permission:" >&2
+            echo "     In Plesk > Websites & Domains > Web Hosting Access, verify that" >&2
+            echo "     'Access to the server over SSH' is set to '/bin/bash' (NOT Forbidden or chroot)." >&2
+            echo "  3. Fail2ban / Firewall:" >&2
+            echo "     In Plesk > Tools & Settings > IP Address Banning (Fail2ban), check banned IPs." >&2
+            echo "----------------------------------------------------------------------------------" >&2
+            exit 1
+          fi
+
+          echo "Uploading release script..."
+          timeout 2m run_ssh "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
+
+          echo "Uploading application package (deploy.tar.gz)..."
+          timeout 10m run_ssh "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
+
+          echo "Executing release activation..."
+          timeout 10m run_ssh "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
+
+          echo "Deployment completed successfully."
