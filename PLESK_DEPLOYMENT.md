@@ -67,21 +67,19 @@ Add these repository secrets under **Settings > Secrets and variables > Actions*
 ```text
 PLESK_HOST
 PLESK_USERNAME
+PLESK_PASSWORD
 PLESK_SSH_PORT
-PLESK_SSH_PRIVATE_KEY
 PLESK_DEPLOY_PATH
 PLESK_DOMAIN
 NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_API_URL
 ```
 
-`PLESK_SSH_PRIVATE_KEY` is the private key for the Plesk system user. Never place it in the repository or in a workflow file.
+`PLESK_PASSWORD` is the password for the Plesk SSH user. Never place it in the repository or in a workflow file. Rotate it if it has been exposed outside GitHub Secrets.
 
 `PLESK_SSH_PORT` is the SSH port exposed by the server. Set it explicitly when
 the server does not use the default port `22`; the workflow uses `22` when this
 secret is omitted. Test that this port is reachable from GitHub-hosted runners.
-
-The workflow also accepts the legacy secret name `SSH_PRIVATE_KEY` as a fallback. Prefer `PLESK_SSH_PRIVATE_KEY` for new setup. Store the complete raw multiline OpenSSH private-key block, including its `BEGIN` and `END` lines; do not store a file path, a quoted value, or a base64-encoded value.
 
 The workflow is triggered by pushes to `main` and can also be started manually with **Run workflow**.
 
