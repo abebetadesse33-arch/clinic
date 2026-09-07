@@ -1117,7 +1117,9 @@ export default function ProviderProfileEditor() {
                 ✈️
               </div>
               <div>
-                <h4 className="font-bold text-sm text-[#162E27]">Connect @NiniMedClinicBot</h4>
+                <h4 className="font-bold text-sm text-[#162E27]">
+                  Connect @{process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "Ninimedbot"}
+                </h4>
                 <p className="text-xs text-[#687B74]">
                   Link your personal Telegram account to receive 1-click video consultation links directly in chat.
                 </p>

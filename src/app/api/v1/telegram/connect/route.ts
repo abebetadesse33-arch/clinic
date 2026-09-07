@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       JSON.stringify({ userId: user.id, exp: Date.now() + 3600_000 })
     ).toString("base64url");
 
-    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "NiniMedClinicBot";
+    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "Ninimedbot";
     const deepLink = `https://t.me/${botUsername}?start=${token}`;
 
     return NextResponse.json({

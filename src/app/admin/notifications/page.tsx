@@ -805,7 +805,7 @@ export default function AdminNotificationsPage() {
                   <div className="space-y-2 text-xs font-mono text-blue-800 dark:text-blue-300 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/50 shadow-inner">
                     <div className="flex items-center justify-between"><span className="opacity-60">Webhook URL:</span> <strong>/api/v1/telegram/webhook</strong></div>
                     <div className="flex items-center justify-between"><span className="opacity-60">OAuth Connect:</span> <strong>/api/v1/telegram/connect</strong></div>
-                    <div className="flex items-center justify-between"><span className="opacity-60">Bot Handle:</span> <strong className="text-blue-500">@{process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "NiniMedClinicBot"}</strong></div>
+                    <div className="flex items-center justify-between"><span className="opacity-60">Bot Handle:</span> <strong className="text-blue-500">@{process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "Ninimedbot"}</strong></div>
                   </div>
                 </div>
 
