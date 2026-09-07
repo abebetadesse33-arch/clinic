@@ -40,12 +40,12 @@ jobs:
           PLESK_SSH_PRIVATE_KEY="${PLESK_SSH_PRIVATE_KEY//$'\\n'/$'\n'}"
           PLESK_SSH_PRIVATE_KEY="${PLESK_SSH_PRIVATE_KEY//$'\r'/}"
           [[ "$PLESK_SSH_PORT" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
-          [[ "$PLESK_SSH_PRIVATE_KEY" == *"BEGIN "* && "$PLESK_SSH_PRIVATE_KEY" == *"END "* && "$PLESK_SSH_PRIVATE_KEY" == *" PRIVATE KEY-----"* ]] || {
-            printf 'PLESK_SSH_PRIVATE_KEY must contain a complete OpenSSH private-key block. Configure the raw multiline key, not a file path or unsupported format.\n'
-            exit 1
-          }
           printf '%s\n' "$PLESK_SSH_PRIVATE_KEY" > "$RUNNER_TEMP/plesk-deploy-key"
           chmod 600 "$RUNNER_TEMP/plesk-deploy-key"
+          if ! grep -Eq -- '-----BEGIN (OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----' "$RUNNER_TEMP/plesk-deploy-key" || ! grep -Eq -- '-----END (OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----' "$RUNNER_TEMP/plesk-deploy-key"; then
+            printf 'PLESK_SSH_PRIVATE_KEY must contain a complete PEM/OpenSSH private-key block (for example, BEGIN OPENSSH PRIVATE KEY). Configure the raw key contents, not a file path, public key, or base64 value.\n'
+            exit 1
+          }
           echo "Plesk deployment secrets are configured."
 
       - name: Set up Bun
