@@ -112,6 +112,8 @@ jobs:
             mkdir -p "${DEPLOY_PATH}/releases"
             mkdir -p "${RELEASE_DIR}"
             tar -xzf "${PACKAGE_DIR}/deploy.tar.gz" -C "${RELEASE_DIR}"
+            test -f "${RELEASE_DIR}/server.js"
+            node --check "${RELEASE_DIR}/server.js"
 
             ln -sfn "${RELEASE_DIR}" "${DEPLOY_PATH}/current"
             rm -rf "${DEPLOY_PATH}/.next" "${DEPLOY_PATH}/public" "${DEPLOY_PATH}/node_modules"
@@ -127,5 +129,6 @@ jobs:
             elif [ -x /usr/local/psa/bin/nodejs ]; then
               /usr/local/psa/bin/nodejs --restart "${PLESK_DOMAIN}"
             else
-              echo "Plesk nodejs CLI was not found. Restart the Node.js app in Plesk."
+              echo "Plesk nodejs CLI was not found; the application was not restarted." >&2
+              exit 1
             fi

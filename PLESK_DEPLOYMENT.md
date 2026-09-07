@@ -100,7 +100,7 @@ The workflow builds on GitHub, packages `.next/standalone`, `.next/static`, and 
 
 The workflow removes old releases after switching to the new release. For a rollback, deploy the desired commit again from GitHub using **Run workflow**. This recreates a clean release from that commit and switches `current` back to it.
 
-If the Plesk CLI is unavailable to the SSH user, the workflow still completes the file release but prints a restart warning. Restart the Node.js application from **Plesk > Domains > app.example.com > Node.js**.
+The workflow requires the Plesk Node.js CLI to restart the application. If the CLI is unavailable to the SSH user, the deployment fails after uploading the release; restart/configure the Node.js application from **Plesk > Domains > app.example.com > Node.js**, then rerun the workflow.
 
 ## 6. Realtime notifications and infrastructure
 
