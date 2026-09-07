@@ -385,12 +385,9 @@ function SignInContent() {
               </form>
             )}
 
-            <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div className="pt-4 border-t border-slate-800 flex items-center justify-center text-xs text-slate-400">
               <div>
                 New to NiniMed? <Link href={`/signup?redirect=${encodeURIComponent(returnTo)}`} className="text-sky-300 font-bold hover:text-sky-200">Create patient account</Link>
-              </div>
-              <div className="text-[11px] text-slate-400">
-                Need immediate intake? <Link href={`/register?redirect=${encodeURIComponent(returnTo)}`} className="text-cyan-300 font-bold hover:underline">Patient Intake →</Link>
               </div>
             </div>
           </div>
