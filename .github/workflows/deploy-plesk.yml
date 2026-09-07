@@ -127,9 +127,7 @@ jobs:
             printf '%s\n' "$PLESK_SSH_KEY" > "$key_file"
             chmod 600 "$key_file"
             ssh_base_options+=( -i "$key_file" -o IdentitiesOnly=yes )
-            run_ssh() {
-              ssh "${ssh_base_options[@]}" "$@"
-            }
+            ssh_cmd=( ssh "${ssh_base_options[@]}" )
           else
             echo "Using SSH password authentication (sshpass)."
             if ! command -v sshpass >/dev/null 2>&1; then
@@ -137,9 +135,7 @@ jobs:
               sudo apt-get install -y --no-install-recommends sshpass
             fi
             export SSHPASS="$PLESK_PASSWORD"
-            run_ssh() {
-              sshpass -e ssh "${ssh_base_options[@]}" "$@"
-            }
+            ssh_cmd=( sshpass -e ssh "${ssh_base_options[@]}" )
           fi
 
           remote="${PLESK_USERNAME}@${PLESK_HOST}"
@@ -147,7 +143,7 @@ jobs:
           remote_script="${package_dir}/plesk-release.sh"
 
           echo "Establishing SSH connection to ${remote}:${PLESK_PORT} and creating package directory..."
-          if ! timeout 3m run_ssh "$remote" "mkdir -p '$package_dir'"; then
+          if ! timeout 3m "${ssh_cmd[@]}" "$remote" "mkdir -p '$package_dir'"; then
             echo "----------------------------------------------------------------------------------" >&2
             echo "ERROR: SSH connection failed or timed out during banner exchange." >&2
             echo "Diagnose & fix with these 3 quick checks on your Plesk server:" >&2
@@ -163,12 +159,12 @@ jobs:
           fi
 
           echo "Uploading release script..."
-          timeout 2m run_ssh "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
+          timeout 2m "${ssh_cmd[@]}" "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
 
           echo "Uploading application package (deploy.tar.gz)..."
-          timeout 10m run_ssh "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
+          timeout 10m "${ssh_cmd[@]}" "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
 
           echo "Executing release activation..."
-          timeout 10m run_ssh "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
+          timeout 10m "${ssh_cmd[@]}" "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
 
           echo "Deployment completed successfully."
