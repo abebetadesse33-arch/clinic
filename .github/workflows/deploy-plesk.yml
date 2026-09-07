@@ -94,8 +94,10 @@ jobs:
           RELEASE_ID: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends sshpass
+          if ! command -v sshpass >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends sshpass
+          fi
 
           ssh_options=(
             -o ConnectTimeout=30
@@ -105,8 +107,14 @@ jobs:
             -p "$PLESK_PORT"
           )
           known_hosts="$RUNNER_TEMP/plesk-known-hosts"
-          ssh-keyscan -T 15 -p "$PLESK_PORT" "$PLESK_HOST" > "$known_hosts" 2>/dev/null
-          test -s "$known_hosts"
+          scan_status=0
+          ssh-keyscan -T 15 -p "$PLESK_PORT" "$PLESK_HOST" > "$known_hosts" 2>/dev/null || scan_status=$?
+          if [ ! -s "$known_hosts" ]; then
+            echo "SSH host-key discovery failed for ${PLESK_HOST}:${PLESK_PORT} (exit ${scan_status})." >&2
+            echo "Verify that PLESK_HOST is a hostname/IP and PLESK_SSH_PORT is the public SSH port." >&2
+            exit 1
+          fi
+          echo "SSH host key discovered for ${PLESK_HOST}:${PLESK_PORT}."
           ssh_options+=( -o UserKnownHostsFile="$known_hosts" )
 
           remote="${PLESK_USERNAME}@${PLESK_HOST}"
