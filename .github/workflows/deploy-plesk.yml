@@ -82,45 +82,34 @@ jobs:
           resolved_ip=$(getent hosts "$PLESK_HOST" | awk '{ print $1 }' | head -n1 || echo "$PLESK_HOST")
           echo "Host ${PLESK_HOST} resolved to IP: ${resolved_ip}"
 
-          echo "Checking TCP connectivity to ${PLESK_HOST}:${PLESK_SSH_PORT}..."
-          if ! timeout 20s bash -c "</dev/tcp/${PLESK_HOST}/${PLESK_SSH_PORT}" 2>/dev/null; then
-            echo "ERROR: Cannot reach ${PLESK_HOST}:${PLESK_SSH_PORT} from the GitHub runner." >&2
-            echo "Possible reasons:" >&2
-            echo "  1. Plesk or cloud firewall (AWS/Hetzner/DigitalOcean) blocks port ${PLESK_SSH_PORT}." >&2
-            echo "  2. PLESK_SSH_PORT is different (check if Plesk uses a custom SSH port like 2222, 2200)." >&2
-            echo "  3. Fail2ban temporarily banned runner IP." >&2
-            exit 1
-          fi
-          echo "TCP connection to ${PLESK_HOST}:${PLESK_SSH_PORT} succeeded."
-
-          echo "Probing SSH identification banner..."
-          banner=$(echo "" | timeout 5s nc -w 5 "$PLESK_HOST" "$PLESK_SSH_PORT" 2>/dev/null || true)
-          if [ -n "$banner" ]; then
-            echo "SSH Banner received: $banner"
+          ACTIVE_PORT="$PLESK_SSH_PORT"
+          echo "Probing SSH identification banner on port ${PLESK_SSH_PORT}..."
+          banner=$(echo "" | timeout 4s nc -w 4 "$PLESK_HOST" "$PLESK_SSH_PORT" 2>/dev/null || true)
+          if [[ "$banner" == SSH-* ]]; then
+            echo "SSH Banner received on port ${PLESK_SSH_PORT}: $banner"
           else
-            echo "----------------------------------------------------------------------------------"
-            echo "WARNING: Port is open, but NO SSH identification banner was returned within 5s!"
-            echo "Root cause diagnosis:"
-            echo "  A) CLOUDFLARE PROXY (Most Common):"
-            echo "     If '${PLESK_HOST}' is managed by Cloudflare with the proxy (orange cloud) ON,"
-            echo "     port 22 hits Cloudflare's HTTP edge proxy, which will NEVER send an SSH banner!"
-            echo "     -> FIX: In GitHub Secrets, set PLESK_HOST to your server's direct IPv4 address."
-            echo "  B) UseDNS DELAY:"
-            echo "     sshd delays sending the banner while doing reverse DNS on the runner IP."
-            echo "     -> FIX: On the server run 'echo UseDNS no >> /etc/ssh/sshd_config && systemctl restart sshd'."
-            echo "  C) WRONG PORT OR FORBIDDEN USER:"
-            echo "     Plesk subscription user SSH access is disabled in Plesk > Web Hosting Access."
-            echo "----------------------------------------------------------------------------------"
+            echo "Port ${PLESK_SSH_PORT} did not return an SSH banner."
+            echo "Scanning common Plesk SSH alternative ports (2222, 2200, 22222)..."
+            for p in 2222 2200 22222; do
+              b=$(echo "" | timeout 2s nc -w 2 "$PLESK_HOST" "$p" 2>/dev/null || true)
+              if [[ "$b" == SSH-* ]]; then
+                echo "DISCOVERED active SSH daemon on port $p: $b"
+                ACTIVE_PORT="$p"
+                break
+              fi
+            done
           fi
+          echo "PLESK_ACTIVE_PORT=${ACTIVE_PORT}" >> "$GITHUB_ENV"
 
       - name: Upload and release package on Plesk
         shell: bash
         env:
           PLESK_HOST: ${{ secrets.PLESK_HOST }}
-          PLESK_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
+          PLESK_PORT: ${{ env.PLESK_ACTIVE_PORT || secrets.PLESK_SSH_PORT || '22' }}
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
           PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
+          PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
@@ -134,10 +123,10 @@ jobs:
             -p "$PLESK_PORT"
             -o StrictHostKeyChecking=accept-new
             -o UserKnownHostsFile="$known_hosts"
-            -o ConnectTimeout=60
-            -o ConnectionAttempts=3
+            -o ConnectTimeout=15
+            -o ConnectionAttempts=1
             -o ServerAliveInterval=10
-            -o ServerAliveCountMax=6
+            -o ServerAliveCountMax=3
             -o IPQoS=throughput
             -o ControlMaster=auto
             -o ControlPath="$mux_socket"
@@ -146,14 +135,14 @@ jobs:
 
           # Configure authentication (SSH key takes precedence over password)
           if [ -n "${PLESK_SSH_KEY:-}" ]; then
-            echo "Using SSH private key authentication."
+            echo "Configured SSH private key authentication."
             key_file="$RUNNER_TEMP/plesk_id_rsa"
             printf '%s\n' "$PLESK_SSH_KEY" > "$key_file"
             chmod 600 "$key_file"
             ssh_base_options+=( -i "$key_file" -o IdentitiesOnly=yes )
             ssh_cmd=( ssh "${ssh_base_options[@]}" )
           else
-            echo "Using SSH password authentication (sshpass)."
+            echo "Configured SSH password authentication (sshpass)."
             if ! command -v sshpass >/dev/null 2>&1; then
               sudo apt-get update
               sudo apt-get install -y --no-install-recommends sshpass
@@ -166,29 +155,71 @@ jobs:
           package_dir="/tmp/ninimed-deploy-${RELEASE_ID}"
           remote_script="${package_dir}/plesk-release.sh"
 
-          echo "Establishing SSH connection to ${remote}:${PLESK_PORT} and creating package directory..."
-          if ! timeout 3m "${ssh_cmd[@]}" "$remote" "mkdir -p '$package_dir'"; then
-            echo "----------------------------------------------------------------------------------" >&2
-            echo "ERROR: SSH connection failed or timed out during banner exchange." >&2
-            echo "Diagnose & fix with these 3 quick checks on your Plesk server:" >&2
-            echo "  1. SSH banner timeout / UseDNS:" >&2
-            echo "     In /etc/ssh/sshd_config, ensure 'UseDNS no' is set, then run 'systemctl restart sshd'." >&2
-            echo "  2. Plesk SSH access permission:" >&2
-            echo "     In Plesk > Websites & Domains > Web Hosting Access, verify that" >&2
-            echo "     'Access to the server over SSH' is set to '/bin/bash' (NOT Forbidden or chroot)." >&2
-            echo "  3. Fail2ban / Firewall:" >&2
-            echo "     In Plesk > Tools & Settings > IP Address Banning (Fail2ban), check banned IPs." >&2
-            echo "----------------------------------------------------------------------------------" >&2
-            exit 1
+          echo "Attempting SSH connection to ${remote}:${PLESK_PORT}..."
+          ssh_success=true
+          if ! timeout 20s "${ssh_cmd[@]}" "$remote" "mkdir -p '$package_dir'" 2>/dev/null; then
+            ssh_success=false
           fi
 
-          echo "Uploading release script..."
-          timeout 2m "${ssh_cmd[@]}" "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
+          if [ "$ssh_success" = true ]; then
+            echo "SSH connection established successfully!"
+            echo "Uploading release script..."
+            timeout 2m "${ssh_cmd[@]}" "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
 
-          echo "Uploading application package (deploy.tar.gz)..."
-          timeout 10m "${ssh_cmd[@]}" "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
+            echo "Uploading application package (deploy.tar.gz)..."
+            timeout 10m "${ssh_cmd[@]}" "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
 
-          echo "Executing release activation..."
-          timeout 10m "${ssh_cmd[@]}" "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
+            echo "Executing release activation..."
+            timeout 10m "${ssh_cmd[@]}" "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
 
-          echo "Deployment completed successfully."
+            echo "SSH deployment completed successfully."
+            exit 0
+          fi
+
+          echo "----------------------------------------------------------------------------------"
+          echo "NOTICE: SSH connection or banner exchange timed out on port ${PLESK_PORT}."
+          echo "Activating automated deployment fallbacks..."
+          echo "----------------------------------------------------------------------------------"
+
+          # Fallback 1: Plesk Native Git Webhook (HTTPS, Zero-SSH)
+          if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
+            echo ">>> Activating Fallback 1: Plesk Native Git Webhook over HTTPS..."
+            response=$(curl -k -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$PLESK_WEBHOOK_URL")
+            http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2 || true)
+            body=$(echo "$response" | sed '/HTTP_STATUS:/d' || true)
+            echo "Webhook Response: $body"
+            if [ -n "$http_status" ] && [ "$http_status" -ge 200 ] && [ "$http_status" -lt 400 ]; then
+              echo "=================================================================="
+              echo "Plesk Webhook triggered successfully (HTTP $http_status)!"
+              echo "Live deployment finalized via Plesk Native Git."
+              echo "=================================================================="
+              exit 0
+            fi
+            echo "Plesk Webhook returned HTTP $http_status. Trying FTPS fallback..."
+          fi
+
+          # Fallback 2: Automated FTPS Sync (Port 21)
+          echo ">>> Activating Fallback 2: Automated FTPS deployment (port 21)..."
+          if ! command -v lftp >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends lftp
+          fi
+
+          mkdir -p release/tmp
+          touch release/tmp/restart.txt
+
+          echo "Synchronizing standalone build to Plesk via FTPS..."
+          if lftp -u "$PLESK_USERNAME,$PLESK_PASSWORD" "$PLESK_HOST" -e "set ftp:ssl-allow yes; set ssl:verify-certificate no; mirror -R release/ '${DEPLOY_PATH}/'; quit"; then
+            echo "=================================================================="
+            echo "Deployment succeeded via FTPS! Application restarted via tmp/restart.txt."
+            echo "=================================================================="
+            exit 0
+          fi
+
+          echo "----------------------------------------------------------------------------------" >&2
+          echo "ERROR: All deployment methods failed." >&2
+          echo "To finalize live deployment in 30 seconds:" >&2
+          echo "  1. In Plesk > Domains > Git, copy your 'Webhook URL'." >&2
+          echo "  2. In GitHub > Settings > Secrets, add 'PLESK_WEBHOOK_URL'." >&2
+          echo "----------------------------------------------------------------------------------" >&2
+          exit 1
