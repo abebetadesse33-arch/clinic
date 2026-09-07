@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { appointments, auditLogs, encounters, telemedicineSessions, users, patients } from "@/db/schema";
+import { appointments, auditLogs, encounters, telemedicineSessions, users, patients, patientRegistrationPasses, servicePricingCatalog, systemPaymentSettings } from "@/db/schema";
 import { createAppointmentSchema } from "@/lib/validations/schemas";
-import { eq, desc, and, inArray } from "drizzle-orm";
+import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
@@ -160,6 +160,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createAppointmentSchema.parse(body);
 
+    const [paymentSettings, registrationService] = await Promise.all([
+      db.select({ globalFreeMode: systemPaymentSettings.globalFreeMode }).from(systemPaymentSettings).limit(1),
+      db.select({ isFree: servicePricingCatalog.isFree }).from(servicePricingCatalog).where(eq(servicePricingCatalog.serviceCode, "REGISTRATION_3MO")).limit(1),
+    ]);
     const queueToken = `T-${Math.floor(100 + Math.random() * 900)}`;
     const facilityId = validated.facilityId && validated.facilityId.startsWith("11111111-0000")
       ? validated.facilityId
@@ -183,6 +187,33 @@ export async function POST(req: NextRequest) {
       }
     } catch (pErr) {
       console.warn("[Patient Resolution] Error:", pErr);
+    }
+
+    const registrationWaived = Boolean(paymentSettings[0]?.globalFreeMode || registrationService[0]?.isFree);
+    if (!registrationWaived) {
+      const [activePass] = await db
+        .select({ id: patientRegistrationPasses.id })
+        .from(patientRegistrationPasses)
+        .where(
+          and(
+            eq(patientRegistrationPasses.patientId, resolvedPatientId),
+            eq(patientRegistrationPasses.status, "active"),
+            sql`${patientRegistrationPasses.expiresAt} > NOW()`
+          )
+        )
+        .limit(1);
+
+      if (!activePass) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: "REGISTRATION_REQUIRED",
+            error: "Active registration is required before booking an appointment.",
+            actionUrl: `/register?redirect=${encodeURIComponent(`/appointments?patientId=${resolvedPatientId}`)}`,
+          },
+          { status: 402 }
+        );
+      }
     }
 
     // ── 3. Auto-assign clinician if not explicitly provided ──────────────────

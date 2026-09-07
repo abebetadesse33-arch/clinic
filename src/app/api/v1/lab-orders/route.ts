@@ -257,6 +257,7 @@ export async function POST(req: NextRequest) {
     const prep = getLabPreparationInstructions(validated.testName);
 
     // 6. PERSIST LAB ORDER
+    const paymentCleared = calculatedPrice === "0.00";
     const [newOrder] = await db
       .insert(labOrders)
       .values({
@@ -267,10 +268,10 @@ export async function POST(req: NextRequest) {
         testName: validated.testName,
         priority: (validated.priority as "routine" | "urgent" | "stat") || "routine",
         clinicalReason: validated.clinicalReason || "Diagnostic clinical evaluation",
-        status: "ordered",
+        status: paymentCleared ? "payment_cleared" : "pending_payment",
         price: calculatedPrice,
         currency: calculatedCurrency,
-        paymentStatus: "unpaid",
+        paymentStatus: paymentCleared ? "free" : "unpaid",
       })
       .returning();
 
@@ -321,26 +322,22 @@ export async function POST(req: NextRequest) {
     }
 
     // (B) NOTIFY LABORATORY DEPARTMENT (Biologists / Pathologists): Direct Specimen Intake Link
-    await dispatchNotification({
-      category: "orders",
-      type: "order_placed",
-      title: `🔬 Specimen Intake Required: ${newOrder.testName} [${newOrder.priority.toUpperCase()}]`,
-      body: `Diagnostic test ordered for ${patientName} (${patientMrn}). Specimen: ${prep.specimenType}. Priority: ${newOrder.priority.toUpperCase()}. Fee: ${calculatedPrice} ${calculatedCurrency}.`,
-      priority: newOrder.priority === "stat" ? "critical" : newOrder.priority === "urgent" ? "high" : "normal",
-      targetRole: "lab_technician",
-      senderUserId: sessionUserId,
-      actionUrl: `/biologist?orderId=${newOrder.id}&patientId=${validated.patientId}&tab=orders`,
-      actionText: `Intake Specimen (${patientName})`,
-      relatedEntityType: "lab_orders",
-      relatedEntityId: newOrder.id,
-      metadata: {
-        orderId: newOrder.id,
-        patientId: validated.patientId,
-        testName: newOrder.testName,
-        specimenType: prep.specimenType,
-        priority: newOrder.priority,
-      },
-    });
+    if (paymentCleared) {
+      await dispatchNotification({
+        category: "orders",
+        type: "order_placed",
+        title: `🔬 Specimen Intake Required: ${newOrder.testName} [${newOrder.priority.toUpperCase()}]`,
+        body: `Diagnostic test ordered for ${patientName} (${patientMrn}). Specimen: ${prep.specimenType}. Priority: ${newOrder.priority.toUpperCase()}. This order is payment-cleared.`,
+        priority: newOrder.priority === "stat" ? "critical" : newOrder.priority === "urgent" ? "high" : "normal",
+        targetRole: "lab_technician",
+        senderUserId: sessionUserId,
+        actionUrl: `/biologist?orderId=${newOrder.id}&patientId=${validated.patientId}&tab=orders`,
+        actionText: `Intake Specimen (${patientName})`,
+        relatedEntityType: "lab_orders",
+        relatedEntityId: newOrder.id,
+        metadata: { orderId: newOrder.id, patientId: validated.patientId, testName: newOrder.testName, specimenType: prep.specimenType, priority: newOrder.priority },
+      });
+    }
 
     // (C) NOTIFY CASHIER / BILLING: Pending POS Settlement
     await dispatchNotification({
