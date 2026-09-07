@@ -31,24 +31,24 @@ export default function DoctorCard({
   initials,
 }: DoctorCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-[#E7E2D8] p-6 hover:border-[#005C4B] hover:shadow-warm transition-all duration-200 flex flex-col justify-between">
+    <div className="bg-white rounded-2xl border border-slate-200 p-6 hover:border-sky-500 hover:shadow-warm transition-all duration-200 flex flex-col justify-between">
       <div>
         {/* Header with Avatar & Rating */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-full bg-[#005C4B] text-white flex items-center justify-center font-bold text-base shadow-sm ring-4 ring-[#E8F4F0]">
+            <div className="w-14 h-14 rounded-full bg-sky-600 text-white flex items-center justify-center font-bold text-base shadow-sm ring-4 ring-sky-100">
               {initials}
             </div>
             <div>
-              <h4 className="font-bold text-base text-[#162E27] font-display">{name}</h4>
-              <p className="text-xs text-[#005C4B] font-semibold">{credentials}</p>
-              <p className="text-xs text-[#687B74]">{specialty}</p>
+              <h4 className="font-bold text-base text-slate-900 font-display">{name}</h4>
+              <p className="text-xs text-sky-600 font-semibold">{credentials}</p>
+              <p className="text-xs text-slate-500">{specialty}</p>
             </div>
           </div>
           <div className="flex items-center gap-1 bg-[#FEF7E6] border border-[#F9E2A8] px-2 py-0.5 rounded-full text-xs text-[#B8801C] font-bold">
             <Star className="w-3.5 h-3.5 fill-[#E5A93C] text-[#E5A93C]" />
             <span>{rating}</span>
-            <span className="text-[#687B74] font-normal text-[10px]">({reviewsCount})</span>
+            <span className="text-slate-400 font-normal text-[10px]">({reviewsCount})</span>
           </div>
         </div>
 
@@ -62,17 +62,17 @@ export default function DoctorCard({
         </div>
 
         {/* Office Location */}
-        <div className="mt-4 pt-3 border-t border-[#F2EFE9] text-xs text-[#687B74] flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5 text-[#005C4B] shrink-0" />
+        <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-600 flex items-center gap-1.5">
+          <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
           <span>{officeLocation}</span>
         </div>
       </div>
 
       {/* Footer Booking Action */}
-      <div className="mt-5 pt-3 border-t border-[#F2EFE9] flex items-center justify-between">
+      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-[#687B74] font-semibold block">Next Opening</span>
-          <span className="text-xs font-bold text-[#005C4B]">{nextAvailable}</span>
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold block">Next Opening</span>
+          <span className="text-xs font-bold text-sky-600">{nextAvailable}</span>
         </div>
         <Link
           href={`/patient/book?doctor=${id}`}

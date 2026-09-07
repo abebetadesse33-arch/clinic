@@ -9,7 +9,7 @@ export function TrustBar() {
       <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
         {/* Left Trust Statement */}
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-[#E8F4F0] text-[#005C4B] flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0">
             <HeartHandshake className="w-6 h-6" />
           </div>
           <div>
@@ -29,7 +29,7 @@ export function TrustBar() {
             <span className="text-[11px] text-[#687B74] block font-medium mt-0.5">Active Members</span>
           </div>
           <div>
-            <span className="text-2xl font-bold text-[#005C4B] font-display">4.9 ★</span>
+            <span className="text-2xl font-bold text-sky-600 font-display">4.9 ★</span>
             <span className="text-[11px] text-[#687B74] block font-medium mt-0.5">Average Rating</span>
           </div>
           <div>

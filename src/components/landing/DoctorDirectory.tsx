@@ -38,16 +38,16 @@ export function DoctorDirectory() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <span className="badge-mint text-xs">Our Clinical Team</span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-[#162E27] font-serif-heading mt-1">
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 font-serif-heading mt-1">
             Meet our attending physicians & primary care leads
           </h2>
-          <p className="text-xs sm:text-sm text-[#687B74] mt-1">
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
             Our salaried doctors spend twice as much time with each patient, listening with genuine care.
           </p>
         </div>
         <Link
           href="/patient/book"
-          className="text-xs font-bold text-[#005C4B] hover:underline flex items-center gap-1 shrink-0"
+          className="text-xs font-bold text-sky-600 hover:underline flex items-center gap-1 shrink-0"
         >
           <span>View All Available Providers</span>
           <ChevronRight className="w-4 h-4" />

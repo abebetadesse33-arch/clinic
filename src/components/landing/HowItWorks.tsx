@@ -41,11 +41,11 @@ export function HowItWorks() {
         {steps.map((step, idx) => (
           <div
             key={step.number}
-            className="p-8 rounded-3xl bg-white border border-[#E7E2D8] hover:border-[#005C4B] hover:shadow-warm transition-all duration-200 space-y-4 relative flex flex-col justify-between"
+            className="p-8 rounded-3xl bg-white border border-[#E7E2D8] hover:border-sky-500 hover:shadow-warm transition-all duration-200 space-y-4 relative flex flex-col justify-between"
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-[#E8F4F0] text-[#005C4B] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center">
                   <step.icon className="w-6 h-6" />
                 </div>
                 <span className="text-3xl font-bold text-[#E7E2D8] font-display select-none">{step.number}</span>
@@ -54,7 +54,7 @@ export function HowItWorks() {
               <p className="text-xs text-[#687B74] leading-relaxed">{step.desc}</p>
             </div>
             <div className="pt-3 border-t border-[#F2EFE9]">
-              <span className="text-[11px] font-bold uppercase text-[#005C4B]">Step {idx + 1} of 3</span>
+              <span className="text-[11px] font-bold uppercase text-sky-600">Step {idx + 1} of 3</span>
             </div>
           </div>
         ))}

@@ -188,21 +188,21 @@ html.dark ::selection {
   gap: 0.5rem;
   padding: 0.75rem 1.75rem;
   border-radius: 9999px;
-  background-color: #005C4B;
+  background-color: #0284C7;
   color: #FFFFFF;
   font-weight: 600;
   font-size: 0.9375rem;
   line-height: 1.25;
-  box-shadow: 0 4px 14px -2px rgba(0, 92, 75, 0.25);
+  box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   border: none;
 }
 
 .btn-pill-primary:hover {
-  background-color: #08493B;
+  background-color: #0369A1;
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px -2px rgba(0, 92, 75, 0.35);
+  box-shadow: 0 6px 20px -2px rgba(2, 132, 199, 0.45);
 }
 
 .btn-pill-primary:active {
@@ -217,8 +217,8 @@ html.dark ::selection {
   padding: 0.75rem 1.75rem;
   border-radius: 9999px;
   background-color: #FFFFFF;
-  color: #005C4B;
-  border: 1.5px solid #005C4B;
+  color: #0284C7;
+  border: 1.5px solid #0284C7;
   font-weight: 600;
   font-size: 0.9375rem;
   line-height: 1.25;
@@ -227,7 +227,7 @@ html.dark ::selection {
 }
 
 .btn-pill-secondary:hover {
-  background-color: #E8F4F0;
+  background-color: #E0F2FE;
   transform: translateY(-1px);
 }
 
@@ -238,17 +238,17 @@ html.dark ::selection {
   gap: 0.5rem;
   padding: 0.75rem 1.75rem;
   border-radius: 9999px;
-  background-color: #D96B43;
+  background-color: #0284C7;
   color: #FFFFFF;
   font-weight: 600;
   font-size: 0.9375rem;
-  box-shadow: 0 4px 14px -2px rgba(217, 107, 67, 0.3);
+  box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.3);
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .btn-pill-terracotta:hover {
-  background-color: #C25B34;
+  background-color: #0369A1;
   transform: translateY(-1px);
 }
 
@@ -260,7 +260,7 @@ html.dark ::selection {
   padding: 0.625rem 1.25rem;
   border-radius: 9999px;
   background-color: transparent;
-  color: #162E27;
+  color: #16324F;
   font-weight: 500;
   font-size: 0.875rem;
   transition: all 0.15s ease;
@@ -268,16 +268,16 @@ html.dark ::selection {
 }
 
 .btn-pill-ghost:hover {
-  background-color: #E8F4F0;
-  color: #005C4B;
+  background-color: #E0F2FE;
+  color: #0284C7;
 }
 
 /* 2. Warm Cards & Elevation */
 .card-warm {
   background-color: #FFFFFF;
-  border: 1px solid #E7E2D8;
+  border: 1px solid #E2E8F0;
   border-radius: 1.25rem;
-  box-shadow: 0 2px 10px -2px rgba(11, 59, 50, 0.04), 0 1px 4px -1px rgba(11, 59, 50, 0.02);
+  box-shadow: 0 2px 10px -2px rgba(2, 132, 199, 0.05), 0 1px 4px -1px rgba(2, 132, 199, 0.02);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -286,17 +286,17 @@ html.dark ::selection {
 }
 
 .card-warm-hover:hover {
-  border-color: #B5DACF;
+  border-color: #BAE6FD;
   transform: translateY(-3px);
-  box-shadow: 0 12px 30px -6px rgba(11, 59, 50, 0.08), 0 4px 12px -2px rgba(11, 59, 50, 0.03);
+  box-shadow: 0 12px 30px -6px rgba(2, 132, 199, 0.12), 0 4px 12px -2px rgba(2, 132, 199, 0.04);
 }
 
 .card-forest {
-  background-color: #0B3B32;
+  background-color: #0C2B4E;
   color: #FFFFFF;
   border-radius: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 40px -10px rgba(11, 59, 50, 0.25);
+  border: 1px solid rgba(186, 230, 253, 0.2);
+  box-shadow: 0 20px 40px -10px rgba(12, 43, 78, 0.35);
 }
 
 /* 3. Badges & Status Pills */
@@ -306,11 +306,11 @@ html.dark ::selection {
   gap: 0.375rem;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  background-color: #E8F4F0;
-  color: #005C4B;
+  background-color: #E0F2FE;
+  color: #0369A1;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid #B5DACF;
+  border: 1px solid #BAE6FD;
 }
 
 .badge-terracotta {
@@ -319,11 +319,11 @@ html.dark ::selection {
   gap: 0.375rem;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  background-color: #FBECE7;
-  color: #D96B43;
+  background-color: #E0F2FE;
+  color: #0284C7;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid #F4C7BA;
+  border: 1px solid #BAE6FD;
 }
 
 .badge-gold {
@@ -332,11 +332,11 @@ html.dark ::selection {
   gap: 0.375rem;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  background-color: #FEF7E6;
-  color: #B8801C;
+  background-color: #F0F9FF;
+  color: #0369A1;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid #F9E2A8;
+  border: 1px solid #BAE6FD;
 }
 
 .badge-sage {
@@ -345,11 +345,11 @@ html.dark ::selection {
   gap: 0.375rem;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  background-color: #EEF3F0;
-  color: #466758;
+  background-color: #F0F9FF;
+  color: #0284C7;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid #CFDDD6;
+  border: 1px solid #BAE6FD;
 }
 
 /* 4. Form Elements & Inputs */
@@ -357,21 +357,21 @@ html.dark ::selection {
   width: 100%;
   padding: 0.875rem 1.125rem;
   border-radius: 0.875rem;
-  border: 1.5px solid #E7E2D8;
+  border: 1.5px solid #CBD5E1;
   background-color: #FFFFFF;
-  color: #162E27;
+  color: #16324F;
   font-size: 0.9375rem;
   transition: all 0.2s ease;
   outline: none;
 }
 
 .input-warm:focus {
-  border-color: #005C4B;
-  box-shadow: 0 0 0 3px rgba(0, 92, 75, 0.12);
+  border-color: #0284C7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.16);
 }
 
 .input-warm::placeholder {
-  color: #9BAAA3;
+  color: #94A3B8;
 }
 
 /* 5. Custom Scrollbar */
@@ -381,23 +381,23 @@ html.dark ::selection {
 }
 
 ::-webkit-scrollbar-track {
-  background: #FAF8F5;
+  background: #F0F9FF;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1C9BC;
+  background: #BAE6FD;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #005C4B;
+  background: #0284C7;
 }
 
 /* 6. Mobile Bottom Sheet Drawer */
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(11, 59, 50, 0.4);
+  background: rgba(12, 43, 78, 0.45);
   backdrop-filter: blur(4px);
   z-index: 50;
   display: flex;
@@ -419,7 +419,7 @@ html.dark ::selection {
   border-top-left-radius: 1.75rem;
   border-top-right-radius: 1.75rem;
   overflow-y: auto;
-  box-shadow: 0 -10px 40px rgba(11, 59, 50, 0.15);
+  box-shadow: 0 -10px 40px rgba(12, 43, 78, 0.18);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -461,9 +461,9 @@ html.dark .glass-card {
 
 .glass-card-hover:hover {
   background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(20, 184, 166, 0.2);
+  border-color: rgba(56, 189, 248, 0.35);
   transform: translateY(-1px);
-  box-shadow: 0 18px 32px -22px rgba(20, 184, 166, 0.22);
+  box-shadow: 0 18px 32px -22px rgba(2, 132, 199, 0.25);
 }
 
 html.dark .glass-card-hover:hover {
@@ -482,13 +482,13 @@ html.dark .glass-card-hover:hover {
 
 .luxury-gradient-surface {
   background:
-    radial-gradient(circle at top left, rgba(167, 243, 208, 0.6), transparent 30%),
-    radial-gradient(circle at top right, rgba(191, 219, 254, 0.7), transparent 24%),
-    linear-gradient(135deg, rgba(255,255,255,0.96), rgba(240,249,255,0.94) 50%, rgba(236,253,245,0.95));
+    radial-gradient(circle at top left, rgba(186, 230, 253, 0.65), transparent 30%),
+    radial-gradient(circle at top right, rgba(224, 242, 254, 0.8), transparent 24%),
+    linear-gradient(135deg, rgba(255,255,255,0.98), rgba(240,249,255,0.96) 50%, rgba(224,242,254,0.95));
 }
 
 .luxury-shadow {
-  box-shadow: 0 35px 80px -40px rgba(15, 118, 110, 0.45);
+  box-shadow: 0 35px 80px -40px rgba(2, 132, 199, 0.35);
 }
 
 .minimal-dashboard-shell {
@@ -522,8 +522,8 @@ html.dark .soft-panel {
 
 .soft-panel:hover {
   transform: translateY(-1px);
-  box-shadow: 0 18px 34px -22px rgba(15, 118, 110, 0.16);
-  border-color: rgba(20, 184, 166, 0.2);
+  box-shadow: 0 18px 34px -22px rgba(2, 132, 199, 0.2);
+  border-color: rgba(56, 189, 248, 0.35);
 }
 
 html.dark .soft-panel:hover {
@@ -566,11 +566,11 @@ html.dark .soft-muted {
 }
 
 .glow-teal-sm {
-  box-shadow: 0 0 16px -2px rgba(20, 184, 166, 0.35);
+  box-shadow: 0 0 16px -2px rgba(14, 165, 233, 0.45);
 }
 
 .glow-teal-md {
-  box-shadow: 0 0 28px -4px rgba(20, 184, 166, 0.45);
+  box-shadow: 0 0 28px -4px rgba(14, 165, 233, 0.55);
 }
 
 .surface-glass-navbar {
@@ -588,48 +588,262 @@ html.dark .surface-glass-navbar {
 }
 
 /* ============================================================
-   UNIVERSAL DARK MODE CONTRAST OVERRIDES
-   One Medical brand colors (#162E27, #33413C, #687B74, etc.)
-   are deep dark greens designed only for light mode.
-   These overrides guarantee legibility on dark backgrounds.
-   We use attribute-substring selectors so every file that
-   uses these colors is fixed without individual edits.
+   UNIVERSAL LIGHT BLUE BRAND OVERRIDES
+   Maps all legacy dark green / mint tokens across all pages
+   into clean, clinical, luminous light medical blue.
    ============================================================ */
 
-/* --- Headings & strong text (#162E27, #0B3B32) --- */
+/* --- Primary action buttons, backgrounds & icons --- */
+.bg-\[\#005C4B\],
+[class~="bg-[#005C4B]"],
+[class*=" bg-[#005C4B]"],
+[class^="bg-[#005C4B]"] {
+  background-color: #0284C7 !important;
+}
+
+.hover\:bg-\[\#005C4B\]:hover,
+[class*="hover:bg-[#005C4B]"]:hover {
+  background-color: #0369A1 !important;
+}
+
+.bg-\[\#08493B\],
+[class~="bg-[#08493B]"],
+[class*=" bg-[#08493B]"],
+[class^="bg-[#08493B]"] {
+  background-color: #0369A1 !important;
+}
+
+.hover\:bg-\[\#08493B\]:hover,
+[class*="hover:bg-[#08493B]"]:hover {
+  background-color: #075985 !important;
+}
+
+.bg-\[\#0B3B32\],
+[class~="bg-[#0B3B32]"],
+[class*=" bg-[#0B3B32]"],
+[class^="bg-[#0B3B32]"] {
+  background-color: #0C2B4E !important;
+}
+
+/* --- Brand text & headings --- */
+.text-\[\#005C4B\],
+[class~="text-[#005C4B]"],
+[class*=" text-[#005C4B]"],
+[class^="text-[#005C4B]"] {
+  color: #0284C7 !important;
+}
+
+.hover\:text-\[\#005C4B\]:hover,
+[class*="hover:text-[#005C4B]"]:hover {
+  color: #0369A1 !important;
+}
+
+.text-\[\#08493B\],
+[class~="text-[#08493B]"],
+[class*=" text-[#08493B]"],
+[class^="text-[#08493B]"] {
+  color: #0369A1 !important;
+}
+
+.text-\[\#0B3B32\],
+[class~="text-[#0B3B32]"],
+[class*=" text-[#0B3B32]"],
+[class^="text-[#0B3B32]"] {
+  color: #0C2B4E !important;
+}
+
+.text-\[\#162E27\],
+[class~="text-[#162E27]"],
+[class*=" text-[#162E27]"],
+[class^="text-[#162E27]"] {
+  color: #16324F !important;
+}
+
+.text-\[\#33413C\],
+[class~="text-[#33413C]"],
+[class*=" text-[#33413C]"],
+[class^="text-[#33413C]"] {
+  color: #334E68 !important;
+}
+
+.text-\[\#687B74\],
+[class~="text-[#687B74]"],
+[class*=" text-[#687B74]"],
+[class^="text-[#687B74]"] {
+  color: #58738A !important;
+}
+
+.text-\[\#466758\],
+[class~="text-[#466758]"],
+[class*=" text-[#466758]"],
+[class^="text-[#466758]"] {
+  color: #0284C7 !important;
+}
+
+/* --- Brand borders & focus rings --- */
+.border-\[\#005C4B\],
+[class~="border-[#005C4B]"],
+[class*=" border-[#005C4B]"],
+[class^="border-[#005C4B]"] {
+  border-color: #0284C7 !important;
+}
+
+.hover\:border-\[\#005C4B\]:hover,
+[class*="hover:border-[#005C4B]"]:hover {
+  border-color: #0284C7 !important;
+}
+
+.focus\:border-\[\#005C4B\]:focus,
+[class*="focus:border-[#005C4B]"]:focus {
+  border-color: #0284C7 !important;
+}
+
+.focus\:ring-\[\#005C4B\]:focus,
+[class*="focus:ring-[#005C4B]"]:focus {
+  --tw-ring-color: #0284C7 !important;
+}
+
+.border-\[\#08493B\],
+[class~="border-[#08493B]"] {
+  border-color: #0369A1 !important;
+}
+
+.border-\[\#B5DACF\],
+[class~="border-[#B5DACF]"],
+[class*=" border-[#B5DACF]"],
+[class^="border-[#B5DACF]"] {
+  border-color: #BAE6FD !important;
+}
+
+.hover\:border-\[\#B5DACF\]:hover,
+[class*="hover:border-[#B5DACF]"]:hover {
+  border-color: #38BDF8 !important;
+}
+
+.border-\[\#CFDDD6\],
+[class~="border-[#CFDDD6]"] {
+  border-color: #BAE6FD !important;
+}
+
+/* --- Soft light backgrounds (Mint/Sage -> Calm Light Sky Blue) --- */
+.bg-\[\#E8F4F0\],
+[class~="bg-[#E8F4F0]"],
+[class*=" bg-[#E8F4F0]"],
+[class^="bg-[#E8F4F0]"] {
+  background-color: #E0F2FE !important;
+}
+
+.hover\:bg-\[\#E8F4F0\]:hover,
+[class*="hover:bg-[#E8F4F0]"]:hover {
+  background-color: #BAE6FD !important;
+}
+
+.bg-\[\#EEF3F0\],
+[class~="bg-[#EEF3F0]"] {
+  background-color: #F0F9FF !important;
+}
+
+/* --- Gradients and fills --- */
+.from-\[\#005C4B\] {
+  --tw-gradient-from: #0284C7 var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(2 132 199 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+.via-\[\#005C4B\] {
+  --tw-gradient-to: rgb(2 132 199 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #0284C7 var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}
+.to-\[\#005C4B\] {
+  --tw-gradient-to: #0284C7 var(--tw-gradient-to-position) !important;
+}
+
+.from-\[\#0B3B32\] {
+  --tw-gradient-from: #0C2B4E var(--tw-gradient-from-position) !important;
+  --tw-gradient-to: rgb(12 43 78 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+}
+.to-\[\#04362D\],
+.to-\[\#0B3B32\] {
+  --tw-gradient-to: #0369A1 var(--tw-gradient-to-position) !important;
+}
+
+/* --- Opacity variations & Rings --- */
+[class*="text-[#005C4B]/"] {
+  color: rgba(2, 132, 199, 0.7) !important;
+}
+[class*="bg-[#005C4B]/"] {
+  background-color: rgba(2, 132, 199, 0.15) !important;
+}
+[class*="border-[#005C4B]/"] {
+  border-color: rgba(2, 132, 199, 0.3) !important;
+}
+[class*="ring-[#005C4B]/"],
+[class*="ring-[#005C4B]"] {
+  --tw-ring-color: rgba(2, 132, 199, 0.3) !important;
+}
+[class*="ring-[#E8F4F0]/"] {
+  --tw-ring-color: rgba(224, 242, 254, 0.5) !important;
+}
+
+/* --- Global emerald & green transformation to light sky/cyan blue --- */
+.text-emerald-600, .text-emerald-700, .text-emerald-500, .text-green-600, .text-green-700 {
+  color: #0284C7 !important;
+}
+.text-emerald-400, .text-emerald-300, .text-green-400, .text-green-300 {
+  color: #38BDF8 !important;
+}
+.bg-emerald-600, .bg-emerald-700, .bg-green-600, .bg-green-700 {
+  background-color: #0284C7 !important;
+}
+.bg-emerald-500, .bg-green-500 {
+  background-color: #0EA5E9 !important;
+}
+.bg-emerald-50, .bg-green-50, [class*="bg-emerald-500/10"], [class*="bg-emerald-500/15"], [class*="bg-emerald-500/20"] {
+  background-color: #E0F2FE !important;
+}
+.border-emerald-200, .border-emerald-300, .border-emerald-400, [class*="border-emerald-500/30"], [class*="border-emerald-500/40"], .border-green-200 {
+  border-color: #BAE6FD !important;
+}
+
+/* ============================================================
+   UNIVERSAL DARK MODE CONTRAST OVERRIDES
+   ============================================================ */
+
+/* --- Headings & strong text --- */
 html.dark [class*="text-[#162E27]"],
 html.dark [class*="text-[#0B3B32]"] {
   color: #f1f5f9 !important;
 }
 
-/* --- Body text (#33413C) --- */
+/* --- Body text --- */
 html.dark [class*="text-[#33413C]"] {
   color: #e2e8f0 !important;
 }
 
-/* --- Muted / secondary text (#687B74) --- */
+/* --- Muted / secondary text --- */
 html.dark [class*="text-[#687B74]"] {
   color: #94a3b8 !important;
 }
 
-/* --- Brand action color (#005C4B) used on text stays readable in dark --- */
+/* --- Brand action color used on text in dark mode --- */
 html.dark [class*="text-[#005C4B]"] {
-  color: #67d8ff !important;
+  color: #7dd3fc !important;
+}
+html.dark [class*="text-[#08493B]"] {
+  color: #38bdf8 !important;
 }
 
-/* --- Pure white cards on dark backgrounds: exact token match only --- */
-/* [class~="bg-white"] targets the standalone "bg-white" class token only,
-   avoiding false matches on bg-white/70, text-white, hover:bg-white etc. */
+/* --- Pure white cards on dark backgrounds --- */
 html.dark [class~="bg-white"] {
   background-color: #17364f !important;
 }
 
-/* --- White cards with brand border (#E7E2D8) --- */
+/* --- White cards with brand border --- */
 html.dark [class*="border-[#E7E2D8]"] {
   border-color: #31556e !important;
 }
 
-/* --- Warm background hover (#FAF8F5, #E8F4F0) --- */
+/* --- Warm background hover --- */
 html.dark [class*="hover:bg-[#FAF8F5]"]:hover,
 html.dark [class*="bg-[#FAF8F5]"] {
   background-color: #17364f !important;
@@ -639,7 +853,7 @@ html.dark [class*="bg-[#E8F4F0]"] {
   background-color: rgba(14, 165, 233, 0.16) !important;
 }
 
-/* --- Dark border that renders invisible in dark (#F2EFE9) --- */
+/* --- Dark border that renders invisible in dark --- */
 html.dark [class*="border-[#F2EFE9]"] {
   border-color: #31556e !important;
 }

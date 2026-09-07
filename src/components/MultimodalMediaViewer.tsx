@@ -288,13 +288,13 @@ export default function MultimodalMediaViewer({ assets, onUploadClick }: Multimo
                 <path
                   d="M 0 80 L 40 80 Q 50 72 60 80 L 80 80 L 85 85 L 95 10 L 105 130 L 115 80 L 140 80 Q 160 60 180 80 L 240 80 Q 250 72 260 80 L 280 80 L 285 85 L 295 10 L 305 130 L 315 80 L 340 80 Q 360 60 380 80 L 440 80 Q 450 72 460 80 L 480 80 L 485 85 L 495 10 L 505 130 L 515 80 L 540 80 Q 560 60 580 80 L 640 80 Q 650 72 660 80 L 680 80 L 685 85 L 695 10 L 705 130 L 715 80 L 740 80 Q 760 60 780 80 L 800 80"
                   fill="none"
-                  stroke="#10b981"
+                  stroke="#38bdf8"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                 />
               </svg>
 
-              <div className="absolute top-2 left-3 bg-black/70 px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400">
+              <div className="absolute top-2 left-3 bg-black/70 px-2 py-0.5 rounded text-[10px] font-mono text-sky-400">
                 Lead {selectedLead} • HR: 78 bpm • PR: 168 ms • QRS: 92 ms • QTc: 435 ms
               </div>
             </div>

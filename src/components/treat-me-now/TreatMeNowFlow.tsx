@@ -181,14 +181,14 @@ function TreatMeNowFlowInner({ returnPath = "/services/virtual-urgent-care/triag
         {step === "landing" && (
           <div className="space-y-8 animate-fade-in">
             {/* Hero Card */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0B3B32] via-[#005C4B] to-[#04362D] p-8 sm:p-12 text-white shadow-2xl border border-teal-500/30 space-y-6">
-              <div className="absolute top-0 right-0 w-96 h-96 bg-teal-400/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0C2B4E] via-[#0284C7] to-[#0369A1] p-8 sm:p-12 text-white shadow-2xl border border-sky-500/30 space-y-6">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-sky-400/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
 
               <div className="flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full bg-white text-[#005C4B] text-xs font-extrabold tracking-wide uppercase shadow-sm">
+                <span className="px-3 py-1 rounded-full bg-white text-sky-600 text-xs font-extrabold tracking-wide uppercase shadow-sm">
                   ⚡ 24/7 On-Demand Urgent Care
                 </span>
-                <span className="text-xs font-mono text-emerald-200/90 bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-500/30">
+                <span className="text-xs font-mono text-sky-200/90 bg-sky-950/40 px-3 py-1 rounded-full border border-sky-500/30">
                   Avg Wait: &lt; 3 min
                 </span>
               </div>
@@ -197,7 +197,7 @@ function TreatMeNowFlowInner({ returnPath = "/services/virtual-urgent-care/triag
                 <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
                   Treat Me Now™
                 </h1>
-                <p className="text-sm sm:text-base text-[#E8F4F0]/90 leading-relaxed font-normal">
+                <p className="text-sm sm:text-base text-sky-100/90 leading-relaxed font-normal">
                   Connect with a board-certified physician or nurse practitioner in minutes.
                   No appointment or travel required. Real-time AI triage, immediate physician
                   matching, and electronic prescriptions sent instantly.
@@ -223,19 +223,20 @@ function TreatMeNowFlowInner({ returnPath = "/services/virtual-urgent-care/triag
                 <strong className="block text-amber-300 font-bold mb-0.5">Emergency Symptoms Notice:</strong>
                 <span>
                   Treat Me Now™ is designed for non-emergency acute illness, infections, and refills.
-                  If you are experiencing crushing chest pain, severe shortness of breath, sudden numbness,
-                  or life-threatening symptoms, call <strong>911</strong> or proceed to the nearest emergency room immediately.
+                  If you are experiencing severe chest pain, shortness of breath, sudden numbness, or heavy bleeding,
+                  please dial 911 or visit your nearest emergency room immediately.
                 </span>
               </div>
             </div>
 
-            {/* Common Concerns Quick Grid */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-6">
-              <div>
-                <h3 className="text-lg font-extrabold text-white">Select what you are experiencing:</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Click any condition below to launch automated symptom intake.
-                </p>
+            {/* Common Concerns Quick-Start Grid */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#D96B43]" />
+                  <span>What can we help you treat today?</span>
+                </h2>
+                <span className="text-xs text-slate-400">Select any symptom for instant triage</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -243,13 +244,13 @@ function TreatMeNowFlowInner({ returnPath = "/services/virtual-urgent-care/triag
                   <button
                     key={c.id}
                     onClick={() => handleStartConcern(c.label)}
-                    className="p-4 rounded-2xl border border-slate-800 bg-slate-950/80 hover:bg-slate-900 hover:border-teal-500/50 transition-all text-left flex items-start gap-3.5 group"
+                    className="p-4 rounded-2xl border border-slate-800 bg-slate-950/80 hover:bg-slate-900 hover:border-sky-500/50 transition-all text-left flex items-start gap-3.5 group"
                   >
                     <span className="text-3xl shrink-0 group-hover:scale-110 transition-transform">
                       {c.icon}
                     </span>
                     <div>
-                      <div className="font-extrabold text-xs text-white group-hover:text-teal-400 transition-colors">
+                      <div className="font-extrabold text-xs text-white group-hover:text-sky-400 transition-colors">
                         {c.label}
                       </div>
                       <div className="text-[11px] text-slate-400 mt-0.5 leading-snug">
@@ -268,11 +269,11 @@ function TreatMeNowFlowInner({ returnPath = "/services/virtual-urgent-care/triag
           <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-6 shadow-2xl animate-fade-in">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center font-bold">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold">
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-teal-400 block">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 block">
                     Step 1 of 3
                   </span>
                   <h2 className="text-xl font-extrabold text-white">Rapid AI Symptom Assessment</h2>
@@ -341,7 +342,7 @@ export default function TreatMeNowFlow(props: TreatMeNowFlowProps) {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[60vh] flex items-center justify-center gap-3 text-teal-600">
+        <div className="min-h-[60vh] flex items-center justify-center gap-3 text-sky-600">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span className="text-sm font-semibold">Initializing Treat Me Now™ 24/7 Virtual Center…</span>
         </div>

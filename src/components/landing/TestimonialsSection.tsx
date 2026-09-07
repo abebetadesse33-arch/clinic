@@ -57,7 +57,7 @@ export function TestimonialsSection() {
                     <Star key={i} className="w-4 h-4 fill-[#E5A93C]" />
                   ))}
                 </div>
-                <Quote className="w-6 h-6 text-[#005C4B]/20" />
+                <Quote className="w-6 h-6 text-sky-500/20" />
               </div>
               <p className="text-xs text-[#33413C] italic leading-relaxed">"{t.quote}"</p>
             </div>
@@ -65,9 +65,9 @@ export function TestimonialsSection() {
             <div className="space-y-1 pt-4 border-t border-[#F2EFE9]">
               <h4 className="text-xs font-bold text-[#162E27] flex items-center gap-1.5">
                 <span>{t.name}</span>
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#005C4B]" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-sky-600" />
               </h4>
-              <p className="text-[11px] text-[#005C4B] font-medium">{t.condition}</p>
+              <p className="text-[11px] text-sky-600 font-medium">{t.condition}</p>
               <p className="text-[10px] text-[#687B74]">{t.doctor}</p>
             </div>
           </div>

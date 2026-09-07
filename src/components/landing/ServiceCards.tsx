@@ -66,10 +66,10 @@ export function ServiceCards() {
     <section id="services" className="py-16 px-4 sm:px-8 max-w-7xl mx-auto space-y-10">
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <span className="badge-mint text-xs">Care Services</span>
-        <h2 className="text-3xl sm:text-4xl font-bold text-[#162E27] font-serif-heading">
+        <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 font-serif-heading">
           Comprehensive care designed for every aspect of your life
         </h2>
-        <p className="text-xs sm:text-sm text-[#687B74] leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
           From preventive annual physicals to 24/7 virtual urgent care and on-site blood labs, our salaried clinical team is with you every step of the way.
         </p>
       </div>
@@ -79,24 +79,24 @@ export function ServiceCards() {
           <Link
             key={svc.id}
             href={svc.href}
-            className="group p-6 rounded-3xl bg-white hover:border-[#005C4B] border border-[#E7E2D8] transition-all duration-200 flex flex-col justify-between space-y-4 hover:shadow-warm"
+            className="group p-6 rounded-3xl bg-white hover:border-sky-500 border border-slate-200 transition-all duration-200 flex flex-col justify-between space-y-4 hover:shadow-warm"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-[#E8F4F0] text-[#005C4B] flex items-center justify-center group-hover:scale-105 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <svc.icon className="w-6 h-6" />
                 </div>
                 <span className={svc.badgeClass}>
                   {svc.badge}
                 </span>
               </div>
-              <h3 className="text-base font-bold text-[#162E27] group-hover:text-[#005C4B] transition-colors font-display">
+              <h3 className="text-base font-bold text-slate-900 group-hover:text-sky-600 transition-colors font-display">
                 {svc.title}
               </h3>
-              <p className="text-xs text-[#687B74] leading-relaxed">{svc.description}</p>
+              <p className="text-xs text-slate-600 leading-relaxed">{svc.description}</p>
             </div>
 
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#005C4B] group-hover:translate-x-1 transition-transform pt-3 border-t border-[#F2EFE9]">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-sky-600 group-hover:translate-x-1 transition-transform pt-3 border-t border-slate-100">
               <span>Explore service & book</span>
               <ChevronRight className="w-4 h-4" />
             </div>

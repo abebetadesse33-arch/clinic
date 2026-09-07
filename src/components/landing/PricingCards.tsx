@@ -121,14 +121,14 @@ export function PricingCards() {
 
         {/* Monthly vs Annual Toggle */}
         <div className="flex items-center justify-center gap-2 pt-2">
-          <div className="p-1 rounded-full bg-[#E8F4F0] border border-[#B5DACF] inline-flex items-center text-xs">
+          <div className="p-1 rounded-full bg-sky-50 border border-sky-200 inline-flex items-center text-xs">
             <button
               type="button"
               onClick={() => setBillingCycle("monthly")}
               className={`px-4 py-1.5 rounded-full font-bold transition-all ${
                 billingCycle === "monthly"
-                  ? "bg-[#005C4B] text-white shadow-sm"
-                  : "text-[#33413C] hover:text-[#005C4B]"
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-[#33413C] hover:text-sky-600"
               }`}
             >
               Monthly Billing
@@ -138,8 +138,8 @@ export function PricingCards() {
               onClick={() => setBillingCycle("yearly")}
               className={`px-4 py-1.5 rounded-full font-bold transition-all flex items-center gap-1.5 ${
                 billingCycle === "yearly"
-                  ? "bg-[#005C4B] text-white shadow-sm"
-                  : "text-[#33413C] hover:text-[#005C4B]"
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-[#33413C] hover:text-sky-600"
               }`}
             >
               <span>Annual Plan</span>
@@ -158,12 +158,12 @@ export function PricingCards() {
               key={plan.id}
               className={`p-8 rounded-3xl border flex flex-col justify-between space-y-6 transition-all relative ${
                 plan.popular
-                  ? "bg-white border-[#005C4B] shadow-warm-lg ring-2 ring-[#005C4B]/20"
-                  : "bg-white border-[#E7E2D8] hover:border-[#B5DACF] shadow-warm"
+                  ? "bg-white border-sky-500 shadow-warm-lg ring-2 ring-sky-500/20"
+                  : "bg-white border-[#E7E2D8] hover:border-sky-300 shadow-warm"
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-[#005C4B] text-white text-[11px] font-bold uppercase tracking-wider shadow-sm">
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-sky-600 text-white text-[11px] font-bold uppercase tracking-wider shadow-sm">
                   Most Popular Choice
                 </div>
               )}
@@ -183,7 +183,7 @@ export function PricingCards() {
                 <ul className="space-y-2.5 pt-2 text-xs text-[#33413C]">
                   {plan.features.map((feat: any, i: number) => (
                     <li key={i} className="flex items-start gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-[#005C4B] shrink-0 mt-0.5" />
+                      <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                       <span>{feat}</span>
                     </li>
                   ))}

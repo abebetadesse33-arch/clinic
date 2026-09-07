@@ -29,32 +29,32 @@ export function LandingNavbar() {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 min-h-20 py-3 flex items-center justify-between gap-4">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-2xl bg-[#005C4B] flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-2xl bg-sky-600 flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-105 transition-transform">
               <HeartPulse className="w-5 h-5" />
             </div>
             <div>
-              <div className="font-extrabold text-[#162E27] text-lg tracking-tight font-display">
-                Nini<span className="text-[#005C4B]">Med</span>
+              <div className="font-extrabold text-slate-900 text-lg tracking-tight font-display">
+                Nini<span className="text-sky-600">Med</span>
               </div>
-              <p className="text-[10px] text-[#687B74] font-medium">One Medical Clinical Network</p>
+              <p className="text-[10px] text-slate-500 font-medium">One Medical Clinical Network</p>
             </div>
           </Link>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-[#33413C]">
-            <a href="#services" className="hover:text-[#005C4B] transition-colors">
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-semibold text-slate-700">
+            <a href="#services" className="hover:text-sky-600 transition-colors">
               Services
             </a>
-            <a href="#how-it-works" className="hover:text-[#005C4B] transition-colors">
+            <a href="#how-it-works" className="hover:text-sky-600 transition-colors">
               How It Works
             </a>
-            <a href="#membership" className="hover:text-[#005C4B] transition-colors">
+            <a href="#membership" className="hover:text-sky-600 transition-colors">
               Membership & Pricing
             </a>
-            <a href="#doctors" className="hover:text-[#005C4B] transition-colors">
+            <a href="#doctors" className="hover:text-sky-600 transition-colors">
               Our Doctors
             </a>
-            <a href="#faq" className="hover:text-[#005C4B] transition-colors">
+            <a href="#faq" className="hover:text-sky-600 transition-colors">
               FAQ
             </a>
           </nav>
@@ -63,7 +63,7 @@ export function LandingNavbar() {
           <div className="hidden lg:flex items-center gap-3">
             <Link
               href="/services/virtual-urgent-care/triage"
-              className="btn-pill-ghost text-xs flex items-center gap-1.5 text-[#005C4B]"
+              className="btn-pill-ghost text-xs flex items-center gap-1.5 text-sky-700"
             >
               <Zap className="w-3.5 h-3.5 fill-[#E5A93C] text-[#E5A93C]" />
               <span>Treat Me Now™</span>
@@ -89,7 +89,7 @@ export function LandingNavbar() {
             aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={mobileMenuOpen}
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden min-w-11 min-h-11 p-2 rounded-xl bg-white border border-[#E7E2D8] text-[#162E27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#005C4B]"
+            className="lg:hidden min-w-11 min-h-11 p-2 rounded-xl bg-white border border-slate-200 text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
