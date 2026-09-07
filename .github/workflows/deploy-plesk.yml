@@ -68,6 +68,20 @@ jobs:
 
           tar -czf deploy.tar.gz -C release .
 
+      - name: Check Plesk SSH endpoint
+        shell: bash
+        env:
+          PLESK_HOST: ${{ secrets.PLESK_HOST }}
+          PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
+        run: |
+          set -Eeuo pipefail
+          echo "Checking SSH endpoint ${PLESK_HOST}:${PLESK_SSH_PORT}"
+          timeout 15s bash -c "</dev/tcp/${PLESK_HOST}/${PLESK_SSH_PORT}" || {
+            echo "Cannot reach ${PLESK_HOST}:${PLESK_SSH_PORT} from the GitHub runner." >&2
+            echo "Verify PLESK_HOST, PLESK_SSH_PORT, and the server firewall/allowlist." >&2
+            exit 1
+          }
+
       - name: Upload package
         uses: appleboy/scp-action@v1
         with:
@@ -77,6 +91,7 @@ jobs:
           password: ${{ secrets.PLESK_PASSWORD }}
           timeout: 30s
           command_timeout: 10m
+          debug: true
           source: deploy.tar.gz
           target: /tmp/ninimed-deploy-${{ github.sha }}
           strip_components: 0
