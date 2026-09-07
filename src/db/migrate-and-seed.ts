@@ -1991,6 +1991,7 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       ALTER TABLE cases ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT 'routine';
       ALTER TABLE cases ADD COLUMN IF NOT EXISTS assigned_provider_id UUID REFERENCES users(id);
       ALTER TABLE cases ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+            ALTER TABLE cases ADD COLUMN IF NOT EXISTS patient_info JSONB DEFAULT '{}' NOT NULL;
 
       -- ==========================================
       -- DYNAMIC CONFIGURATION & CMS TABLES
