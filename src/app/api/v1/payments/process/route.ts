@@ -4,6 +4,8 @@ import { payments, invoices, auditLogs, patients, users } from "@/db/schema";
 import { CentralStateMachineService } from "@/lib/services/central-state-machine";
 import { PaymentGateService } from "@/lib/services/payment-gate-service";
 import { eq, or } from "drizzle-orm";
+import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -188,6 +190,31 @@ export async function POST(req: NextRequest) {
         },
       });
     } catch { }
+
+    await dispatchParticipantNotification({
+      patientId: resolvedPatientId,
+      category: "billing",
+      type: paymentStatus === "completed" ? "payment_received" : "payment_pending",
+      title: paymentStatus === "completed" ? "Payment confirmed" : "Payment awaiting review",
+      body: paymentStatus === "completed"
+        ? `${amount} ${currency} payment for ${serviceType || "care"} was confirmed. Receipt ${receiptNumber} is ready.`
+        : `${amount} ${currency} payment for ${serviceType || "care"} was submitted and is awaiting billing review.`,
+      priority: paymentStatus === "completed" ? "normal" : "high",
+      senderUserId: await getAuthenticatedSessionUserId(req) || undefined,
+      actionUrl: "/patient/dashboard",
+      actionText: "View payment",
+      relatedEntityType: "payment",
+      relatedEntityId: newPayment?.id || paymentNumber,
+      metadata: {
+        workflowDomain: "payment",
+        paymentNumber,
+        receiptNumber,
+        serviceType,
+        amount,
+        currency,
+        paymentStatus,
+      },
+    });
 
     return NextResponse.json({
       success: true,

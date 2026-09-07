@@ -1,12 +1,15 @@
 import { NextRequest } from "next/server";
 import { notificationBus } from "@/lib/notifications/notification-service";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId") || "";
-  const role = searchParams.get("role") || "";
+  const auth = await requireAuthenticatedUser(request);
+  if ("response" in auth) return auth.response;
+
+  const userId = auth.user.id;
+  const role = auth.user.role;
 
   const stream = new ReadableStream({
     start(controller) {

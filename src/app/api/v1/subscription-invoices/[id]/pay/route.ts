@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { subscriptionInvoices, subscriptions } from "@/db/schema";
+import { familyGroups } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -46,6 +49,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         .set({ status: "active", updatedAt: now })
         .where(eq(subscriptions.id, invoice.subscriptionId));
 
+      const [subscription] = await db
+        .select({ patientId: subscriptions.patientId, familyGroupId: subscriptions.familyGroupId })
+        .from(subscriptions)
+        .where(eq(subscriptions.id, invoice.subscriptionId));
+      let patientId = subscription?.patientId || undefined;
+      if (!patientId && subscription?.familyGroupId) {
+        const [family] = await db
+          .select({ primaryPatientId: familyGroups.primaryPatientId })
+          .from(familyGroups)
+          .where(eq(familyGroups.id, subscription.familyGroupId));
+        patientId = family?.primaryPatientId || undefined;
+      }
+
+      if (patientId) {
+        await dispatchParticipantNotification({
+          patientId,
+          category: "billing",
+          type: "payment_received",
+          title: "Subscription payment confirmed",
+          body: `Subscription invoice ${invoice.invoiceNumber} was paid successfully. Your benefits remain active.`,
+          priority: "normal",
+          senderUserId: await getAuthenticatedSessionUserId(req) || undefined,
+          actionUrl: `/subscriptions/${invoice.subscriptionId}`,
+          actionText: "View subscription",
+          relatedEntityType: "subscription_invoice",
+          relatedEntityId: invoice.id,
+          metadata: { workflowDomain: "subscription", subscriptionId: invoice.subscriptionId, invoiceNumber: invoice.invoiceNumber, transactionId: txId },
+        });
+      }
+
       return NextResponse.json({
         success: true,
         data: updatedInvoice,
@@ -64,6 +97,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         })
         .where(eq(subscriptionInvoices.id, params.id))
         .returning();
+
+      const [subscription] = await db
+        .select({ patientId: subscriptions.patientId, familyGroupId: subscriptions.familyGroupId })
+        .from(subscriptions)
+        .where(eq(subscriptions.id, invoice.subscriptionId));
+      let patientId = subscription?.patientId || undefined;
+      if (!patientId && subscription?.familyGroupId) {
+        const [family] = await db
+          .select({ primaryPatientId: familyGroups.primaryPatientId })
+          .from(familyGroups)
+          .where(eq(familyGroups.id, subscription.familyGroupId));
+        patientId = family?.primaryPatientId || undefined;
+      }
+
+      if (patientId) {
+        await dispatchParticipantNotification({
+          patientId,
+          category: "billing",
+          type: "payment_pending",
+          title: "Subscription payment submitted",
+          body: `Bank transfer reference for subscription invoice ${invoice.invoiceNumber} was submitted and is awaiting verification.`,
+          priority: "high",
+          senderUserId: await getAuthenticatedSessionUserId(req) || undefined,
+          actionUrl: `/subscriptions/${invoice.subscriptionId}`,
+          actionText: "Track payment",
+          relatedEntityType: "subscription_invoice",
+          relatedEntityId: invoice.id,
+          metadata: { workflowDomain: "subscription", subscriptionId: invoice.subscriptionId, invoiceNumber: invoice.invoiceNumber, paymentReference: paymentReference || "PENDING_FINANCE_REVIEW" },
+        });
+      }
 
       return NextResponse.json({
         success: true,

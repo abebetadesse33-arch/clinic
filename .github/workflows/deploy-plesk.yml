@@ -1,0 +1,93 @@
+name: Deploy NiniMed to Plesk
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.1.38"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Next.js standalone application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+      - name: Assemble deployment package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -rf release deploy.tar.gz
+          mkdir -p release/.next
+
+          cp -R .next/standalone/. release/
+          cp -R .next/static release/.next/static
+          cp -R public release/public
+
+          tar -czf deploy.tar.gz -C release .
+
+      - name: Upload package
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.PLESK_HOST }}
+          username: ${{ secrets.PLESK_USERNAME }}
+          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY }}
+          source: deploy.tar.gz
+          target: /tmp/ninimed-deploy-${{ github.sha }}
+          strip_components: 0
+
+      - name: Release package on Plesk
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
+          PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
+          RELEASE_ID: ${{ github.sha }}
+        with:
+          host: ${{ secrets.PLESK_HOST }}
+          username: ${{ secrets.PLESK_USERNAME }}
+          key: ${{ secrets.PLESK_SSH_PRIVATE_KEY }}
+          envs: DEPLOY_PATH,PLESK_DOMAIN,RELEASE_ID
+          script_stop: true
+          script: |
+            set -Eeuo pipefail
+            PACKAGE_DIR="/tmp/ninimed-deploy-${RELEASE_ID}"
+            RELEASE_DIR="${DEPLOY_PATH}/releases/${RELEASE_ID}"
+
+            mkdir -p "${DEPLOY_PATH}/releases"
+            mkdir -p "${RELEASE_DIR}"
+            tar -xzf "${PACKAGE_DIR}/deploy.tar.gz" -C "${RELEASE_DIR}"
+
+            ln -sfn "${RELEASE_DIR}" "${DEPLOY_PATH}/current"
+            rm -rf "${DEPLOY_PATH}/.next" "${DEPLOY_PATH}/public" "${DEPLOY_PATH}/node_modules"
+            ln -sfn "${DEPLOY_PATH}/current/.next" "${DEPLOY_PATH}/.next"
+            ln -sfn "${DEPLOY_PATH}/current/public" "${DEPLOY_PATH}/public"
+            ln -sfn "${DEPLOY_PATH}/current/node_modules" "${DEPLOY_PATH}/node_modules"
+
+            rm -rf "${PACKAGE_DIR}"
+            find "${DEPLOY_PATH}/releases" -mindepth 1 -maxdepth 1 -type d ! -name "${RELEASE_ID}" -exec rm -rf {} +
+
+            if command -v plesk >/dev/null 2>&1; then
+              plesk bin nodejs --restart "${PLESK_DOMAIN}"
+            elif [ -x /usr/local/psa/bin/nodejs ]; then
+              /usr/local/psa/bin/nodejs --restart "${PLESK_DOMAIN}"
+            else
+              echo "Plesk nodejs CLI was not found. Restart the Node.js app in Plesk."
+            fi

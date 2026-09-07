@@ -106,13 +106,13 @@ export default function NavigationHeader() {
 
   return (
     <>
-      <header ref={navRef} className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl transition-colors">
+      <header ref={navRef} className="sticky top-0 z-40 w-full border-b border-sky-200/80 dark:border-slate-800 bg-sky-50/95 dark:bg-slate-950/95 backdrop-blur-xl transition-colors">
         {/* Top 24/7 On-Demand Healthcare Sub-bar */}
-        <div className="bg-gradient-to-r from-[#ecfeff] via-[#f0fdf4] to-[#f8fafc] dark:from-slate-950 dark:via-emerald-950/40 dark:to-slate-900 text-slate-700 dark:text-slate-300 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-slate-200 dark:border-slate-800 transition-colors">
+        <div className="bg-gradient-to-r from-sky-100 via-cyan-50 to-blue-50 dark:from-slate-950 dark:via-sky-950/40 dark:to-slate-900 text-slate-700 dark:text-slate-300 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-sky-200/80 dark:border-slate-800 transition-colors">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 text-teal-700 dark:text-teal-300 font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="flex items-center gap-1.5 text-sky-800 dark:text-sky-300 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
                 <span>24/7 On-Demand Care Active</span>
               </span>
               <span className="text-slate-400 dark:text-slate-500 hidden sm:inline">•</span>
@@ -131,7 +131,7 @@ export default function NavigationHeader() {
               </Link>
               <span className="text-slate-300 dark:text-slate-700 hidden md:inline">•</span>
               <span className="hidden md:flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-medium">
-                <PhoneCall className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                <PhoneCall className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                 <span>24/7 Nurse Hotline: <strong className="text-slate-900 dark:text-white font-bold">(888) 663-6331</strong></span>
               </span>
             </div>
@@ -144,16 +144,16 @@ export default function NavigationHeader() {
             {/* Logo & Brand */}
             <div className="flex items-center gap-4 shrink-0">
               <Link href="/" className="flex items-center gap-2.5 group">
-                <div className="w-9 h-9 rounded-xl bg-[#005C4B] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-[#075985] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <HeartPulse className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-[#162E27] dark:text-white text-lg tracking-tight font-display">
-                      Nini<span className="text-[#005C4B] dark:text-emerald-400">Med</span>
+                    <span className="font-extrabold text-[#16324F] dark:text-white text-lg tracking-tight font-display">
+                      Nini<span className="text-[#075985] dark:text-sky-400">Med</span>
                     </span>
                   </div>
-                  <span className="text-[10px] text-[#687B74] dark:text-slate-400 tracking-wide font-medium block">
+                  <span className="text-[10px] text-[#58738A] dark:text-slate-400 tracking-wide font-medium block">
                     One Medical Clinical Network
                   </span>
                 </div>

@@ -25,18 +25,17 @@ const TreatMeNowContent = dynamic(
 
 function TriageGuard() {
   const router = useRouter();
-  const { isAuthenticated, currentRole } = useClinic();
+  const { isAuthenticated, authResolved } = useClinic();
 
   useEffect(() => {
-    // Only redirect if we know auth state is resolved (isAuthenticated is false = guest)
-    if (isAuthenticated === false) {
+    if (authResolved && !isAuthenticated) {
       router.replace(
         "/signin?redirect=" + encodeURIComponent("/services/virtual-urgent-care/triage")
       );
     }
-  }, [isAuthenticated, router]);
+  }, [authResolved, isAuthenticated, router]);
 
-  if (!isAuthenticated) {
+  if (!authResolved || !isAuthenticated) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center gap-3 text-teal-600">
         <Loader2 className="w-6 h-6 animate-spin" />
@@ -71,4 +70,4 @@ export default function VirtualUrgentCareTriagePage() {
       </Suspense>
     </div>
   );
-}
+}

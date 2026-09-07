@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
+import { notificationBus } from "@/lib/notifications/notification-service";
 
 export interface BroadcastMessage {
   tenantId?: string;
@@ -42,6 +43,22 @@ export class RealtimeBroadcaster {
         console.error("Persist notification error:", e);
       }
     }
+
+    notificationBus.emit("notification", {
+      id: `realtime-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      recipientUserId: message.targetUserId || null,
+      targetRole: message.targetRole || null,
+      category: "system",
+      title: message.title,
+      body: message.body,
+      priority: message.priority || "normal",
+      actionUrl: message.actionUrl,
+      actionText: "View Details",
+      relatedEntityType: message.encounterId ? "encounter" : message.patientId ? "patient" : null,
+      relatedEntityId: message.encounterId || message.patientId || null,
+      metadata: message.payload || {},
+      createdAt: new Date().toISOString(),
+    });
 
     // 2. In-memory / Redis pub-sub payload simulation
     const channel = `org:${orgId}:role:${message.targetRole || "all"}`;

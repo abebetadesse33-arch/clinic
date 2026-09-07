@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notifications, users } from "@/db/schema";
-import { eq, desc, and, inArray, or } from "drizzle-orm";
+import { eq, desc, and, inArray, or, isNull } from "drizzle-orm";
 import { getAuthenticatedSessionUser, requireAuthenticatedUser } from "@/lib/security/auth-session";
 import type { NotificationPriority } from "@/lib/types/clinical";
 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     if (!isSystemAdmin) {
       conditions.push(eq(notifications.recipientUserId, sessionUser.id));
       if (role) {
-        conditions.push(eq(notifications.targetRole, role));
+        conditions.push(or(eq(notifications.targetRole, role), isNull(notifications.targetRole)));
       }
     } else if (role && searchParams.get("filterRole")) {
       conditions.push(eq(notifications.targetRole, searchParams.get("filterRole")!));

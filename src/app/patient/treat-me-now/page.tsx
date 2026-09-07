@@ -8,15 +8,15 @@ import TreatMeNowFlow from "@/components/treat-me-now/TreatMeNowFlow";
 
 function PatientTreatMeNowGuard() {
   const router = useRouter();
-  const { isAuthenticated, currentRole } = useClinic();
+  const { isAuthenticated, authResolved } = useClinic();
 
   useEffect(() => {
-    if (isAuthenticated === false) {
+    if (authResolved && !isAuthenticated) {
       router.replace(`/signin?redirect=${encodeURIComponent("/patient/treat-me-now")}`);
     }
-  }, [isAuthenticated, currentRole, router]);
+  }, [authResolved, isAuthenticated, router]);
 
-  if (!isAuthenticated) {
+  if (!authResolved || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center gap-3 text-teal-400">
         <Loader2 className="w-5 h-5 animate-spin" />

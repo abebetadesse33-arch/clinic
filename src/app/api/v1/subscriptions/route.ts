@@ -10,6 +10,8 @@ import {
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SubscriptionService } from "@/lib/services/subscription-service";
+import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
   try {
@@ -73,6 +75,21 @@ export async function POST(req: NextRequest) {
         paymentMethod,
       });
 
+      await dispatchNotification({
+        category: "billing",
+        type: "system_alert",
+        title: "Subscription created",
+        body: `Family subscription ${result.subscription.id.slice(0, 8)} was created and is ready for payment.`,
+        priority: "normal",
+        participantPatientId: primaryPatientId,
+        senderUserId: await getAuthenticatedSessionUserId(req) || undefined,
+        actionUrl: `/subscriptions/${result.subscription.id}`,
+        actionText: "View subscription",
+        relatedEntityType: "subscription",
+        relatedEntityId: result.subscription.id,
+        metadata: { workflowDomain: "subscription", status: result.subscription.status, invoiceId: result.invoice.id },
+      });
+
       return NextResponse.json({ success: true, data: result }, { status: 201 });
     } else if (subscriberType === "company") {
       if (!companyName || !contactPerson || !email || !phone || !planId || !adminUserId) {
@@ -88,6 +105,22 @@ export async function POST(req: NextRequest) {
         planId,
         seatCount: Number(seatCount || 10),
         adminUserId,
+      });
+
+      await dispatchNotification({
+        category: "billing",
+        type: "system_alert",
+        title: "Company subscription created",
+        body: `${companyName} subscription was created and is awaiting payment review.`,
+        priority: "normal",
+        recipientUserId: adminUserId,
+        targetRole: "tenant_admin",
+        senderUserId: await getAuthenticatedSessionUserId(req) || undefined,
+        actionUrl: `/subscriptions/${result.subscription.id}`,
+        actionText: "View subscription",
+        relatedEntityType: "subscription",
+        relatedEntityId: result.subscription.id,
+        metadata: { workflowDomain: "subscription", companyId: result.company.id, invoiceId: result.invoice.id },
       });
 
       return NextResponse.json({ success: true, data: result }, { status: 201 });

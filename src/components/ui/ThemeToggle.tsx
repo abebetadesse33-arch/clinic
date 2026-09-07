@@ -26,7 +26,7 @@ export default function ThemeToggle() {
         title="Dark Mode"
         className={`p-1.5 rounded-full transition-all ${
           theme === "dark"
-            ? "bg-slate-900 text-teal-400 shadow-sm"
+            ? "bg-sky-950 text-sky-300 shadow-sm"
             : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         }`}
       >
@@ -38,7 +38,7 @@ export default function ThemeToggle() {
         title="Clinical High-Contrast Mode"
         className={`p-1.5 rounded-full transition-all ${
           theme === "contrast"
-            ? "bg-emerald-600 text-white shadow-sm"
+            ? "bg-cyan-600 text-white shadow-sm"
             : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
         }`}
       >

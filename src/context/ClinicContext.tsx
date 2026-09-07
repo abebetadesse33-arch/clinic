@@ -170,6 +170,7 @@ export const SYSTEM_ROLE_PROFILES: Record<Role, User> = {
 interface ClinicContextType {
   currentUser: User;
   authenticatedSessionId: string | null;
+  authResolved: boolean;
   currentRole: Role;
   setCurrentRole: (role: Role) => void;
   isAuthenticated: boolean;
@@ -243,6 +244,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRoleState] = useState<Role>("guest");
   const [currentUser, setCurrentUser] = useState<User>(GUEST_USER);
   const [authenticatedSessionId, setAuthenticatedSessionId] = useState<string | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
@@ -515,8 +517,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
           setAuthenticatedSessionId(null);
           setCurrentUser(GUEST_USER);
         }
+        setAuthResolved(true);
       })
-      .catch(() => { });
+      .catch(() => {
+        setAuthResolved(true);
+      });
 
     // 2. Synchronize real-time clinical database state
     refreshData();
@@ -964,6 +969,7 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
       value={{
         currentUser,
         authenticatedSessionId,
+        authResolved,
         currentRole,
         setCurrentRole,
         isAuthenticated,

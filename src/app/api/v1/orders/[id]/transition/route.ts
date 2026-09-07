@@ -7,6 +7,7 @@ import { validateStateTransition } from "@/lib/workflow/order-state-machine";
 import { captureOrderCharge } from "@/lib/billing/order-charge-capture";
 import { queueOrderOutboxEvent } from "@/lib/workflow/outbox-worker";
 import { createTamperEvidentAuditLog } from "@/lib/security/tenant-guard";
+import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -120,6 +121,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         },
         tx
       );
+
+      await dispatchParticipantNotification({
+        patientId: order.patientId,
+        category: "orders",
+        type: "order_placed",
+        title: `Order ${nextStatus.replace(/_/g, " ")}`,
+        body: `Order ${order.id.slice(0, 8)} changed from ${order.status.replace(/_/g, " ")} to ${nextStatus.replace(/_/g, " ")}.${reason ? ` Note: ${reason}` : ""}`,
+        priority: isCritical || nextStatus === "cancelled" ? "high" : "normal",
+        senderUserId: sessionUserId,
+        actionUrl: `/clinical/orders?orderId=${order.id}`,
+        actionText: "Review order",
+        relatedEntityType: "clinical_order",
+        relatedEntityId: order.id,
+        metadata: {
+          workflowDomain: "order",
+          previousStatus: order.status,
+          nextStatus,
+          encounterId: order.encounterId,
+          isCritical,
+          updatedByUserId: sessionUserId,
+        },
+      });
 
       return NextResponse.json({
         success: true,

@@ -11,7 +11,7 @@ import ClinicalAiCopilot from "../components/ui/ClinicalAiCopilot";
 import AppFooter from "../components/layout/AppFooter";
 
 export const viewport: Viewport = {
-  themeColor: "#005C4B",
+  themeColor: "#075985",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,

@@ -24,58 +24,58 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
 
-        // One Medical Brand Palette
+        // Professional clinical blue palette
         brand: {
-          dark: "#0B3B32",      // Deep clinical forest green
-          primary: "#005C4B",   // Signature actionable green
-          hover: "#08493B",     // Deep hover green
-          medium: "#0D7460",    // Medium forest tone
-          light: "#E8F4F0",     // Soft mint tint for pills & highlights
-          muted: "#F0F7F4",     // Ultra light background mint
+          dark: "#12304A",
+          primary: "#075985",
+          hover: "#0C4A6E",
+          medium: "#0369A1",
+          light: "#E0F2FE",
+          muted: "#F0F9FF",
         },
 
-        // Warm Canvas & Surface System
+        // Cool canvas and surface system
         canvas: {
-          cream: "#FAF8F5",     // Signature warm organic ivory background
-          subtle: "#F2EFE9",    // Warm border and subtle card fill
-          white: "#FFFFFF",     // Crisp card surface
-          dark: "#090F0D",      // Deep night mode canvas
+          cream: "#F5FAFF",
+          subtle: "#EAF4FB",
+          white: "#FFFFFF",
+          dark: "#071521",
         },
 
         // Human-Centered Healthcare Accents
         accent: {
-          terracotta: "#D96B43", // Warm coral/terracotta for alerts & badges
-          terracottaLight: "#FBECE7",
-          gold: "#E5A93C",       // Membership & ratings accent
-          goldLight: "#FEF7E6",
-          sage: "#7C9D8E",       // Soft botanical green
-          sageLight: "#EEF3F0",
-          sky: "#3B82F6",
-          skyLight: "#EFF6FF",
+          terracotta: "#C2410C",
+          terracottaLight: "#FFF7ED",
+          gold: "#B7791F",
+          goldLight: "#FFFBEB",
+          sage: "#4D7C74",
+          sageLight: "#ECFDF5",
+          sky: "#0284C7",
+          skyLight: "#E0F2FE",
         },
 
         // High Legibility Text System
         text: {
-          heading: "#162E27",   // Deep dark spruce heading
-          body: "#33413C",      // Readable soft charcoal
-          muted: "#687B74",     // Secondary metadata
-          subtle: "#9BAAA3",    // Placeholders and hints
+          heading: "#16324F",
+          body: "#334E68",
+          muted: "#58738A",
+          subtle: "#8AA2B5",
         },
 
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#f0fdfa",
-          100: "#ccfbf1",
-          200: "#99f6e4",
-          300: "#5eead4",
-          400: "#2dd4bf",
-          500: "#14b8a6",
-          600: "#0d9488",
-          700: "#0f766e",
-          800: "#115e59",
-          900: "#134e4a",
-          950: "#042f2e",
+          50: "#f0f9ff",
+          100: "#e0f2fe",
+          200: "#bae6fd",
+          300: "#7dd3fc",
+          400: "#38bdf8",
+          500: "#0ea5e9",
+          600: "#0284c7",
+          700: "#0369a1",
+          800: "#075985",
+          900: "#0c4a6e",
+          950: "#082f49",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -98,12 +98,12 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
         clinical: {
-          navy: "#0a192f",
-          dark: "#0f172a",
-          card: "#1e293b",
+          navy: "#12304A",
+          dark: "#0F2538",
+          card: "#17364F",
           cardLight: "#ffffff",
-          cyan: "#06b6d4",
-          blue: "#3b82f6",
+          cyan: "#0891B2",
+          blue: "#0284C7",
           emerald: "#10b981",
           amber: "#f59e0b",
           rose: "#f43f5e",

@@ -1,5 +1,12 @@
 import { db } from "@/db";
-import { notifications, users, telegramIntegrations, notificationPrivileges } from "@/db/schema";
+import {
+  notifications,
+  users,
+  patients,
+  careTeamMembers,
+  telegramIntegrations,
+  notificationPrivileges,
+} from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { sendTelegramNotification } from "./telegram-notifier";
 import { EventEmitter } from "events";
@@ -21,6 +28,9 @@ export interface NotificationDispatchPayload {
   actionUrl?: string;
   actionText?: string;
   recipientUserId?: string;
+  recipientUserIds?: string[];
+  participantPatientId?: string;
+  excludeUserIds?: string[];
   targetRole?: string;
   targetDepartment?: string;
   senderUserId?: string;
@@ -57,6 +67,32 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
       recipientUserIds.push(payload.recipientUserId);
     }
 
+    if (payload.recipientUserIds) {
+      payload.recipientUserIds
+        .filter((id) => id.length === 36)
+        .forEach((id) => {
+          if (!recipientUserIds.includes(id)) recipientUserIds.push(id);
+        });
+    }
+
+    if (payload.participantPatientId && payload.participantPatientId.length === 36) {
+      const [patient] = await db
+        .select({ userId: patients.userId, primaryDoctorId: patients.primaryDoctorId })
+        .from(patients)
+        .where(eq(patients.id, payload.participantPatientId))
+        .limit(1);
+
+      if (patient?.userId) recipientUserIds.push(patient.userId);
+      if (patient?.primaryDoctorId) recipientUserIds.push(patient.primaryDoctorId);
+
+      const careTeam = await db
+        .select({ userId: careTeamMembers.userId })
+        .from(careTeamMembers)
+        .where(eq(careTeamMembers.patientId, payload.participantPatientId));
+
+      careTeam.forEach(({ userId }) => recipientUserIds.push(userId));
+    }
+
     if (payload.targetRole) {
       // Check if this category is enabled for this role in notification_privileges
       const [priv] = await db
@@ -89,6 +125,12 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
         }
       });
     }
+
+    const excluded = new Set(payload.excludeUserIds || []);
+    if (payload.senderUserId) excluded.add(payload.senderUserId);
+    const uniqueRecipientUserIds = Array.from(new Set(recipientUserIds)).filter((id) => !excluded.has(id));
+    recipientUserIds.length = 0;
+    recipientUserIds.push(...uniqueRecipientUserIds);
 
     // Safety check: Prevent State Leaks by NEVER defaulting to a random/newest user in the database.
     // If no recipients resolved, route exclusively to system_admin role if available.
@@ -154,6 +196,9 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
           priority: priority,
           actionUrl,
           actionText,
+          relatedEntityType: payload.relatedEntityType,
+          relatedEntityId: payload.relatedEntityId,
+          metadata: payload.metadata || {},
           createdAt: new Date().toISOString(),
         });
       }
@@ -201,4 +246,17 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
     console.error("[NotificationService] Dispatch error:", err);
     return { success: false, recipientCount: 0, telegramCount: 0, notificationIds: [] };
   }
+}
+
+export async function dispatchParticipantNotification(
+  payload: Omit<NotificationDispatchPayload, "participantPatientId" | "recipientUserIds"> & {
+    patientId: string;
+    recipientUserIds?: string[];
+  }
+) {
+  return dispatchNotification({
+    ...payload,
+    participantPatientId: payload.patientId,
+    recipientUserIds: payload.recipientUserIds,
+  });
 }

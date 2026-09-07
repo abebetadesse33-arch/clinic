@@ -18,14 +18,29 @@ import {
   QrCode,
   Smartphone,
   RefreshCw,
+  Stethoscope,
+  ArrowLeft,
 } from "lucide-react";
+
+function getSafeReturnPath(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/patient/dashboard";
+  }
+  return value;
+}
+
+function getDestinationLabel(path: string): string {
+  if (path.startsWith("/services/virtual-urgent-care/triage")) return "Virtual urgent care triage";
+  if (path.startsWith("/patient/")) return "your patient workspace";
+  return "your requested care workspace";
+}
 
 export default function SignInPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-teal-400 animate-spin" />
+        <div className="min-h-screen bg-[#071521] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-sky-300 animate-spin" />
         </div>
       }
     >
@@ -38,7 +53,8 @@ function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useClinic();
-  const returnTo = searchParams.get("redirect") || "/patient/dashboard";
+  const returnTo = getSafeReturnPath(searchParams.get("redirect"));
+  const destinationLabel = getDestinationLabel(returnTo);
 
   const [loginMethod, setLoginMethod] = useState<"password" | "qr_scan">("password");
   const [identifier, setIdentifier] = useState("");
@@ -95,12 +111,8 @@ function SignInContent() {
           setTimeout(() => {
             const destination =
               json.redirectTo && json.redirectTo !== "/"
-                ? json.redirectTo
-                : returnTo && returnTo.startsWith("/")
-                  ? returnTo
-                  : json.user?.role === "patient"
-                    ? "/patient/dashboard"
-                    : "/";
+                ? getSafeReturnPath(json.redirectTo)
+                : returnTo || (json.user?.role === "patient" ? "/patient/dashboard" : "/");
             router.push(destination);
           }, 800);
         } else if (json.status === "expired") {
@@ -146,18 +158,14 @@ function SignInContent() {
         return;
       }
 
-      setSuccessMsg(`Welcome, ${data.user.fullName}. Redirecting to your dashboard...`);
+      setSuccessMsg(`Welcome, ${data.user.fullName}. Redirecting to ${destinationLabel}...`);
       login(data.user);
 
       setTimeout(() => {
         const destination =
           data.redirectTo && data.redirectTo !== "/"
-            ? data.redirectTo
-            : returnTo && returnTo.startsWith("/")
-              ? returnTo
-              : data.user.role === "patient"
-                ? "/patient/dashboard"
-                : "/";
+            ? getSafeReturnPath(data.redirectTo)
+            : returnTo || (data.user.role === "patient" ? "/patient/dashboard" : "/");
         router.push(destination);
       }, 600);
     } catch {
@@ -171,21 +179,29 @@ function SignInContent() {
       <div className="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         <div className="lg:col-span-5 space-y-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs font-bold uppercase tracking-wider">
-              <ShieldCheck className="w-4 h-4 text-teal-400" />
-              Secure Patient Portal
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-400/10 border border-sky-300/25 text-sky-200 text-xs font-bold uppercase tracking-wider">
+              <ShieldCheck className="w-4 h-4 text-sky-300" />
+              Secure clinical access
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight leading-tight">
-              NiniMed <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-300">Access</span>
+              Continue to <span className="text-sky-300">NiniMed</span>
             </h1>
             <p className="text-sm text-slate-400 leading-relaxed">
-              Access your patient records, digital card, and care workflow through one secure sign-in.
+              Sign in once to continue safely to {destinationLabel}, with your care history and clinical context protected.
             </p>
           </div>
 
+          <div className="flex items-start gap-3 rounded-2xl border border-sky-300/20 bg-sky-400/10 p-4">
+            <Stethoscope className="mt-0.5 h-5 w-5 shrink-0 text-sky-300" />
+            <div>
+              <p className="text-xs font-bold text-sky-100">You are on your way to {destinationLabel}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-sky-100/65">Your return path is preserved after authentication.</p>
+            </div>
+          </div>
+
           <div className="space-y-2.5 pt-2">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-              <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0d2233]/75 border border-sky-200/10">
+              <div className="w-8 h-8 rounded-lg bg-sky-400/10 border border-sky-300/20 flex items-center justify-center text-sky-300">
                 <Lock className="w-4 h-4" />
               </div>
               <div>
@@ -194,8 +210,8 @@ function SignInContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0d2233]/75 border border-sky-200/10">
+              <div className="w-8 h-8 rounded-lg bg-cyan-400/10 border border-cyan-300/20 flex items-center justify-center text-cyan-300">
                 <Sparkles className="w-4 h-4" />
               </div>
               <div>
@@ -207,19 +223,24 @@ function SignInContent() {
         </div>
 
         <div className="lg:col-span-7">
-          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800/90 bg-slate-900/90 backdrop-blur-2xl shadow-2xl space-y-6">
+          <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-sky-200/15 bg-[#0c2031]/95 backdrop-blur-2xl shadow-2xl shadow-sky-950/30 space-y-6">
             <div>
-              <h2 className="text-xl font-extrabold text-white">Sign In to Your Account</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-extrabold text-white">Sign in securely</h2>
+                <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> Protected session
+                </span>
+              </div>
               <p className="text-xs text-slate-400 mt-1">Use your registered email, phone number, or National ID.</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-950 border border-slate-800 text-xs font-bold">
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[#071521] border border-sky-200/10 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setLoginMethod("password")}
                 className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 ${
                   loginMethod === "password"
-                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm"
+                    ? "bg-sky-400/15 text-sky-200 border border-sky-300/35 shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -231,7 +252,7 @@ function SignInContent() {
                 onClick={() => setLoginMethod("qr_scan")}
                 className={`py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 ${
                   loginMethod === "qr_scan"
-                    ? "bg-teal-500/20 text-teal-300 border border-teal-500/40 shadow-sm"
+                    ? "bg-sky-400/15 text-sky-200 border border-sky-300/35 shadow-sm"
                     : "text-slate-400 hover:text-white"
                 }`}
               >
@@ -302,7 +323,7 @@ function SignInContent() {
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       placeholder="name@example.com or +251... or FIN-..."
-                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-teal-400 transition-colors"
+                      className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#071521] border border-sky-200/15 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/15 transition-colors"
                     />
                   </div>
                 </div>
@@ -320,7 +341,7 @@ function SignInContent() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-teal-400 transition-colors"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-[#071521] border border-sky-200/15 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-300/15 transition-colors"
                     />
                     <button
                       type="button"
@@ -347,7 +368,7 @@ function SignInContent() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20 transition-all disabled:opacity-50"
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-400 to-cyan-400 hover:from-sky-300 hover:to-cyan-300 text-sky-950 font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition-all disabled:opacity-50"
                 >
                   {isLoading ? (
                     <>
@@ -366,10 +387,10 @@ function SignInContent() {
 
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
               <div>
-                New to NiniMed? <Link href="/signup" className="text-teal-400 font-bold hover:text-teal-300">Create patient account</Link>
+                New to NiniMed? <Link href={`/signup?redirect=${encodeURIComponent(returnTo)}`} className="text-sky-300 font-bold hover:text-sky-200">Create patient account</Link>
               </div>
               <div className="text-[11px] text-slate-400">
-                Need immediate intake? <Link href="/register" className="text-cyan-400 font-bold hover:underline">Patient Intake →</Link>
+                Need immediate intake? <Link href={`/register?redirect=${encodeURIComponent(returnTo)}`} className="text-cyan-300 font-bold hover:underline">Patient Intake →</Link>
               </div>
             </div>
           </div>
