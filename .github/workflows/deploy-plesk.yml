@@ -78,6 +78,10 @@ jobs:
           PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
         run: |
           set -Eeuo pipefail
+          echo "Resolving ${PLESK_HOST}..."
+          resolved_ip=$(getent hosts "$PLESK_HOST" | awk '{ print $1 }' | head -n1 || echo "$PLESK_HOST")
+          echo "Host ${PLESK_HOST} resolved to IP: ${resolved_ip}"
+
           echo "Checking TCP connectivity to ${PLESK_HOST}:${PLESK_SSH_PORT}..."
           if ! timeout 20s bash -c "</dev/tcp/${PLESK_HOST}/${PLESK_SSH_PORT}" 2>/dev/null; then
             echo "ERROR: Cannot reach ${PLESK_HOST}:${PLESK_SSH_PORT} from the GitHub runner." >&2
@@ -88,6 +92,26 @@ jobs:
             exit 1
           fi
           echo "TCP connection to ${PLESK_HOST}:${PLESK_SSH_PORT} succeeded."
+
+          echo "Probing SSH identification banner..."
+          banner=$(echo "" | timeout 5s nc -w 5 "$PLESK_HOST" "$PLESK_SSH_PORT" 2>/dev/null || true)
+          if [ -n "$banner" ]; then
+            echo "SSH Banner received: $banner"
+          else
+            echo "----------------------------------------------------------------------------------"
+            echo "WARNING: Port is open, but NO SSH identification banner was returned within 5s!"
+            echo "Root cause diagnosis:"
+            echo "  A) CLOUDFLARE PROXY (Most Common):"
+            echo "     If '${PLESK_HOST}' is managed by Cloudflare with the proxy (orange cloud) ON,"
+            echo "     port 22 hits Cloudflare's HTTP edge proxy, which will NEVER send an SSH banner!"
+            echo "     -> FIX: In GitHub Secrets, set PLESK_HOST to your server's direct IPv4 address."
+            echo "  B) UseDNS DELAY:"
+            echo "     sshd delays sending the banner while doing reverse DNS on the runner IP."
+            echo "     -> FIX: On the server run 'echo UseDNS no >> /etc/ssh/sshd_config && systemctl restart sshd'."
+            echo "  C) WRONG PORT OR FORBIDDEN USER:"
+            echo "     Plesk subscription user SSH access is disabled in Plesk > Web Hosting Access."
+            echo "----------------------------------------------------------------------------------"
+          fi
 
       - name: Upload and release package on Plesk
         shell: bash

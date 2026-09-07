@@ -1,0 +1,52 @@
+name: Deploy to Plesk via FTPS (Bypasses SSH Port 22 / Banner Timeout)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy-ftps:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Next.js standalone application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+      - name: Assemble deployment package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -rf release
+          mkdir -p release/.next/static release/tmp
+
+          # Copy standalone server and static assets
+          cp -R .next/standalone/. release/
+          cp -R .next/static release/.next/static
+          cp -R public release/public
+          
+          # Touch restart.txt so Phusion Passenger automatically reloads on upload
+          touch release/tmp/restart.txt
+
+      - name: Deploy to Plesk via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.PLESK_HOST }}
+          username: ${{ secrets.PLESK_USERNAME }}
+          password: ${{ secrets.PLESK_PASSWORD }}
+          server-dir: ${{ secrets.PLESK_DEPLOY_PATH }}/
+          local-dir: ./release/
+          protocol: ftps
+          dangerous-clean-slate: false
