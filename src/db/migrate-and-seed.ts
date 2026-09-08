@@ -2017,11 +2017,50 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
           position INT DEFAULT 1 NOT NULL,
           priority TEXT DEFAULT 'routine' NOT NULL,
           status TEXT DEFAULT 'waiting' NOT NULL,
+          queue_number TEXT,
+          service_point TEXT,
+          department TEXT,
+          called_by_user_id UUID REFERENCES users(id),
           called_at TIMESTAMP,
           started_at TIMESTAMP,
           completed_at TIMESTAMP,
           estimated_wait_minutes INT DEFAULT 5,
           metadata JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+
+      -- Migrations for queue_entries
+      ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS queue_number TEXT;
+      ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS service_point TEXT;
+      ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS department TEXT;
+      ALTER TABLE queue_entries ADD COLUMN IF NOT EXISTS called_by_user_id UUID REFERENCES users(id);
+
+      -- Waiting Room TV Displays & Digital Signage
+      CREATE TABLE IF NOT EXISTS waiting_room_displays (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          location TEXT,
+          display_token TEXT UNIQUE,
+          is_active BOOLEAN DEFAULT TRUE NOT NULL,
+          settings JSONB DEFAULT '{"displayMode":"rotation","rotationIntervalSeconds":20,"enabledScreens":{"nowServing":true,"queueStatus":true,"availableStaff":true,"announcements":true},"departmentFilter":[],"audioEnabled":true,"audioVoice":"en","audioVolume":80,"theme":"dark"}',
+          last_heartbeat_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS display_announcements (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+          display_id UUID REFERENCES waiting_room_displays(id) ON DELETE CASCADE,
+          message TEXT NOT NULL,
+          type TEXT DEFAULT 'info' NOT NULL,
+          audience TEXT DEFAULT 'all' NOT NULL,
+          is_active BOOLEAN DEFAULT TRUE NOT NULL,
+          starts_at TIMESTAMP,
+          ends_at TIMESTAMP,
+          created_by UUID REFERENCES users(id),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );

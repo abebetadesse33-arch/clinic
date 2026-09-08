@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-export const SYSTEM_ROLES = [
+const SYSTEM_ROLES = [
   "physician",
   "nurse",
   "pharmacist",
@@ -18,7 +18,7 @@ export const SYSTEM_ROLES = [
   "system_admin",
 ];
 
-export const NOTIFICATION_CATEGORIES = [
+const NOTIFICATION_CATEGORIES = [
   { id: "appointments", label: "Appointments & Treat Me Now", description: "Booking, cancellation, waitlist tokens, telehealth queues" },
   { id: "orders", label: "Clinical Orders & Diagnostics", description: "Laboratory requests, e-prescriptions, ward referrals, imaging" },
   { id: "billing", label: "Payments & Invoicing", description: "Waiting payments, invoice creation, payment confirmations & receipts" },

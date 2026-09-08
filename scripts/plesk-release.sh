@@ -31,12 +31,20 @@ ln -sfn "${deploy_path}/current/.next" "${deploy_path}/.next"
 ln -sfn "${deploy_path}/current/public" "${deploy_path}/public"
 ln -sfn "${deploy_path}/current/node_modules" "${deploy_path}/node_modules"
 
+# Ensure server.js is also available at root if Plesk Application Root is set to document root
+cp -f "${release_dir}/server.js" "${deploy_path}/server.js" 2>/dev/null || true
+
+# Preserve .env file across releases if present in parent deployment directory
+if [ -f "${deploy_path}/.env" ]; then
+  cp -f "${deploy_path}/.env" "${release_dir}/.env" 2>/dev/null || true
+fi
+
 find "${deploy_path}/releases" -mindepth 1 -maxdepth 1 -type d ! -name "$release_id" -exec rm -rf {} +
 
 # Phusion Passenger (Plesk Node.js engine) restarts when tmp/restart.txt is updated.
-# This works reliably for non-root subscription users without requiring PSA CLI sudo rights.
-mkdir -p "${deploy_path}/tmp" "${deploy_path}/current/tmp"
-touch "${deploy_path}/tmp/restart.txt" "${deploy_path}/current/tmp/restart.txt"
+mkdir -p "${deploy_path}/tmp" "${deploy_path}/current/tmp" "${release_dir}/tmp"
+touch "${deploy_path}/tmp/restart.txt" "${deploy_path}/current/tmp/restart.txt" "${release_dir}/tmp/restart.txt"
+chmod -R u+rwX,go+rX "${release_dir}" "${deploy_path}/current" "${deploy_path}/tmp" 2>/dev/null || true
 printf 'Touched tmp/restart.txt to signal Phusion Passenger restart.\n'
 
 # If the Plesk CLI is available and the user has permissions, also issue a CLI restart
