@@ -34,7 +34,10 @@ jobs:
           if [ -n "${PLESK_HOST:-}" ]; then
             CLEAN_HOST=$(echo "$PLESK_HOST" | sed -E 's|^[a-zA-Z]+://||' | sed -E 's|:[0-9]+$||' | sed -E 's|/.*$||' | xargs)
             echo "PLESK_CLEAN_HOST=${CLEAN_HOST}" >> "$GITHUB_ENV"
+            echo "PLESK_HOST=${CLEAN_HOST}" >> "$GITHUB_ENV"
           fi
+          SSH_PORT="${PLESK_SSH_PORT:-22}"
+          echo "PLESK_SSH_PORT=${SSH_PORT}" >> "$GITHUB_ENV"
 
           if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
             echo "PLESK_WEBHOOK_URL is configured for instant HTTPS Zero-SSH deployment."
@@ -52,7 +55,7 @@ jobs:
             printf 'Missing GitHub Actions secret(s): %s\n' "${missing[*]}"
             exit 1
           fi
-          [[ "${PLESK_SSH_PORT:-22}" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
+          [[ "${SSH_PORT}" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
           echo "Plesk deployment configuration validated."
 
       - name: Set up Bun
@@ -94,13 +97,10 @@ jobs:
 
       - name: Discover active Plesk endpoints (SSH, FTPS, Webhook)
         shell: bash
-        env:
-          PLESK_HOST: ${{ env.PLESK_CLEAN_HOST || secrets.PLESK_HOST }}
-          PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
         run: |
           set -Eeuo pipefail
 
-          RAW_HOST="${PLESK_HOST}"
+          RAW_HOST="${PLESK_CLEAN_HOST:-${PLESK_HOST:-}}"
           CLEAN_HOST=$(echo "$RAW_HOST" | sed -E 's|^[a-zA-Z]+://||' | sed -E 's|:[0-9]+$||' | sed -E 's|/.*$||' | xargs)
           echo "Target Host: ${CLEAN_HOST}"
 
@@ -121,7 +121,7 @@ jobs:
 
           # 1. Probe SSH daemons
           echo "--- Probing SSH endpoints ---"
-          PORTS_TO_CHECK=("${PLESK_SSH_PORT}" 22 2222 2200 22222 10022)
+          PORTS_TO_CHECK=("${PLESK_SSH_PORT:-22}" 22 2222 2200 22222 10022)
           UNIQUE_PORTS=($(echo "${PORTS_TO_CHECK[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
 
           for host in "${CANDIDATES[@]}"; do
@@ -155,14 +155,14 @@ jobs:
           echo "PLESK_ACTIVE_HOST=${ACTIVE_SSH_HOST}" >> "$GITHUB_ENV"
           echo "PLESK_ACTIVE_PORT=${ACTIVE_SSH_PORT}" >> "$GITHUB_ENV"
           echo "PLESK_ACTIVE_FTP_HOST=${ACTIVE_FTP_HOST}" >> "$GITHUB_ENV"
+          echo "PLESK_HOST=${ACTIVE_SSH_HOST}" >> "$GITHUB_ENV"
+          echo "PLESK_PORT=${ACTIVE_SSH_PORT}" >> "$GITHUB_ENV"
+          echo "PLESK_FTP_HOST=${ACTIVE_FTP_HOST}" >> "$GITHUB_ENV"
           echo "Discovered SSH: ${ACTIVE_SSH_HOST}:${ACTIVE_SSH_PORT} | FTP: ${ACTIVE_FTP_HOST}:21"
 
       - name: Deploy package to Live Plesk
         shell: bash
         env:
-          PLESK_HOST: ${{ env.PLESK_ACTIVE_HOST || secrets.PLESK_HOST }}
-          PLESK_FTP_HOST: ${{ env.PLESK_ACTIVE_FTP_HOST || secrets.PLESK_HOST }}
-          PLESK_PORT: ${{ env.PLESK_ACTIVE_PORT || secrets.PLESK_SSH_PORT || '22' }}
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
           PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
