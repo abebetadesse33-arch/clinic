@@ -39,6 +39,7 @@ fi
 if [ -f ".next/standalone/server.js" ]; then
   echo "Syncing standalone server files..."
   cp -f .next/standalone/server.js ./server.js 2>/dev/null || true
+  cp -f .next/standalone/server.js ./app.js 2>/dev/null || true
   mkdir -p .next/standalone/.next
   cp -rn .next/static .next/standalone/.next/ 2>/dev/null || true
   cp -rn public .next/standalone/ 2>/dev/null || true
