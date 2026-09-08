@@ -2021,6 +2021,12 @@ export const patientRegistrationPasses = pgTable("patient_registration_passes", 
 export const systemPaymentSettings = pgTable("system_payment_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
   globalFreeMode: boolean("global_free_mode").default(false).notNull(),
+  billingModel: varchar("billing_model", { length: 32 }).default("hybrid").notNull(), // 'unified_encounter_tab' | 'per_order_gate' | 'hybrid'
+  defaultDepositAmountEtb: decimal("default_deposit_amount_etb", { precision: 10, scale: 2 }).default("2500.00").notNull(),
+  enablePoCQRPayments: boolean("enable_poc_qr_payments").default(true).notNull(),
+  allowPharmacyEmergencyBypass: boolean("allow_pharmacy_emergency_bypass").default(true).notNull(),
+  softGateLabCollection: boolean("soft_gate_lab_collection").default(true).notNull(),
+  softGatePharmacyReview: boolean("soft_gate_pharmacy_review").default(true).notNull(),
   registrationValidityDays: integer("registration_validity_days").default(90).notNull(),
   gracePeriodDays: integer("grace_period_days").default(7).notNull(),
   allowCashReconciliation: boolean("allow_cash_reconciliation").default(true).notNull(),
@@ -2034,6 +2040,27 @@ export const systemPaymentSettings = pgTable("system_payment_settings", {
     emergencyOverride: ["system_admin", "tenant_admin", "physician"],
     cashCollection: ["system_admin", "tenant_admin", "pharmacist", "nurse", "cashier"],
   }).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// 4B. Unified Encounter Tabs (Running Tab & Discharge Reconciliation)
+export const encounterTabs = pgTable("encounter_tabs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tenantId: uuid("tenant_id").references(() => organizations.id).default("00000000-0000-0000-0000-000000000001").notNull(),
+  encounterId: uuid("encounter_id").references(() => encounters.id, { onDelete: "cascade" }).notNull(),
+  patientId: uuid("patient_id").references(() => patients.id, { onDelete: "cascade" }).notNull(),
+  status: text("status", { enum: ["active", "settled", "refunded"] }).default("active").notNull(),
+  depositAmountEtb: decimal("deposit_amount_etb", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  depositMethod: text("deposit_method").default("cash").notNull(), // telebirr, cbe_birr, chapa_card, cash, insurance
+  depositTxRef: text("deposit_tx_ref"),
+  totalChargesEtb: decimal("total_charges_etb", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  balanceDueEtb: decimal("balance_due_etb", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  refundDueEtb: decimal("refund_due_etb", { precision: 12, scale: 2 }).default("0.00").notNull(),
+  chargesList: jsonb("charges_list").default([]).notNull(),
+  settledAt: timestamp("settled_at"),
+  settledBy: uuid("settled_by").references(() => users.id),
+  settlementNotes: text("settlement_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

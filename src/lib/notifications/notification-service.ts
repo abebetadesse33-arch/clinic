@@ -3,6 +3,7 @@ import {
   notifications,
   users,
   patients,
+  careTeams,
   careTeamMembers,
   telegramIntegrations,
   notificationPrivileges,
@@ -87,8 +88,9 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
 
       const careTeam = await db
         .select({ userId: careTeamMembers.userId })
-        .from(careTeamMembers)
-        .where(eq(careTeamMembers.patientId, payload.participantPatientId));
+        .from(careTeams)
+        .innerJoin(careTeamMembers, eq(careTeams.id, careTeamMembers.careTeamId))
+        .where(eq(careTeams.patientId, payload.participantPatientId));
 
       careTeam.forEach(({ userId }) => recipientUserIds.push(userId));
     }

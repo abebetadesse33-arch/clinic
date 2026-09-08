@@ -8,6 +8,7 @@ import {
   ArrowRight,
   AlertCircle,
   Loader2,
+  Activity,
 } from "lucide-react";
 import SymptomAssessment, { SymptomAssessmentData } from "@/components/treat-me-now/SymptomAssessment";
 import TriageResultView from "@/components/treat-me-now/TriageResult";

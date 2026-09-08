@@ -143,7 +143,7 @@ export async function seedDemoAccounts(client: postgres.Sql) {
 
     await client`
       INSERT INTO patients (tenant_id, user_id, mrn, first_name, last_name, date_of_birth, gender, blood_type, email, triage_priority)
-      VALUES (${TENANT_ID}, ${userId}, ${`DEMO-${String(index + 1).padStart(5, "0")}`}, ${firstName}, ${lastName}, ${dateOfBirth(age)}, ${gender}, 'O+', ${accountEmail}, 'routine')
+      VALUES (${TENANT_ID}, ${userId ?? null}, ${`DEMO-${String(index + 1).padStart(5, "0")}`}, ${firstName}, ${lastName}, ${dateOfBirth(age)}, ${gender}, 'O+', ${accountEmail}, 'routine')
       ON CONFLICT (mrn) DO UPDATE SET user_id = EXCLUDED.user_id, first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, date_of_birth = EXCLUDED.date_of_birth, gender = EXCLUDED.gender, email = EXCLUDED.email
     `;
   }

@@ -21,6 +21,9 @@ import {
   Banknote,
   Smartphone,
   Building2,
+  Wallet,
+  QrCode,
+  Check,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -70,6 +73,7 @@ interface Props {
   patientMrn: string;
   department: "laboratory" | "pharmacy" | "combined";
   doctorId?: string;
+  encounterId?: string;
   /** Pre-loaded items from a clinical order */
   prefillLabTests?: LabTestEntry[];
   prefillMedications?: MedicationEntry[];
@@ -94,12 +98,34 @@ export default function LabPharmacyPaymentPanel({
   patientMrn,
   department,
   doctorId,
+  encounterId,
   prefillLabTests = [],
   prefillMedications = [],
   onPaymentComplete,
   onClose,
 }: Props) {
   const [step, setStep] = useState<"compose" | "quote" | "pay" | "done">("compose");
+
+  // Encounter Tab state
+  const [activeTab, setActiveTab] = useState<{
+    id: string;
+    depositAmountEtb: number;
+    runningTotalEtb: number;
+    balanceDueEtb: number;
+    status: string;
+  } | null>(null);
+  const [useEncounterTab, setUseEncounterTab] = useState(false);
+  const [isLoadingTab, setIsLoadingTab] = useState(false);
+
+  // PoC QR state
+  const [pocQr, setPocQr] = useState<{
+    qrCodeDataUrl: string;
+    provider: string;
+    accountReference: string;
+    amount: number;
+    instructions: string;
+  } | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(false);
 
   // Compose step
   const [labTests, setLabTests] = useState<LabTestEntry[]>(
@@ -131,6 +157,53 @@ export default function LabPharmacyPaymentPanel({
   // Done
   const [finalRef, setFinalRef] = useState("");
   const [notified, setNotified] = useState(0);
+
+  // Check for active Encounter Tab
+  useEffect(() => {
+    async function checkTab() {
+      if (!encounterId && !patientId) return;
+      setIsLoadingTab(true);
+      try {
+        const query = encounterId ? `encounterId=${encounterId}` : `patientId=${patientId}`;
+        const res = await fetch(`/api/v1/billing/encounter-tab?${query}`);
+        const data = await res.json();
+        if (data.success && data.tab && data.tab.status === "active") {
+          setActiveTab(data.tab);
+          setUseEncounterTab(true); // Default to active encounter tab if available!
+        }
+      } catch (err) {
+        console.error("Failed to fetch encounter tab:", err);
+      } finally {
+        setIsLoadingTab(false);
+      }
+    }
+    checkTab();
+  }, [encounterId, patientId]);
+
+  // Fetch Point-of-Care QR code when in pay step with mobile payment
+  useEffect(() => {
+    async function fetchQr() {
+      if (step !== "pay" || !quote || (paymentMethod !== "telebirr" && paymentMethod !== "cbe_birr") || useEncounterTab) {
+        setPocQr(null);
+        return;
+      }
+      setIsLoadingQr(true);
+      try {
+        const res = await fetch(
+          `/api/v1/payments/poc-qr?provider=${paymentMethod}&amount=${quote.totalAmountEtb}&patientMrn=${patientMrn}&orderId=${quote.invoiceId}&department=${department}`
+        );
+        const data = await res.json();
+        if (data.success && data.data) {
+          setPocQr(data.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch PoC QR:", err);
+      } finally {
+        setIsLoadingQr(false);
+      }
+    }
+    fetchQr();
+  }, [step, quote, paymentMethod, patientMrn, department, useEncounterTab]);
 
   // ── Compose Helpers ──────────────────────────────────────────────────────
 
@@ -199,13 +272,16 @@ export default function LabPharmacyPaymentPanel({
     setPayError(null);
 
     try {
+      const selectedMethod = useEncounterTab ? "encounter_tab" : paymentMethod;
       const res = await fetch("/api/v1/billing/pay-and-notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           invoiceId: quote.invoiceId,
-          paymentMethod,
-          transactionRef: transactionRef.trim() || undefined,
+          paymentMethod: selectedMethod,
+          transactionRef: useEncounterTab
+            ? `TAB-CHG-${quote.invoiceNumber}`
+            : (transactionRef.trim() || undefined),
         }),
       });
       const data = await res.json();
@@ -532,47 +608,118 @@ export default function LabPharmacyPaymentPanel({
             <p className="text-xs text-slate-400 mt-0.5">Total due: <strong className="text-teal-400 font-mono text-lg">{Number(quote.totalAmountEtb).toFixed(2)} Birr</strong></p>
           </div>
 
-          {/* Payment Method Selector */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Payment Method</span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PAYMENT_METHODS.map(({ id, label, icon: Icon, color }) => (
-                <button
-                  key={id}
-                  onClick={() => setPaymentMethod(id)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border text-xs font-bold transition-all ${
-                    paymentMethod === id
-                      ? "border-teal-500 bg-teal-500/10 text-white"
-                      : "border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-white"
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 ${paymentMethod === id ? "text-teal-400" : color}`} />
-                  {label}
-                </button>
-              ))}
+          {/* Encounter Tab Detection Banner */}
+          {activeTab && (
+            <div
+              onClick={() => setUseEncounterTab(!useEncounterTab)}
+              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                useEncounterTab
+                  ? "bg-teal-950/40 border-teal-500 ring-1 ring-teal-500/50"
+                  : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${useEncounterTab ? "bg-teal-500 text-slate-950" : "bg-slate-800 text-teal-400"}`}>
+                    <Wallet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white">Charge to Unified Encounter Tab</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Active Tab</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Deposit: <strong className="text-emerald-400">{Number(activeTab.depositAmountEtb).toLocaleString()} ETB</strong> · Current Balance: <strong className="text-white">{Number(activeTab.balanceDueEtb).toLocaleString()} ETB</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${useEncounterTab ? "bg-teal-500 border-teal-400 text-slate-950" : "border-slate-700 bg-slate-800"}`}>
+                  {useEncounterTab && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                </div>
+              </div>
+              {useEncounterTab && (
+                <p className="mt-2.5 pt-2.5 border-t border-teal-800/40 text-[11px] text-teal-200">
+                  ⚡ Order will be instantly approved and auto-charged against the patient's registration deposit. Settlement occurs at discharge.
+                </p>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Reference number (optional for cash) */}
-          {paymentMethod !== "cash" && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Transaction Reference Number
-              </label>
-              <input
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 font-mono"
-                placeholder={`${paymentMethod.toUpperCase()} Ref # (e.g. TB-2026-XXXXXX)`}
-                value={transactionRef}
-                onChange={(e) => setTransactionRef(e.target.value)}
-              />
-            </div>
+          {/* Payment Method Selector (hidden if using active Encounter Tab) */}
+          {!useEncounterTab && (
+            <>
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Point-of-Care Payment Method</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {PAYMENT_METHODS.map(({ id, label, icon: Icon, color }) => (
+                    <button
+                      key={id}
+                      onClick={() => setPaymentMethod(id)}
+                      className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border text-xs font-bold transition-all ${
+                        paymentMethod === id
+                          ? "border-teal-500 bg-teal-500/10 text-white"
+                          : "border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-white"
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${paymentMethod === id ? "text-teal-400" : color}`} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Point of Care Dynamic QR Display */}
+              {pocQr && (paymentMethod === "telebirr" || paymentMethod === "cbe_birr") && (
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row items-center gap-4 animate-fade-in">
+                  <div className="bg-white p-2 rounded-xl shadow-lg shrink-0">
+                    <img
+                      src={pocQr.qrCodeDataUrl}
+                      alt="Payment QR"
+                      className="w-28 h-28 object-contain"
+                    />
+                  </div>
+                  <div className="space-y-1.5 text-center sm:text-left flex-1">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
+                      <QrCode className="w-4 h-4 text-teal-400" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Point-of-Care Scan & Pay
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      Patient scans with <strong>{pocQr.provider.toUpperCase()} App</strong> at the counter to pay directly.
+                    </p>
+                    <p className="text-[10px] font-mono text-slate-400">
+                      Account: <span className="text-teal-300 font-semibold">{pocQr.accountReference}</span>
+                    </p>
+                    <p className="text-[10px] text-emerald-400 italic">
+                      {pocQr.instructions}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Reference number (optional for cash) */}
+              {paymentMethod !== "cash" && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Transaction Reference Number
+                  </label>
+                  <input
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 font-mono"
+                    placeholder={`${paymentMethod.toUpperCase()} Ref # (e.g. TB-2026-XXXXXX)`}
+                    value={transactionRef}
+                    onChange={(e) => setTransactionRef(e.target.value)}
+                  />
+                </div>
+              )}
+            </>
           )}
 
           {/* Auto-notify info */}
           <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
             <Bell className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
             <p className="text-[11px] text-blue-200">
-              On payment confirmation, <strong>lab technicians</strong>{department !== "laboratory" ? " and <strong>pharmacists</strong>" : ""} will be automatically notified to commence processing.
+              On confirmation, <strong>lab technicians</strong>{department !== "laboratory" ? " and <strong>pharmacists</strong>" : ""} will be automatically notified to commence processing immediately.
             </p>
           </div>
 
@@ -602,6 +749,8 @@ export default function LabPharmacyPaymentPanel({
               )}
               {isPaying
                 ? "Processing..."
+                : useEncounterTab
+                ? `Approve & Charge ${Number(quote.totalAmountEtb).toFixed(2)} Birr to Tab`
                 : `Confirm Payment of ${Number(quote.totalAmountEtb).toFixed(2)} Birr`}
             </button>
           </div>

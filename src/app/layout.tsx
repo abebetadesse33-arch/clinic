@@ -7,7 +7,7 @@ import QueryProvider from "../components/providers/QueryProvider";
 import NavigationHeader from "../components/NavigationHeader";
 import PwaRegistrar from "../components/mobile/PwaRegistrar";
 import MobileBottomNav from "../components/mobile/MobileBottomNav";
-import ClinicalAiCopilot from "../components/ui/ClinicalAiCopilot";
+// import ClinicalAiCopilot from "../components/ui/ClinicalAiCopilot"; // Hidden — re-enable to restore AI Copilot
 import AppFooter from "../components/layout/AppFooter";
 
 export const viewport: Viewport = {
@@ -61,7 +61,7 @@ export default function RootLayout({
                   {children}
                 </div>
               </main>
-              <ClinicalAiCopilot />
+              {/* <ClinicalAiCopilot /> */}{/* AI Copilot hidden — uncomment to restore */}
               <MobileBottomNav />
               <AppFooter />
             </ClinicProvider>

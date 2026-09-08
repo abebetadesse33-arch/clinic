@@ -834,8 +834,23 @@ html.dark [class*="text-[#08493B]"] {
 }
 
 /* --- Pure white cards on dark backgrounds --- */
-html.dark [class~="bg-white"] {
+html.dark [class~="bg-white"],
+html.dark [class^="bg-white"],
+html.dark [class*=" bg-white"] {
   background-color: #17364f !important;
+}
+
+/* --- Tailwind gray/slate light backgrounds in dark --- */
+html.dark [class~="bg-slate-50"],
+html.dark [class~="bg-gray-50"],
+html.dark [class~="bg-slate-100"],
+html.dark [class~="bg-gray-100"] {
+  background-color: #0f2436 !important;
+}
+
+html.dark [class~="bg-slate-200"],
+html.dark [class~="bg-gray-200"] {
+  background-color: #152d40 !important;
 }
 
 /* --- White cards with brand border --- */

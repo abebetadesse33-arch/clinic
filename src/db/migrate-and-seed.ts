@@ -1538,6 +1538,57 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
 
+      -- System Payment Settings & Global Master Switch
+      CREATE TABLE IF NOT EXISTS system_payment_settings (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          global_free_mode BOOLEAN DEFAULT FALSE NOT NULL,
+          billing_model VARCHAR(32) DEFAULT 'hybrid' NOT NULL,
+          default_deposit_amount_etb NUMERIC(10, 2) DEFAULT 2500.00 NOT NULL,
+          enable_poc_qr_payments BOOLEAN DEFAULT TRUE NOT NULL,
+          allow_pharmacy_emergency_bypass BOOLEAN DEFAULT TRUE NOT NULL,
+          soft_gate_lab_collection BOOLEAN DEFAULT TRUE NOT NULL,
+          soft_gate_pharmacy_review BOOLEAN DEFAULT TRUE NOT NULL,
+          registration_validity_days INT DEFAULT 90 NOT NULL,
+          grace_period_days INT DEFAULT 7 NOT NULL,
+          allow_cash_reconciliation BOOLEAN DEFAULT TRUE NOT NULL,
+          enforce_lab_payment_gate BOOLEAN DEFAULT TRUE NOT NULL,
+          enforce_pharmacy_payment_gate BOOLEAN DEFAULT TRUE NOT NULL,
+          auto_notify_lab_on_payment BOOLEAN DEFAULT TRUE NOT NULL,
+          auto_notify_pharmacy_on_payment BOOLEAN DEFAULT TRUE NOT NULL,
+          allow_emergency_override BOOLEAN DEFAULT TRUE NOT NULL,
+          role_permissions JSONB DEFAULT '{"waiveFees": ["system_admin", "tenant_admin"], "emergencyOverride": ["system_admin", "tenant_admin", "physician"], "cashCollection": ["system_admin", "tenant_admin", "pharmacist", "nurse", "cashier"]}' NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+
+      -- Add columns if system_payment_settings already exists
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS billing_model VARCHAR(32) DEFAULT 'hybrid';
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS default_deposit_amount_etb NUMERIC(10, 2) DEFAULT 2500.00;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS enable_poc_qr_payments BOOLEAN DEFAULT TRUE;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS allow_pharmacy_emergency_bypass BOOLEAN DEFAULT TRUE;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS soft_gate_lab_collection BOOLEAN DEFAULT TRUE;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS soft_gate_pharmacy_review BOOLEAN DEFAULT TRUE;
+
+      -- Unified Encounter Tabs (Deposit Tracking & Discharge Reconciliation)
+      CREATE TABLE IF NOT EXISTS encounter_tabs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID DEFAULT '00000000-0000-0000-0000-000000000001' NOT NULL,
+          encounter_id UUID NOT NULL REFERENCES encounters(id) ON DELETE CASCADE,
+          patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+          status TEXT DEFAULT 'active' NOT NULL,
+          deposit_amount_etb NUMERIC(12, 2) DEFAULT 0.00 NOT NULL,
+          deposit_method TEXT DEFAULT 'cash' NOT NULL,
+          deposit_tx_ref TEXT,
+          total_charges_etb NUMERIC(12, 2) DEFAULT 0.00 NOT NULL,
+          balance_due_etb NUMERIC(12, 2) DEFAULT 0.00 NOT NULL,
+          refund_due_etb NUMERIC(12, 2) DEFAULT 0.00 NOT NULL,
+          charges_list JSONB DEFAULT '[]' NOT NULL,
+          settled_at TIMESTAMP,
+          settled_by UUID REFERENCES users(id),
+          settlement_notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+
       -- Support Tickets
       CREATE TABLE IF NOT EXISTS support_tickets (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -3218,6 +3269,59 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
       INSERT INTO notification_templates (tenant_id, template_key, title, body, type, channels, is_active)
       SELECT '00000000-0000-0000-0000-000000000001', 'lab_results_ready', 'Diagnostic Lab Results Ready', 'Your lab results for {{testName}} have been reviewed and are now available in your health portal.', 'success', '["email", "sms", "in_app"]'::jsonb, TRUE
       WHERE NOT EXISTS (SELECT 1 FROM notification_templates WHERE template_key = 'lab_results_ready');
+
+      -- ==========================================
+      -- 48. UNIFIED ENCOUNTER TABS & SYSTEM PAYMENT SETTINGS
+      -- ==========================================
+      CREATE TABLE IF NOT EXISTS system_payment_settings (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          global_free_mode BOOLEAN DEFAULT FALSE NOT NULL,
+          billing_model VARCHAR(32) DEFAULT 'hybrid' NOT NULL,
+          default_deposit_amount_etb NUMERIC(10,2) DEFAULT 2500.00 NOT NULL,
+          enable_poc_qr_payments BOOLEAN DEFAULT TRUE NOT NULL,
+          allow_pharmacy_emergency_bypass BOOLEAN DEFAULT TRUE NOT NULL,
+          soft_gate_lab_collection BOOLEAN DEFAULT TRUE NOT NULL,
+          soft_gate_pharmacy_review BOOLEAN DEFAULT TRUE NOT NULL,
+          registration_validity_days INT DEFAULT 90 NOT NULL,
+          grace_period_days INT DEFAULT 7 NOT NULL,
+          allow_cash_reconciliation BOOLEAN DEFAULT TRUE NOT NULL,
+          enforce_lab_payment_gate BOOLEAN DEFAULT TRUE NOT NULL,
+          enforce_pharmacy_payment_gate BOOLEAN DEFAULT TRUE NOT NULL,
+          auto_notify_lab_on_payment BOOLEAN DEFAULT TRUE NOT NULL,
+          auto_notify_pharmacy_on_payment BOOLEAN DEFAULT TRUE NOT NULL,
+          allow_emergency_override BOOLEAN DEFAULT TRUE NOT NULL,
+          role_permissions JSONB DEFAULT '{"waiveFees": ["system_admin", "tenant_admin"], "emergencyOverride": ["system_admin", "tenant_admin", "physician"], "cashCollection": ["system_admin", "tenant_admin", "pharmacist", "nurse", "cashier"]}'::jsonb NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS billing_model VARCHAR(32) DEFAULT 'hybrid' NOT NULL;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS default_deposit_amount_etb NUMERIC(10,2) DEFAULT 2500.00 NOT NULL;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS enable_poc_qr_payments BOOLEAN DEFAULT TRUE NOT NULL;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS allow_pharmacy_emergency_bypass BOOLEAN DEFAULT TRUE NOT NULL;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS soft_gate_lab_collection BOOLEAN DEFAULT TRUE NOT NULL;
+      ALTER TABLE system_payment_settings ADD COLUMN IF NOT EXISTS soft_gate_pharmacy_review BOOLEAN DEFAULT TRUE NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS encounter_tabs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          tenant_id UUID NOT NULL REFERENCES organizations(id),
+          encounter_id UUID NOT NULL REFERENCES encounters(id) ON DELETE CASCADE,
+          patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+          status TEXT DEFAULT 'active' NOT NULL,
+          deposit_amount_etb NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+          deposit_method TEXT DEFAULT 'cash' NOT NULL,
+          deposit_tx_ref TEXT,
+          total_charges_etb NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+          balance_due_etb NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+          refund_due_etb NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
+          charges_list JSONB DEFAULT '[]'::jsonb NOT NULL,
+          settled_at TIMESTAMP,
+          settled_by UUID REFERENCES users(id),
+          settlement_notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_encounter_tabs_encounter ON encounter_tabs(encounter_id);
+      CREATE INDEX IF NOT EXISTS idx_encounter_tabs_patient ON encounter_tabs(patient_id);
     `);
 
         // Synchronize Comprehensive Pharmacy & Laboratory Catalogues (Idempotent)
@@ -3381,6 +3485,9 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
         UNIQUE (role, category)
       );
+
+      -- Ensure updated_by column exists (schema-sync: column added after initial migration)
+      ALTER TABLE notification_privileges ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id);
 
       CREATE TABLE IF NOT EXISTS telegram_integrations (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

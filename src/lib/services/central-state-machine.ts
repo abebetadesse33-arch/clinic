@@ -9,8 +9,10 @@ import {
   sagaTransactions,
   patients,
   users,
+  systemPaymentSettings,
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { EncounterTabService } from "./encounter-tab-service";
 
 // ─── Workflow & State Constants ──────────────────────────────────────────────
 
@@ -243,19 +245,19 @@ export const EVENT_TRANSITIONS: EventTransitionDefinition[] = [
   {
     eventName: "SAMPLE_COLLECTION_PREPARED",
     workflow: "lab",
-    allowedSourceStates: ["LAB_PAID"],
+    allowedSourceStates: ["LAB_PAID", "LAB_ORDERED", "LAB_PAYMENT_PENDING"],
     targetState: "SAMPLE_COLLECTION_PREPARED",
     allowedRoles: ["lab_technician", "nurse"],
-    requiresPaymentClearance: true,
+    requiresPaymentClearance: false, // Soft-gated: phlebotomy prep unblocked
     description: "Tubes, vacutainers, and barcode labels prepared for collection.",
   },
   {
     eventName: "SAMPLE_COLLECTED",
     workflow: "lab",
-    allowedSourceStates: ["LAB_PAID", "SAMPLE_COLLECTION_PREPARED"],
+    allowedSourceStates: ["LAB_PAID", "LAB_ORDERED", "LAB_PAYMENT_PENDING", "SAMPLE_COLLECTION_PREPARED"],
     targetState: "SAMPLE_COLLECTED",
     allowedRoles: ["lab_technician", "nurse"],
-    requiresPaymentClearance: true,
+    requiresPaymentClearance: false, // Soft-gated: specimen drawn immediately to minimize TAT
     triggersParentState: "LAB_IN_PROGRESS",
     description: "Specimen drawn from patient and barcode scanned.",
   },
@@ -316,7 +318,7 @@ export const EVENT_TRANSITIONS: EventTransitionDefinition[] = [
   {
     eventName: "PHARMACIST_REVIEW_STARTED",
     workflow: "pharmacy",
-    allowedSourceStates: ["MEDICATION_PAID", "MEDICATION_ORDERED"],
+    allowedSourceStates: ["MEDICATION_PAID", "MEDICATION_ORDERED", "MEDICATION_PAYMENT_PENDING"],
     targetState: "PHARMACIST_REVIEW_STARTED",
     allowedRoles: ["pharmacist"],
     description: "Clinical pharmacist opens profile for DDI, renal dosing, and allergy screening.",
@@ -324,7 +326,7 @@ export const EVENT_TRANSITIONS: EventTransitionDefinition[] = [
   {
     eventName: "PHARMACIST_REVIEW_COMPLETED",
     workflow: "pharmacy",
-    allowedSourceStates: ["PHARMACIST_REVIEW_STARTED", "MEDICATION_PAID", "MEDICATION_ORDERED"],
+    allowedSourceStates: ["PHARMACIST_REVIEW_STARTED", "MEDICATION_PAID", "MEDICATION_ORDERED", "MEDICATION_PAYMENT_PENDING"],
     targetState: "PHARMACIST_REVIEW_COMPLETED",
     allowedRoles: ["pharmacist"],
     triggersParentState: "PHARMACY_IN_PROGRESS",
@@ -619,6 +621,11 @@ export class CentralStateMachineService {
    * Check whether hard payment gate is cleared (either paid or covered by benefits)
    */
   static async checkPaymentGateClearance(encounterId: string, workflow: WorkflowType): Promise<boolean> {
+    // 1. Unified Encounter Tab clearance (All orders charged against running deposit / tab)
+    const hasTab = await EncounterTabService.hasActiveClearance(encounterId, workflow);
+    if (hasTab) return true;
+
+    // 2. Direct payment confirmation event
     const paidState = await db
       .select()
       .from(encounterEvents)
@@ -635,9 +642,20 @@ export class CentralStateMachineService {
 
     if (paidState.length > 0) return true;
 
-    // Check if covered by subscription/entitlement (simulation waiver)
+    // 3. System payment settings: Global free/sandbox mode
+    const [settings] = await db.select().from(systemPaymentSettings).limit(1);
+    if (settings?.globalFreeMode) return true;
+
+    // 4. Clinical Emergency status & Life-Safety STAT Bypass
     const [encounter] = await db.select().from(encounters).where(eq(encounters.id, encounterId)).limit(1);
-    if (encounter?.admissionStatus === "emergency") return true; // Emergency waiver
+    if (encounter?.admissionStatus === "emergency") {
+      if (workflow === "pharmacy") {
+        // Enforce allowPharmacyEmergencyBypass toggle
+        if (settings?.allowPharmacyEmergencyBypass !== false) return true;
+      } else {
+        return true;
+      }
+    }
 
     return false;
   }

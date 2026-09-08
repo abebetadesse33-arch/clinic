@@ -25,6 +25,13 @@ import {
   Smartphone,
   Mail,
   Sparkles,
+  Wallet,
+  QrCode,
+  Receipt,
+  ArrowRightLeft,
+  HeartPulse,
+  Activity,
+  Check,
 } from "lucide-react";
 
 export default function AdminPaymentWorkflowPage() {
@@ -44,6 +51,14 @@ function AdminPaymentWorkflowContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  // Billing Architecture Model State
+  const [billingModel, setBillingModel] = useState<"unified_encounter_tab" | "per_order_gate" | "hybrid">("hybrid");
+  const [defaultDepositAmount, setDefaultDepositAmount] = useState<number>(2500);
+  const [enablePoCQRPayments, setEnablePoCQRPayments] = useState<boolean>(true);
+  const [allowPharmacyEmergencyBypass, setAllowPharmacyEmergencyBypass] = useState<boolean>(true);
+  const [softGateLabCollection, setSoftGateLabCollection] = useState<boolean>(true);
+  const [softGatePharmacyReview, setSoftGatePharmacyReview] = useState<boolean>(true);
 
   // Local editable state
   const [enforceLabGate, setEnforceLabGate] = useState(true);
@@ -77,6 +92,12 @@ function AdminPaymentWorkflowContent() {
       if (dataPayment.success && dataPayment.data) {
         const s = dataPayment.data;
         setSettings(s);
+        setBillingModel(s.billingModel ?? "hybrid");
+        setDefaultDepositAmount(s.defaultDepositAmountEtb ? Number(s.defaultDepositAmountEtb) : 2500);
+        setEnablePoCQRPayments(s.enablePoCQRPayments ?? true);
+        setAllowPharmacyEmergencyBypass(s.allowPharmacyEmergencyBypass ?? true);
+        setSoftGateLabCollection(s.softGateLabCollection ?? true);
+        setSoftGatePharmacyReview(s.softGatePharmacyReview ?? true);
         setEnforceLabGate(s.enforceLabPaymentGate ?? true);
         setEnforcePharmacyGate(s.enforcePharmacyPaymentGate ?? true);
         setAutoNotifyLab(s.autoNotifyLabOnPayment ?? true);
@@ -113,6 +134,12 @@ function AdminPaymentWorkflowContent() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            billingModel,
+            defaultDepositAmountEtb: defaultDepositAmount,
+            enablePoCQRPayments,
+            allowPharmacyEmergencyBypass,
+            softGateLabCollection,
+            softGatePharmacyReview,
             enforceLabPaymentGate: enforceLabGate,
             enforcePharmacyPaymentGate: enforcePharmacyGate,
             autoNotifyLabOnPayment: autoNotifyLab,
@@ -265,6 +292,243 @@ function AdminPaymentWorkflowContent() {
           {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
           {isSaving ? "Saving..." : "Save All Settings"}
         </button>
+      </div>
+
+      {/* ── 1. Clinic Billing Architecture: Unified Tab vs. Per-Order QR ── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6">
+        <div>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-teal-400" />
+              Clinic Billing Architecture & Settlement Engine
+            </h2>
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/20">
+              Active: {billingModel === "unified_encounter_tab" ? "Unified Encounter Tab" : billingModel === "per_order_gate" ? "Per-Order QR Gating" : "Hybrid Mode (Both Enabled)"}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Choose how patient care is monetized: upfront deposit with single discharge settlement, decentralized per-order Point-of-Care QR payments, or hybrid mode.
+          </p>
+        </div>
+
+        {/* 3 Architecture Selection Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card 1: Unified Encounter Tab */}
+          <div
+            onClick={() => setBillingModel("unified_encounter_tab")}
+            className={`cursor-pointer rounded-2xl border p-5 transition-all relative space-y-3 ${
+              billingModel === "unified_encounter_tab"
+                ? "border-teal-500 bg-teal-500/10 shadow-lg shadow-teal-950/40 ring-1 ring-teal-500/50"
+                : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-teal-500/15 border border-teal-500/30 text-teal-400">
+                <Wallet className="w-4 h-4" />
+              </div>
+              {billingModel === "unified_encounter_tab" && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-500 text-slate-950">
+                  <Check className="w-3 h-3" /> Selected
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Unified Encounter Tab</h3>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                Patient deploys a deposit (e.g. ETB 2,500) at registration. All doctor consults, lab tests, and medications run against the tab. At discharge, the final balance is calculated (excess deposit refunded or remaining balance collected).
+              </p>
+            </div>
+            <div className="text-[10px] text-teal-400/90 font-medium pt-2 border-t border-slate-800/80 flex items-center gap-1">
+              <span>Zero handoff wait</span> · <span>Single settlement</span>
+            </div>
+          </div>
+
+          {/* Card 2: Per-Order Gating */}
+          <div
+            onClick={() => setBillingModel("per_order_gate")}
+            className={`cursor-pointer rounded-2xl border p-5 transition-all relative space-y-3 ${
+              billingModel === "per_order_gate"
+                ? "border-sky-500 bg-sky-500/10 shadow-lg shadow-sky-950/40 ring-1 ring-sky-500/50"
+                : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-sky-500/15 border border-sky-500/30 text-sky-400">
+                <QrCode className="w-4 h-4" />
+              </div>
+              {billingModel === "per_order_gate" && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-slate-950">
+                  <Check className="w-3 h-3" /> Selected
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Per-Order Gating (PoC QR)</h3>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                No initial deposit. Each department (Lab draw station, Pharmacy counter, Imaging) presents dynamic Point-of-Care QR codes (Telebirr, CBE Birr, Chapa) for instant per-order payment clearance.
+              </p>
+            </div>
+            <div className="text-[10px] text-sky-400/90 font-medium pt-2 border-t border-slate-800/80 flex items-center gap-1">
+              <span>Pay-as-you-go</span> · <span>Decentralized counters</span>
+            </div>
+          </div>
+
+          {/* Card 3: Hybrid Mode */}
+          <div
+            onClick={() => setBillingModel("hybrid")}
+            className={`cursor-pointer rounded-2xl border p-5 transition-all relative space-y-3 ${
+              billingModel === "hybrid"
+                ? "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/50"
+                : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                <ArrowRightLeft className="w-4 h-4" />
+              </div>
+              {billingModel === "hybrid" && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950">
+                  <Check className="w-3 h-3" /> Recommended
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Hybrid Mode (Full Freedom)</h3>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                Patients who place a deposit enjoy the frictionless Encounter Tab with discharge reconciliation. Patients without a deposit seamlessly use Point-of-Care QR / cash at individual department counters.
+              </p>
+            </div>
+            <div className="text-[10px] text-emerald-400/90 font-medium pt-2 border-t border-slate-800/80 flex items-center gap-1">
+              <span>Maximum patient flexibility</span> · <span>Zero leakage</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Deposit Configuration Panel */}
+        {(billingModel === "unified_encounter_tab" || billingModel === "hybrid") && (
+          <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-teal-400" />
+                Default Registration Deposit Amount (ETB)
+              </span>
+              <p className="text-[11px] text-slate-400">
+                Suggested visit deposit collected at patient registration / check-in. Any unused surplus is refunded at discharge.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={defaultDepositAmount}
+                  onChange={(e) => setDefaultDepositAmount(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-32 px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-sm font-bold text-right focus:outline-none focus:border-teal-500"
+                />
+                <span className="absolute left-3 top-2.5 text-xs text-slate-500 font-bold">ETB</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {[1500, 2500, 5000].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setDefaultDepositAmount(amt)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                      defaultDepositAmount === amt
+                        ? "bg-teal-500 text-slate-950 border-teal-500"
+                        : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white"
+                    }`}
+                  >
+                    {amt.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dual Workflow Visual Flow Comparison */}
+        <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800/80 space-y-3">
+          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+            Operational Pathway Architecture:
+          </span>
+          <div className="space-y-2 text-[11px]">
+            {/* Pathway 1 */}
+            <div className="flex flex-wrap items-center gap-2 text-slate-400">
+              <span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 font-bold">Encounter Tab:</span>
+              <span>Deposit at Arrival</span>
+              <span>→</span>
+              <span className="text-emerald-300">Doctor Consult (Unblocked)</span>
+              <span>→</span>
+              <span className="text-emerald-300">Lab Draw & Run (Unblocked)</span>
+              <span>→</span>
+              <span className="text-emerald-300">Pharmacy Dispense (Unblocked)</span>
+              <span>→</span>
+              <span className="px-2 py-0.5 rounded bg-teal-500/20 text-teal-200 font-bold">Discharge Balance Settlement (Refund / Collect)</span>
+            </div>
+            {/* Pathway 2 */}
+            <div className="flex flex-wrap items-center gap-2 text-slate-400">
+              <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 font-bold">Per-Order PoC:</span>
+              <span>Check-In</span>
+              <span>→</span>
+              <span>Doctor Orders</span>
+              <span>→</span>
+              <span className="text-sky-300 font-medium">PoC Dynamic QR Scan (Lab Chair / Rx Desk)</span>
+              <span>→</span>
+              <span>Instant Clearance</span>
+              <span>→</span>
+              <span>Care Delivered</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. Clinical Velocity & Life-Safety Controls ────────────────── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+            <HeartPulse className="w-4 h-4 text-rose-400" />
+            Clinical Velocity & Life-Safety Enhancements
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Remove clinical bottlenecks and ensure emergency life-saving protocols are never stalled by administrative payment gates.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <ToggleRow
+            label="Life-Safety Emergency Bypass for Medication Dispensing"
+            desc="Allows physicians to release STAT and emergency medications (epinephrine, dextrose, IV antibiotics) immediately without a payment block."
+            value={allowPharmacyEmergencyBypass}
+            onChange={setAllowPharmacyEmergencyBypass}
+            icon={HeartPulse}
+            iconColor="text-rose-400"
+          />
+          <ToggleRow
+            label="Phlebotomy Soft-Gating & Decoupled Collection"
+            desc="Permits lab technicians to draw specimens immediately upon doctor order. Payment gate is checked upon result release, saving 25 min waiting time."
+            value={softGateLabCollection}
+            onChange={setSoftGateLabCollection}
+            icon={FlaskConical}
+            iconColor="text-sky-400"
+          />
+          <ToggleRow
+            label="Pharmacy Parallel Review & Staging"
+            desc="Pharmacists review interactions and pre-package medications during the payment window; only physical handover is locked, cutting counter wait to < 2 min."
+            value={softGatePharmacyReview}
+            onChange={setSoftGatePharmacyReview}
+            icon={Pill}
+            iconColor="text-cyan-400"
+          />
+          <ToggleRow
+            label="Decentralized Point-of-Care (PoC) Dynamic QR Terminals"
+            desc="Displays instant Telebirr, CBE Birr, and Chapa dynamic QR codes directly at phlebotomy and pharmacy counters for contactless self-checkout."
+            value={enablePoCQRPayments}
+            onChange={setEnablePoCQRPayments}
+            icon={QrCode}
+            iconColor="text-purple-400"
+          />
+        </div>
       </div>
 
       {/* ── Global Emergency Controls ─────────────────────────────────── */}

@@ -563,7 +563,7 @@ export const INTENSIVE_WORKFLOW_TEMPLATES = [
       { step: 2, action: "DETERMINE_ETIOLOGY", label: "Etiology Workup", description: "Hypothyroidism: TPO antibodies (Hashimoto's); Hyperthyroidism: TSH receptor antibodies (Graves') or thyroid ultrasound." },
       { step: 3, action: "INITIATE_LEVOTHYROXINE_OR_ANTITHYROID", label: "Medication Initiation", description: "Hypothyroidism: levothyroxine 25-50 mcg daily with titration. Hyperthyroidism: PTU or methimazole antithyroid agents." },
       { step: 4, action: "COUNSEL_ON_ABSORPTION", label: "Patient Education", description: "Take levothyroxine on empty stomach 30-60 min before food; separate from calcium, iron, coffee by 4+ hours." },
-      { step: 5, action: "SCREEN_GRAVES_COMPLICATIONS", label: "Graves' Screening", label: "If Graves' disease: screen for thyroid-associated ophthalmopathy (exophthalmos, diplopia) and refer to endocrinology." },
+      { step: 5, action: "SCREEN_GRAVES_COMPLICATIONS", label: "Graves' Screening", description: "If Graves' disease: screen for thyroid-associated ophthalmopathy (exophthalmos, diplopia) and refer to endocrinology." },
       { step: 6, action: "PLAN_TSH_RECHECK", label: "TSH Follow-up", description: "Recheck TSH at 6 weeks after initiation/change, then every 3 months until stable, then annually." },
       { step: 7, action: "IF_GRAVES_CONSIDER_DEFINITIVE", label: "Treatment Options", description: "For persistent Graves': consider definitive therapy (radioactive iodine ablation or thyroidectomy) in consultation with endocrinology." },
     ],

@@ -2,6 +2,8 @@ import { db } from "@/db";
 import { organizations, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+import { EncounterTabService } from "./encounter-tab-service";
+
 export type PaymentGateType =
   | "registration"
   | "appointment"
@@ -12,9 +14,11 @@ export type PaymentGateType =
   | "subscription_renewal"
   | "case_intake";
 
-export type PaymentMode = "hard_gate" | "soft_billing" | "waived" | "subscription_covered";
+export type PaymentMode = "hard_gate" | "soft_billing" | "waived" | "subscription_covered" | "encounter_tab_covered";
 
 export type GlobalPaymentPolicy = "strict_enterprise" | "emergency_override" | "balanced_clinical" | "demo_sandbox";
+
+export type BillingModelType = "unified_encounter_tab" | "per_order_gate" | "hybrid";
 
 export interface PaymentGateConfig {
   gateType: PaymentGateType;
@@ -29,6 +33,12 @@ export interface PaymentGateConfig {
 
 export interface EnterprisePaymentSettings {
   globalPolicy: GlobalPaymentPolicy;
+  billingModel: BillingModelType;
+  defaultDepositAmountEtb: number;
+  enablePoCQRPayments: boolean;
+  allowPharmacyEmergencyBypass: boolean;
+  softGateLabCollection: boolean;
+  softGatePharmacyReview: boolean;
   telebirrMerchantId: string;
   telebirrShortCode: string;
   cbeAccountNumber: string;
@@ -105,7 +115,7 @@ export const DEFAULT_PAYMENT_GATES: Record<PaymentGateType, PaymentGateConfig> =
     description: "Prescription medication inventory release and verification",
     mode: "hard_gate",
     defaultFeeEtb: 450,
-    allowEmergencyBypass: false,
+    allowEmergencyBypass: true, // Configurable emergency override enabled for STAT medications
     acceptedMethods: ["telebirr", "bank_transfer", "chapa_card", "cash", "insurance"],
     requiresAdminApprovalForBankTransfer: false,
   },
@@ -123,6 +133,12 @@ export const DEFAULT_PAYMENT_GATES: Record<PaymentGateType, PaymentGateConfig> =
 
 export const DEFAULT_PAYMENT_SETTINGS: EnterprisePaymentSettings = {
   globalPolicy: "balanced_clinical",
+  billingModel: "hybrid",
+  defaultDepositAmountEtb: 2500,
+  enablePoCQRPayments: true,
+  allowPharmacyEmergencyBypass: true,
+  softGateLabCollection: true,
+  softGatePharmacyReview: true,
   telebirrMerchantId: "TB-NINI-99201",
   telebirrShortCode: "88210",
   cbeAccountNumber: "1000293848192",
@@ -225,7 +241,9 @@ export class PaymentGateService {
   static async checkGateAccess(params: {
     gateType: PaymentGateType;
     tenantId?: string;
+    encounterId?: string;
     isEmergency?: boolean;
+    isStat?: boolean;
     hasActiveSubscription?: boolean;
     isPrepaid?: boolean;
   }): Promise<{
@@ -239,8 +257,28 @@ export class PaymentGateService {
     const settings = await this.getSettings(params.tenantId);
     const gate = settings.gates[params.gateType] || DEFAULT_PAYMENT_GATES[params.gateType];
 
-    // 1. Global Policy Override: Emergency Bypass
-    if (settings.globalPolicy === "emergency_override" || (params.isEmergency && gate.allowEmergencyBypass)) {
+    // 0. Unified Encounter Tab Active Clearance
+    if (params.encounterId) {
+      const hasTab = await EncounterTabService.hasActiveClearance(params.encounterId, params.gateType);
+      if (hasTab) {
+        return {
+          allowed: true,
+          requiresPayment: false,
+          amountDueEtb: 0,
+          mode: "encounter_tab_covered",
+          gateConfig: gate,
+          bypassReason: "Covered by active Unified Encounter Tab (All orders reconciled at discharge).",
+        };
+      }
+    }
+
+    // 1. Global Policy Override & Clinical Emergency / STAT Bypass
+    const isEmergencyPermitted =
+      (params.isEmergency || params.isStat) &&
+      (gate.allowEmergencyBypass ||
+        (params.gateType === "medication_dispense" && settings.allowPharmacyEmergencyBypass !== false));
+
+    if (settings.globalPolicy === "emergency_override" || isEmergencyPermitted) {
       return {
         allowed: true,
         requiresPayment: false,
@@ -297,7 +335,7 @@ export class PaymentGateService {
       };
     }
 
-    // 5. Hard Gate: Payment mandatory right now
+    // 5. Hard Gate: Payment mandatory right now (Can be settled via PoC QR terminal or Cash)
     return {
       allowed: false,
       requiresPayment: true,

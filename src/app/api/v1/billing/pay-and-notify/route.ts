@@ -15,6 +15,7 @@ import {
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { EncounterTabService } from "@/lib/services/encounter-tab-service";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,19 @@ export async function POST(req: NextRequest) {
       })
       .where(eq(invoices.id, invoice.id))
       .returning();
+
+    // 4B. Charge active Encounter Tab if encounter linked or payment is encounter_tab
+    if (invoice.encounterId) {
+      for (const item of items) {
+        await EncounterTabService.chargeTab({
+          encounterId: invoice.encounterId,
+          serviceCode: item.serviceCode,
+          description: item.description,
+          amountEtb: Number(item.totalPrice) || 0,
+          department: item.serviceCode.startsWith("LAB_") ? "Laboratory" : item.serviceCode.startsWith("RX_") ? "Pharmacy" : "General",
+        }).catch(() => {});
+      }
+    }
 
     // 5. Update linked Lab Orders → payment_cleared
     const updatedLabOrders = [];

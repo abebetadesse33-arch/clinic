@@ -8,8 +8,9 @@ import {
   User, Phone, Hash, Package, FlaskConical, Pill, Stethoscope,
   Printer, RefreshCw, Edit2, Percent, Timer, BarChart3,
   ChevronRight, QrCode, Play, Square, Download, Loader2,
-  ArrowRight, Bell, Clock,
+  ArrowRight, Bell, Clock, Wallet,
 } from "lucide-react";
+import EncounterTabCard from "@/components/billing/EncounterTabCard";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type SourceType = "prescription" | "lab_order" | "consultation" | "manual";
@@ -114,6 +115,7 @@ function SmartPOSContent() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [pendingSummary, setPendingSummary] = useState<PendingSummary | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showEncounterTab, setShowEncounterTab] = useState(false);
 
   // Auto-load patient and pending orders from referral URL params
   useEffect(() => {
@@ -426,12 +428,37 @@ function SmartPOSContent() {
                         </p>
                       </div>
                     )}
-                    <button onClick={() => { setSelectedPatient(null); setCart([]); setPendingSummary(null); setHighlightedOrderId(null); }}
+                    <button
+                      onClick={() => setShowEncounterTab(!showEncounterTab)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition ${
+                        showEncounterTab
+                          ? "bg-teal-500/20 text-teal-300 border-teal-500/40"
+                          : "bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700"
+                      }`}
+                      title="Toggle patient's unified encounter tab"
+                    >
+                      <Wallet size={13} className="text-teal-400" />
+                      <span>{showEncounterTab ? "Hide Tab" : "Encounter Tab"}</span>
+                    </button>
+                    <button onClick={() => { setSelectedPatient(null); setCart([]); setPendingSummary(null); setHighlightedOrderId(null); setShowEncounterTab(false); }}
                       className="text-slate-500 hover:text-slate-300 transition">
                       <XCircle size={16} />
                     </button>
                   </div>
                 </div>
+
+                {/* Unified Encounter Tab Panel */}
+                {showEncounterTab && (
+                  <div className="animate-fade-in">
+                    <EncounterTabCard
+                      patientId={selectedPatient.id}
+                      patientName={selectedPatient.fullName}
+                      onSettled={() => {
+                        loadShift();
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* Direct Referral Order Alert Banner */}
                 {highlightedOrderId && (

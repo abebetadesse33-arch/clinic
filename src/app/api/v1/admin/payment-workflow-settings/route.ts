@@ -16,6 +16,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
+          billingModel: "hybrid",
+          defaultDepositAmountEtb: "2500.00",
+          enablePoCQRPayments: true,
+          allowPharmacyEmergencyBypass: true,
+          softGateLabCollection: true,
+          softGatePharmacyReview: true,
           enforceLabPaymentGate: true,
           enforcePharmacyPaymentGate: true,
           autoNotifyLabOnPayment: true,
@@ -52,6 +58,12 @@ export async function PATCH(req: NextRequest) {
 
     // Whitelist allowed update fields
     const allowed = [
+      "billingModel",
+      "defaultDepositAmountEtb",
+      "enablePoCQRPayments",
+      "allowPharmacyEmergencyBypass",
+      "softGateLabCollection",
+      "softGatePharmacyReview",
       "enforceLabPaymentGate",
       "enforcePharmacyPaymentGate",
       "autoNotifyLabOnPayment",
