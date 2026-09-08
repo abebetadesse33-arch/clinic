@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
       providerId,
       queueType = "treat_me_now",
       priority = "routine",
+      queueNumber,
+      servicePoint,
+      department,
       metadata = {},
     } = body;
 
@@ -60,6 +63,9 @@ export async function POST(req: NextRequest) {
       providerId,
       queueType,
       priority,
+      queueNumber,
+      servicePoint,
+      department,
       metadata,
     });
 

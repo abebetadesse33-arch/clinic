@@ -6,6 +6,7 @@ const PRECACHE_ASSETS = [
   "/",
   "/manifest.webmanifest",
   "/locations",
+  "/display/waiting-room",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
   "/icons/icon-maskable.svg",
@@ -60,7 +61,10 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           // Cache successful GET API responses for offline resilience
-          if (response.status === 200 && url.pathname.includes("/locations")) {
+          if (
+            response.status === 200 &&
+            (url.pathname.includes("/locations") || url.pathname.includes("/display/waiting-room/state"))
+          ) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }

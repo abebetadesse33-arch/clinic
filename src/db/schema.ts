@@ -2928,11 +2928,60 @@ export const queueEntries = pgTable("queue_entries", {
   position: integer("position").default(1).notNull(),
   priority: text("priority", { enum: ["routine", "urgent", "emergency"] }).default("routine").notNull(),
   status: text("status", { enum: ["waiting", "called", "in_service", "completed", "cancelled", "no_show"] }).default("waiting").notNull(),
+  queueNumber: text("queue_number"),
+  servicePoint: text("service_point"),
+  department: text("department"),
+  calledByUserId: uuid("called_by_user_id").references(() => users.id),
   calledAt: timestamp("called_at"),
   startedAt: timestamp("started_at"),
   completedAt: timestamp("completed_at"),
   estimatedWaitMinutes: integer("estimated_wait_minutes").default(5),
   metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// 65B. WAITING ROOM TV DISPLAYS & DIGITAL SIGNAGE
+// ==========================================
+export const waitingRoomDisplays = pgTable("waiting_room_displays", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => organizations.id).notNull(),
+  name: text("name").notNull(), // e.g. "Main Waiting Room"
+  location: text("location"), // e.g. "Ground Floor"
+  displayToken: text("display_token").unique(),
+  isActive: boolean("is_active").default(true).notNull(),
+  settings: jsonb("settings").default({
+    displayMode: "rotation",
+    rotationIntervalSeconds: 20,
+    enabledScreens: {
+      nowServing: true,
+      queueStatus: true,
+      availableStaff: true,
+      announcements: true,
+    },
+    departmentFilter: [],
+    audioEnabled: true,
+    audioVoice: "en",
+    audioVolume: 80,
+    theme: "dark",
+  }),
+  lastHeartbeatAt: timestamp("last_heartbeat_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const displayAnnouncements = pgTable("display_announcements", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  tenantId: uuid("tenant_id").references(() => organizations.id).notNull(),
+  displayId: uuid("display_id").references(() => waitingRoomDisplays.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  type: text("type", { enum: ["info", "important", "critical", "health_tip"] }).default("info").notNull(),
+  audience: text("audience", { enum: ["all", "queue", "staff", "custom"] }).default("all").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  startsAt: timestamp("starts_at"),
+  endsAt: timestamp("ends_at"),
+  createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
