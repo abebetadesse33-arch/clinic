@@ -9,6 +9,7 @@ import ClinicalOrderDropdown from "../../../components/clinical/ClinicalOrderDro
 import DigitalPatientCard from "../../../components/patient/DigitalPatientCard";
 import PrintablePatientCard from "../../../components/patient/PrintablePatientCard";
 import PatientActivityTimeline from "../../../components/patient/PatientActivityTimeline";
+import DocumentPreviewModal, { ClinicalDocument } from "../../../components/documents/DocumentPreviewModal";
 import {
   Activity,
   AlertTriangle,
@@ -88,6 +89,7 @@ export default function PatientProfilePage() {
   const [showDigitalCardModal, setShowDigitalCardModal] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showRecordVitalsModal, setShowRecordVitalsModal] = useState(false);
+  const [documentToView, setDocumentToView] = useState<ClinicalDocument | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const [fetchedPatient, setFetchedPatient] = useState<any | null>(null);
@@ -382,6 +384,26 @@ export default function PatientProfilePage() {
   const patientAllergies = Array.isArray(patient.allergies) ? patient.allergies : [];
   const digitalCardId = patient.digitalCardNumber || `NINI-2026-${patient.mrn?.replace(/\D/g, "") || "1409"}`;
   const fullName = `${patient.firstName || ""} ${patient.lastName || ""}`.trim() || "Patient Profile";
+
+  const handleViewDocument = (fileUrl: string) => {
+    const urlWithoutQuery = fileUrl.split(/[?#]/)[0];
+    const fileName = urlWithoutQuery.split("/").pop() || "Clinical Record";
+    const extension = fileName.split(".").pop()?.toLowerCase();
+    const imageExtensions = new Set(["gif", "jpeg", "jpg", "png", "webp"]);
+    const isImage = imageExtensions.has(extension || "");
+
+    setDocumentToView({
+      id: `activity-document-${patient.id}-${Date.now()}`,
+      fileName,
+      fileUrl,
+      category: isImage ? "imaging" : "clinical_note",
+      mimeType: isImage ? `image/${extension === "jpg" ? "jpeg" : extension}` : "application/pdf",
+      patientId: patient.id,
+      patientName: fullName,
+      patientMrn: patient.mrn,
+      createdAt: new Date().toISOString(),
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in pb-16">
@@ -769,7 +791,7 @@ export default function PatientProfilePage() {
                   <Clock className="w-4 h-4 text-teal-600 dark:text-teal-400" />
                   <span>Clinical Orders & Activity Timeline</span>
                 </h3>
-                <PatientActivityTimeline patientId={patient.id} />
+                <PatientActivityTimeline patientId={patient.id} onViewDocument={handleViewDocument} />
               </div>
             </div>
           )}
@@ -926,7 +948,7 @@ export default function PatientProfilePage() {
                   />
                 </div>
 
-                <PatientActivityTimeline patientId={patient.id} />
+                <PatientActivityTimeline patientId={patient.id} onViewDocument={handleViewDocument} />
               </div>
             </div>
           )}
@@ -961,7 +983,7 @@ export default function PatientProfilePage() {
                     </span>
                   </div>
                   <button
-                    onClick={() => router.push("/referrals")}
+                    onClick={() => router.push(`/clinical/orders?patientId=${encodeURIComponent(patient.id)}&department=laboratory`)}
                     className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1728,6 +1750,11 @@ export default function PatientProfilePage() {
           </div>
         </div>
       )}
+
+      <DocumentPreviewModal
+        document={documentToView}
+        onClose={() => setDocumentToView(null)}
+      />
     </div>
   );
 }

@@ -72,6 +72,8 @@ PLESK_SSH_PORT
 PLESK_DEPLOY_PATH
 PLESK_DOMAIN
 PLESK_WEBHOOK_URL     (Recommended: Copies from Plesk > Domains > Git for 5s Zero-SSH deploy)
+PLESK_FTP_HOST        (Optional: actual FTP/FTPS hostname; never assume the website host supports FTP)
+PLESK_FTP_PORT        (Optional: FTP/FTPS port, defaults to 21)
 NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_API_URL
 ```
@@ -81,6 +83,10 @@ NEXT_PUBLIC_API_URL
 `PLESK_SSH_PORT` is the SSH port exposed by the server. Set it explicitly when
 the server does not use the default port `22`; the workflow uses `22` when this
 secret is omitted. Test that this port is reachable from GitHub-hosted runners.
+
+`PLESK_FTP_HOST` is optional and must point to a real FTP/FTPS service. The
+workflow no longer falls back to `PLESK_HOST`, because a web domain commonly
+redirects FTP connections to HTTPS and produces misleading `500` errors.
 
 The workflow is triggered by pushes to `main` and can also be started manually with **Run workflow**.
 

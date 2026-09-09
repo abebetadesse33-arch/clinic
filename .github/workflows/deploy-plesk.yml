@@ -27,6 +27,8 @@ jobs:
           PLESK_DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
+          PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT || '21' }}
         run: |
           set -Eeuo pipefail
           
@@ -38,6 +40,8 @@ jobs:
           fi
           SSH_PORT="${PLESK_SSH_PORT:-22}"
           echo "PLESK_SSH_PORT=${SSH_PORT}" >> "$GITHUB_ENV"
+          FTP_PORT="${PLESK_FTP_PORT:-21}"
+          echo "PLESK_FTP_PORT=${FTP_PORT}" >> "$GITHUB_ENV"
 
           if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
             echo "PLESK_WEBHOOK_URL is configured for instant HTTPS Zero-SSH deployment."
@@ -56,6 +60,7 @@ jobs:
             exit 1
           fi
           [[ "${SSH_PORT}" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
+          [[ "${FTP_PORT}" =~ ^[0-9]+$ ]] || { printf 'PLESK_FTP_PORT must be numeric.\n'; exit 1; }
           echo "Plesk deployment configuration validated."
 
       - name: Set up Bun
@@ -97,6 +102,9 @@ jobs:
 
       - name: Discover active Plesk endpoints (SSH, FTPS, Webhook)
         shell: bash
+        env:
+          PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT || '21' }}
         run: |
           set -Eeuo pipefail
 
@@ -117,7 +125,7 @@ jobs:
 
           ACTIVE_SSH_HOST=""
           ACTIVE_SSH_PORT=""
-          ACTIVE_FTP_HOST=""
+          ACTIVE_FTP_HOST="${PLESK_FTP_HOST:-}"
 
           # 1. Probe SSH daemons
           echo "--- Probing SSH endpoints ---"
@@ -136,21 +144,22 @@ jobs:
             done
           done
 
-          # 2. Probe FTP/FTPS daemons (port 21)
-          echo "--- Probing FTP/FTPS endpoints (port 21) ---"
-          for host in "${CANDIDATES[@]}"; do
-            ftp_banner=$(echo "" | timeout 3s nc -w 3 "$host" 21 2>/dev/null || true)
-            if [[ "$ftp_banner" == 220* ]] || timeout 3s bash -c "</dev/tcp/${host}/21" 2>/dev/null; then
-              echo "SUCCESS: Found active FTP service on ${host}:21"
-              ACTIVE_FTP_HOST="$host"
-              break
+          # 2. Probe the explicitly configured FTP/FTPS endpoint
+          echo "--- Probing FTP/FTPS endpoint (port ${PLESK_FTP_PORT:-21}) ---"
+          if [ -n "$ACTIVE_FTP_HOST" ]; then
+            ftp_banner=$(echo "" | timeout 3s nc -w 3 "$ACTIVE_FTP_HOST" "${PLESK_FTP_PORT:-21}" 2>/dev/null || true)
+            if [[ "$ftp_banner" == 220* ]] || timeout 3s bash -c "</dev/tcp/${ACTIVE_FTP_HOST}/${PLESK_FTP_PORT:-21}" 2>/dev/null; then
+              echo "SUCCESS: Found active FTP service on ${ACTIVE_FTP_HOST}:${PLESK_FTP_PORT:-21}"
+            else
+              echo "WARNING: PLESK_FTP_HOST is configured but its FTP port is unreachable."
             fi
-          done
+          else
+            echo "No PLESK_FTP_HOST configured; FTP fallback is disabled."
+          fi
 
           # Fallbacks if nc was silent but port might be open
           [ -n "$ACTIVE_SSH_HOST" ] || ACTIVE_SSH_HOST="${CLEAN_HOST}"
           [ -n "$ACTIVE_SSH_PORT" ] || ACTIVE_SSH_PORT="${PLESK_SSH_PORT:-22}"
-          [ -n "$ACTIVE_FTP_HOST" ] || ACTIVE_FTP_HOST="${CLEAN_HOST}"
 
           echo "PLESK_ACTIVE_HOST=${ACTIVE_SSH_HOST}" >> "$GITHUB_ENV"
           echo "PLESK_ACTIVE_PORT=${ACTIVE_SSH_PORT}" >> "$GITHUB_ENV"
@@ -158,7 +167,7 @@ jobs:
           echo "PLESK_HOST=${ACTIVE_SSH_HOST}" >> "$GITHUB_ENV"
           echo "PLESK_PORT=${ACTIVE_SSH_PORT}" >> "$GITHUB_ENV"
           echo "PLESK_FTP_HOST=${ACTIVE_FTP_HOST}" >> "$GITHUB_ENV"
-          echo "Discovered SSH: ${ACTIVE_SSH_HOST}:${ACTIVE_SSH_PORT} | FTP: ${ACTIVE_FTP_HOST}:21"
+          echo "Discovered SSH: ${ACTIVE_SSH_HOST}:${ACTIVE_SSH_PORT} | FTP: ${ACTIVE_FTP_HOST:-disabled}:${PLESK_FTP_PORT:-21}"
 
       - name: Deploy package to Live Plesk
         shell: bash
@@ -167,6 +176,8 @@ jobs:
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
           PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
           PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
+          PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
+          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT || '21' }}
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
@@ -260,7 +271,13 @@ jobs:
           # ══════════════════════════════════════════════════════════════════
           # METHOD 3: Automated FTPS / FTP Deployment (Port 21)
           # ══════════════════════════════════════════════════════════════════
-          echo ">>> [Method 3] Activating Automated FTPS deployment (port 21)..."
+          if [ -z "${PLESK_FTP_HOST:-}" ]; then
+            echo "ERROR: SSH and webhook deployment failed, and PLESK_FTP_HOST is not configured."
+            echo "Set PLESK_WEBHOOK_URL or configure PLESK_FTP_HOST/PLESK_FTP_PORT for a real FTP service."
+            exit 1
+          fi
+
+          echo ">>> [Method 3] Activating Automated FTPS deployment (port ${PLESK_FTP_PORT:-21})..."
           if ! command -v lftp >/dev/null 2>&1; then
             sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends lftp
           fi
@@ -279,7 +296,7 @@ jobs:
 
           # Clean FTP Host
           CLEAN_FTP_HOST=$(echo "${PLESK_FTP_HOST}" | sed -E 's|^[a-zA-Z]+://||' | sed -E 's|:[0-9]+$||' | sed -E 's|/.*$||' | xargs)
-          echo "Connecting to FTP server: ftp://${CLEAN_FTP_HOST}:21"
+          echo "Connecting to FTP server: ftp://${CLEAN_FTP_HOST}:${PLESK_FTP_PORT:-21}"
 
           # Attempt 1: FTPS with TLS
           ftps_success=false
@@ -293,7 +310,7 @@ jobs:
             set net:max-retries 2;
             mirror --reverse --delete --exclude-glob .env* --exclude-glob *.log --verbose=1 release/ '${FTP_DEST_DIR}/' || mirror --reverse --delete --exclude-glob .env* --exclude-glob *.log --verbose=1 release/ '${DEPLOY_PATH}/';
             quit;
-          " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" "ftp://${CLEAN_FTP_HOST}:21"; then
+          " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" "ftp://${CLEAN_FTP_HOST}:${PLESK_FTP_PORT:-21}"; then
             ftps_success=true
           else
             echo "FTPS TLS mirror failed; attempting plain FTP fallback..."
@@ -304,7 +321,7 @@ jobs:
               set net:max-retries 2;
               mirror --reverse --exclude-glob .env* --exclude-glob *.log --verbose=1 release/ '${FTP_DEST_DIR}/';
               quit;
-            " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" "ftp://${CLEAN_FTP_HOST}:21"; then
+            " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" "ftp://${CLEAN_FTP_HOST}:${PLESK_FTP_PORT:-21}"; then
               ftps_success=true
             fi
           fi

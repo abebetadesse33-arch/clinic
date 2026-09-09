@@ -43,7 +43,8 @@ jobs:
       - name: Deploy to Plesk via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.PLESK_HOST }}
+          server: ${{ secrets.PLESK_FTP_HOST }}
+          port: ${{ secrets.PLESK_FTP_PORT || '21' }}
           username: ${{ secrets.PLESK_USERNAME }}
           password: ${{ secrets.PLESK_PASSWORD }}
           server-dir: ${{ secrets.PLESK_DEPLOY_PATH }}/

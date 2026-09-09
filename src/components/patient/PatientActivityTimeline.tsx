@@ -92,6 +92,7 @@ export default function PatientActivityTimeline({
     if (activeFilter === "prescriptions") return act.activityType.includes("prescription") || act.activityType.includes("medication");
     if (activeFilter === "labs") return act.activityType.includes("lab");
     if (activeFilter === "vitals") return act.activityType.includes("vitals");
+    if (activeFilter === "triage") return act.activityType.includes("triage");
     if (activeFilter === "consultations") return act.activityType.includes("consultation") || act.activityType.includes("appointment");
     return true;
   });
@@ -119,6 +120,7 @@ export default function PatientActivityTimeline({
             { id: "prescriptions", label: "Prescriptions" },
             { id: "labs", label: "Labs & Tests" },
             { id: "vitals", label: "Vitals" },
+            { id: "triage", label: "Triage" },
             { id: "consultations", label: "Visits & Consults" },
           ].map((f) => (
             <button
@@ -153,58 +155,12 @@ export default function PatientActivityTimeline({
       ) : filtered.length > 0 ? (
         <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E7E2D8] dark:before:bg-slate-800">
           {filtered.map((item) => (
-            <div key={item.id} className="relative group">
-              {/* Bullet Node */}
-              <div className="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-2 border-[#005C4B] dark:border-emerald-400 flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform">
-                <div className="w-2 h-2 rounded-full bg-[#005C4B] dark:bg-emerald-400" />
-              </div>
-
-              {/* Event Card */}
-              <div className="p-4 rounded-2xl bg-[#FAF8F5] dark:bg-slate-950 border border-[#E7E2D8] dark:border-slate-800 hover:border-[#005C4B]/40 transition-all space-y-2">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-[#E7E2D8] dark:border-slate-700 flex items-center justify-center">
-                      {getActivityIcon(item.activityType)}
-                    </div>
-                    <span className="font-bold text-xs text-[#162E27] dark:text-white">
-                      {item.title}
-                    </span>
-                  </div>
-
-                  <span className="text-[11px] text-[#687B74] dark:text-slate-400 font-mono flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {new Date(item.createdAt).toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-
-                {item.description && (
-                  <p className="text-xs text-[#687B74] dark:text-slate-300 pl-9">
-                    {item.description}
-                  </p>
-                )}
-
-                <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#E7E2D8]/60 dark:border-slate-800 pl-9">
-                  <span className="text-[#687B74] dark:text-slate-400 flex items-center gap-1">
-                    Logged by: <strong className="text-[#162E27] dark:text-slate-200">{item.actorName}</strong> ({item.actorRole})
-                  </span>
-
-                  {item.metadata?.documentUrl && (
-                    <button
-                      onClick={() => onViewDocument && onViewDocument(item.metadata?.documentUrl)}
-                      className="text-[#005C4B] dark:text-emerald-400 font-bold hover:underline flex items-center gap-0.5"
-                    >
-                      <span>View Record</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+            <TimelineItem
+              key={item.id}
+              item={item}
+              icon={getActivityIcon(item.activityType)}
+              onViewDocument={onViewDocument}
+            />
           ))}
         </div>
       ) : (
@@ -215,3 +171,143 @@ export default function PatientActivityTimeline({
     </div>
   );
 }
+
+function TimelineItem({
+  item,
+  icon,
+  onViewDocument,
+}: {
+  item: PatientActivity;
+  icon: React.ReactNode;
+  onViewDocument?: (fileUrl: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasDocument = !!item.metadata?.documentUrl;
+  const hasMetadata = item.metadata && Object.keys(item.metadata).length > 0;
+  const hasDetails = !!item.description || !!hasMetadata;
+
+  const severityBorderClass =
+    item.severity === "critical"
+      ? "border-rose-200 dark:border-rose-800"
+      : item.severity === "warning"
+      ? "border-amber-200 dark:border-amber-800"
+      : "border-[#E7E2D8] dark:border-slate-800";
+
+  return (
+    <div className="relative group">
+      {/* Bullet Node */}
+      <div className="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-white dark:bg-slate-900 border-2 border-[#005C4B] dark:border-emerald-400 flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform">
+        <div className="w-2 h-2 rounded-full bg-[#005C4B] dark:bg-emerald-400" />
+      </div>
+
+      {/* Event Card */}
+      <div className={`p-4 rounded-2xl bg-[#FAF8F5] dark:bg-slate-950 border ${severityBorderClass} hover:border-[#005C4B]/40 transition-all space-y-2`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-7 h-7 rounded-lg bg-white dark:bg-slate-800 border border-[#E7E2D8] dark:border-slate-700 flex items-center justify-center shrink-0">
+              {icon}
+            </div>
+            <span className="font-bold text-xs text-[#162E27] dark:text-white">
+              {item.title}
+            </span>
+            {item.severity === "critical" && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950 dark:text-rose-300">
+                CRITICAL
+              </span>
+            )}
+            {item.severity === "warning" && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-300">
+                WARNING
+              </span>
+            )}
+          </div>
+
+          <span className="text-[11px] text-[#687B74] dark:text-slate-400 font-mono flex items-center gap-1 shrink-0">
+            <Clock className="w-3 h-3" />
+            {new Date(item.createdAt).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+
+        {/* Expanded Metadata Details */}
+        {expanded && hasDetails && (
+          <div className="pl-9 pt-2 space-y-1.5 border-t border-[#E7E2D8]/50 dark:border-slate-800">
+            {item.description && (
+              <p className="text-xs text-[#687B74] dark:text-slate-300">
+                {item.description}
+              </p>
+            )}
+            {hasMetadata && Object.entries(item.metadata!).map(([key, val]) => {
+              if (key === "documentUrl") return null;
+              return (
+                <div key={key} className="flex items-start gap-2 text-[11px]">
+                  <span className="text-[#687B74] dark:text-slate-500 font-mono uppercase w-28 shrink-0">
+                    {key.replace(/_/g, " ")}:
+                  </span>
+                  <span className="text-[#162E27] dark:text-slate-300 font-medium break-all">
+                    {typeof val === "object" ? JSON.stringify(val) : String(val)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#E7E2D8]/60 dark:border-slate-800 pl-9">
+          <span className="text-[#687B74] dark:text-slate-400 flex items-center gap-1">
+            Logged by:{" "}
+            <strong className="text-[#162E27] dark:text-slate-200 ml-1">{item.actorName}</strong>
+            <span className="ml-1">({item.actorRole})</span>
+          </span>
+
+          <div className="flex items-center gap-3">
+            {/* View Details toggle — for items without a document */}
+            {hasDetails && !hasDocument && (
+              <button
+                onClick={() => setExpanded((p) => !p)}
+                className="text-[#005C4B] dark:text-emerald-400 font-bold hover:underline flex items-center gap-0.5 transition-colors"
+              >
+                <span>{expanded ? "Hide Details" : "View Details"}</span>
+                <ChevronRight
+                  className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`}
+                />
+              </button>
+            )}
+
+            {/* View Record — opens document viewer via prop, or new tab fallback */}
+            {hasDocument && (
+              <button
+                onClick={() => {
+                  if (onViewDocument) {
+                    onViewDocument(item.metadata!.documentUrl);
+                  } else {
+                    window.open(item.metadata!.documentUrl, "_blank", "noopener,noreferrer");
+                  }
+                }}
+                className="text-[#005C4B] dark:text-emerald-400 font-bold hover:underline flex items-center gap-0.5 transition-colors"
+              >
+                <span>View Record</span>
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            )}
+
+            {/* Show expand toggle even when document exists */}
+            {hasDetails && hasDocument && (
+              <button
+                onClick={() => setExpanded((p) => !p)}
+                className="text-slate-500 dark:text-slate-400 font-bold hover:underline flex items-center gap-0.5 text-[10px]"
+              >
+                {expanded ? "Less" : "Details"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
