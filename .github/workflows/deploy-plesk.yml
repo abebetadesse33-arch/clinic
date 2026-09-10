@@ -525,12 +525,29 @@ jobs:
           HEALTHCHECK_INSECURE_TLS: "true"
         run: |
           set -Eeuo pipefail
-          for attempt in $(seq 1 12); do
+
+          # Give Plesk time to pull the code, install deps, and restart Node.
+          # Without this, early attempts hit a still-booting or still-deploying server.
+          echo "Waiting 30 s for server to start…"
+          sleep 30
+
+          # 15 attempts × 15 s = up to 3.75 minutes total after the initial wait.
+          for attempt in $(seq 1 15); do
             if bun run healthcheck; then
+              echo "✅ Health check passed on attempt ${attempt}/15."
               exit 0
             fi
-            echo "Health check attempt ${attempt}/12 failed; retrying in 10 seconds."
-            sleep 10
+            echo "Health check attempt ${attempt}/15 failed; retrying in 15 seconds."
+            sleep 15
           done
-          echo "Production health check failed after deployment." >&2
+
+          echo "" >&2
+          echo "❌ Production health check failed after deployment." >&2
+          echo "" >&2
+          echo "Common causes of HTTP 500 on first boot:" >&2
+          echo "  • Missing runtime env vars on Plesk (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL)." >&2
+          echo "    → Check Plesk → Websites & Domains → <domain> → Node.js → Environment Variables." >&2
+          echo "  • The app cannot reach its database from the Plesk host." >&2
+          echo "  • plesk-release.sh did not run 'bun run db:migrate' after deployment." >&2
+          echo "  → Check the Node.js application log in Plesk for the actual startup error." >&2
           exit 1

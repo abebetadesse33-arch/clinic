@@ -9,33 +9,40 @@ if (!healthcheckUrl) {
 }
 
 const controller = new AbortController();
-const timeout = setTimeout(() => controller.abort(), 15_000);
-const previousTlsSetting = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
+// Give the app 20 s to respond (was 15 s)
+const timeout = setTimeout(() => controller.abort(), 20_000);
 
+// Bun ignores NODE_TLS_REJECT_UNAUTHORIZED; we must pass tls options directly.
+const fetchOptions: RequestInit & { tls?: { rejectUnauthorized?: boolean } } = {
+  signal: controller.signal,
+  headers: { Accept: "application/json, text/plain" },
+};
 if (allowInsecureTls) {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  fetchOptions.tls = { rejectUnauthorized: false };
 }
 
+let failed = false;
 try {
-  const response = await fetch(healthcheckUrl, {
-    signal: controller.signal,
-    headers: { Accept: "application/json, text/plain" },
-  });
-
+  const response = await fetch(healthcheckUrl, fetchOptions);
   const body = await response.text();
+
   if (!response.ok) {
-    throw new Error(`Health check returned HTTP ${response.status}: ${body.slice(0, 500)}`);
+    throw new Error(
+      `Health check returned HTTP ${response.status}: ${body.slice(0, 500)}`
+    );
   }
 
   console.log(`Health check passed: HTTP ${response.status} ${body.slice(0, 300)}`);
 } catch (error) {
-  console.error("Health check failed:", error instanceof Error ? error.message : error);
-  process.exitCode = 1;
+  console.error(
+    "Health check failed:",
+    error instanceof Error ? error.message : error
+  );
+  failed = true;
 } finally {
-  if (previousTlsSetting === undefined) {
-    delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-  } else {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = previousTlsSetting;
-  }
   clearTimeout(timeout);
 }
+
+// Use process.exit() so Bun flushes stdout/stderr before the process ends.
+process.exit(failed ? 1 : 0);
+
