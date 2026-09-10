@@ -621,14 +621,7 @@ export async function ensureDatabaseInitialized(
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
 
-      -- Patient consents schema alignment
-      -- Patient registrations schema alignment
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_token TEXT;
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMP;
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS submitted_data JSONB DEFAULT '{}';
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS duplicate_patient_id UUID REFERENCES patients(id);
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS invited_by_user_id UUID REFERENCES users(id);
-      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS activated_patient_id UUID REFERENCES patients(id);
+    -- Patient consents schema alignment
 
       -- Automation rules schema alignment
       ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS description TEXT;
@@ -694,6 +687,13 @@ export async function ensureDatabaseInitialized(
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
+
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_token TEXT;
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMP;
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS submitted_data JSONB DEFAULT '{}';
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS duplicate_patient_id UUID REFERENCES patients(id);
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS invited_by_user_id UUID REFERENCES users(id);
+      ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS activated_patient_id UUID REFERENCES patients(id);
 
       CREATE TABLE IF NOT EXISTS patient_consents (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
