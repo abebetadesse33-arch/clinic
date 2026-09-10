@@ -1,24 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { appointments, auditLogs, encounters, telemedicineSessions, users, patients, patientRegistrationPasses, servicePricingCatalog, systemPaymentSettings } from "@/db/schema";
+import { appointments, auditLogs, encounters, telemedicineSessions, users, patients, patientRegistrationPasses, servicePricingCatalog, systemPaymentSettings, clinicLocations } from "@/db/schema";
 import { createAppointmentSchema } from "@/lib/validations/schemas";
 import { eq, desc, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUser } from "@/lib/security/auth-session";
 
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 const MAIN_FACILITY_ID = "11111111-0000-0000-0000-000000000001";
 
 // ─── Auto-assign: pick least-loaded active clinician that matches specialty ───
-async function autoAssignClinician(specialty?: string): Promise<{ id: string; name: string; role: string }> {
+async function autoAssignClinician(
+  specialty: string | undefined,
+  organizationId: string,
+): Promise<{ id: string; name: string; role: string }> {
   const clinicalRoles = ["physician", "nurse_practitioner", "nurse", "system_admin", "care_coordinator"];
   try {
     const candidates = await db
       .select({ id: users.id, name: users.fullName, role: users.role, dept: users.department })
       .from(users)
-      .where(and(inArray(users.role as any, clinicalRoles), eq(users.isActive, true)));
+      .where(and(
+        inArray(users.role as any, clinicalRoles),
+        eq(users.isActive, true),
+        eq(users.organizationId, organizationId),
+      ));
 
     if (candidates.length > 0) {
       // Prefer specialty match, then physician first, then round-robin
@@ -35,37 +41,72 @@ async function autoAssignClinician(specialty?: string): Promise<{ id: string; na
       return { id: sortedByLoad[0].id, name: sortedByLoad[0].name || "Provider", role: sortedByLoad[0].role || "physician" };
     }
 
-    // Fallback: any active user in DB
-    const [anyUser] = await db
-      .select({ id: users.id, name: users.fullName, role: users.role })
-      .from(users)
-      .limit(1);
-
-    if (anyUser) {
-      return { id: anyUser.id, name: anyUser.name || "Attending Physician", role: anyUser.role || "physician" };
-    }
   } catch (err) {
     console.warn("[AutoAssign] Clinician query error:", err);
   }
 
-  return { id: "00000000-0000-0000-0000-000000000001", name: "Dr. Sarah Mitchell, MD", role: "physician" };
+  throw new Error("No active clinician is available for this appointment.");
 }
 
 // GET /api/v1/appointments
 export async function GET(req: NextRequest) {
   try {
+    const sessionUser = await getAuthenticatedSessionUser(req);
+    if (!sessionUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: a valid authenticated session is required." },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
     const clinicianId = searchParams.get("clinicianId");
     const scheduledDate = searchParams.get("date") || searchParams.get("scheduledDate");
     const status = searchParams.get("status");
 
+    // Booking only needs occupied times. Never expose patient or clinical data
+    // through the availability lookup used by the public booking UI.
+    if (clinicianId && scheduledDate && !patientId && (!status || status === "all")) {
+      const availabilityUser = await getAuthenticatedSessionUser(req);
+      if (!availabilityUser) {
+        return NextResponse.json(
+          { success: false, error: "Authentication is required to view appointment availability." },
+          { status: 401 },
+        );
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+        return NextResponse.json({ success: false, error: "Invalid appointment date." }, { status: 422 });
+      }
+
+      const occupied = await db
+        .select({
+          scheduledTime: appointments.scheduledTime,
+          status: appointments.status,
+        })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.clinicianId, clinicianId),
+            eq(appointments.tenantId, availabilityUser.organizationId),
+            eq(appointments.scheduledDate, scheduledDate as any),
+            inArray(appointments.status, ["scheduled", "confirmed", "checked_in"] as any),
+          ),
+        );
+
+      return NextResponse.json({
+        success: true,
+        data: occupied,
+        meta: { availabilityOnly: true, count: occupied.length },
+      });
+    }
+
     // Pagination
     const limit = parseInt(searchParams.get("limit") || "150", 10);
     const page = parseInt(searchParams.get("page") || "1", 10);
     const offset = (page - 1) * limit;
 
-    const conditions: any[] = [];
+    const conditions: any[] = [eq(appointments.tenantId, sessionUser.organizationId)];
     if (patientId) conditions.push(eq(appointments.patientId, patientId));
     if (clinicianId) conditions.push(eq(appointments.clinicianId, clinicianId));
     if (scheduledDate) conditions.push(eq(appointments.scheduledDate, scheduledDate as any));
@@ -148,9 +189,9 @@ export async function GET(req: NextRequest) {
 // POST /api/v1/appointments
 export async function POST(req: NextRequest) {
   try {
-    const sessionUserId = await getAuthenticatedSessionUserId(req);
+    const sessionUser = await getAuthenticatedSessionUser(req);
 
-    if (!sessionUserId) {
+    if (!sessionUser) {
       return NextResponse.json(
         { success: false, error: "Unauthorized: a valid authenticated session is required." },
         { status: 401 }
@@ -159,34 +200,81 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const validated = createAppointmentSchema.parse(body);
+    const requestedDateTime = new Date(`${validated.scheduledDate}T${validated.scheduledTime}:00`);
+    const [year, month, day] = validated.scheduledDate.split("-").map(Number);
+    const dateIsCalendarValid =
+      requestedDateTime.getFullYear() === year &&
+      requestedDateTime.getMonth() + 1 === month &&
+      requestedDateTime.getDate() === day;
+    if (Number.isNaN(requestedDateTime.getTime()) || !dateIsCalendarValid) {
+      return NextResponse.json(
+        { success: false, error: "A valid appointment date and time are required." },
+        { status: 422 },
+      );
+    }
+    if (requestedDateTime.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { success: false, error: "Appointments must be booked for a future date and time." },
+        { status: 422 },
+      );
+    }
 
     const [paymentSettings, registrationService] = await Promise.all([
       db.select({ globalFreeMode: systemPaymentSettings.globalFreeMode }).from(systemPaymentSettings).limit(1),
       db.select({ isFree: servicePricingCatalog.isFree }).from(servicePricingCatalog).where(eq(servicePricingCatalog.serviceCode, "REGISTRATION_3MO")).limit(1),
     ]);
     const queueToken = `T-${Math.floor(100 + Math.random() * 900)}`;
-    const facilityId = validated.facilityId && validated.facilityId.startsWith("11111111-0000")
-      ? validated.facilityId
-      : MAIN_FACILITY_ID;
+    let facilityId = MAIN_FACILITY_ID;
+    if (validated.facilityId) {
+      const [activeFacility] = await db
+        .select({ id: clinicLocations.id })
+        .from(clinicLocations)
+        .where(and(eq(clinicLocations.id, validated.facilityId), eq(clinicLocations.isActive, true)))
+        .limit(1);
+      if (!activeFacility) {
+        return NextResponse.json(
+          { success: false, error: "The selected clinic location is no longer available. Please choose another location." },
+          { status: 409 },
+        );
+      }
+      facilityId = activeFacility.id;
+    }
 
     // ── 2. Resolve patientId → must be a patients.id (FK) ────────────────────
     let resolvedPatientId = validated.patientId;
     try {
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedPatientId || "");
       if (isUuid) {
-        const [byId] = await db.select({ id: patients.id }).from(patients).where(eq(patients.id, resolvedPatientId)).limit(1);
+        const [byId] = await db
+          .select({ id: patients.id })
+          .from(patients)
+          .where(and(eq(patients.id, resolvedPatientId), eq(patients.tenantId, sessionUser!.organizationId)))
+          .limit(1);
         if (!byId) {
-          const [byUserId] = await db.select({ id: patients.id }).from(patients).where(eq(patients.userId, resolvedPatientId)).limit(1);
+          const [byUserId] = await db
+            .select({ id: patients.id })
+            .from(patients)
+            .where(and(eq(patients.userId, resolvedPatientId), eq(patients.tenantId, sessionUser!.organizationId)))
+            .limit(1);
           if (byUserId) {
             resolvedPatientId = byUserId.id;
-          } else {
-            const [anyPatient] = await db.select({ id: patients.id }).from(patients).limit(1);
-            if (anyPatient) resolvedPatientId = anyPatient.id;
           }
         }
       }
     } catch (pErr) {
       console.warn("[Patient Resolution] Error:", pErr);
+    }
+
+    const [patientExists] = await db
+      .select({ id: patients.id })
+      .from(patients)
+      .where(and(eq(patients.id, resolvedPatientId), eq(patients.tenantId, sessionUser.organizationId)))
+      .limit(1);
+    if (!patientExists) {
+      return NextResponse.json(
+        { success: false, error: "A valid patient profile is required before booking an appointment." },
+        { status: 400 },
+      );
     }
 
     const registrationWaived = Boolean(paymentSettings[0]?.globalFreeMode || registrationService[0]?.isFree);
@@ -221,28 +309,51 @@ export async function POST(req: NextRequest) {
     let assignedClinicianName = "";
 
     if (!assignedClinicianId || assignedClinicianId.length !== 36) {
-      const assigned = await autoAssignClinician(validated.specialty);
+      const assigned = await autoAssignClinician(validated.specialty, sessionUser.organizationId);
       assignedClinicianId = assigned.id;
       assignedClinicianName = assigned.name;
     } else {
-      const [cl] = await db.select({ id: users.id, name: users.fullName }).from(users).where(eq(users.id, assignedClinicianId)).limit(1);
+      const [cl] = await db
+        .select({ id: users.id, name: users.fullName })
+        .from(users)
+        .where(and(eq(users.id, assignedClinicianId), eq(users.organizationId, sessionUser.organizationId), eq(users.isActive, true)))
+        .limit(1);
       if (cl) {
         assignedClinicianName = cl.name || "Your Clinician";
       } else {
-        const assigned = await autoAssignClinician(validated.specialty);
+        const assigned = await autoAssignClinician(validated.specialty, sessionUser.organizationId);
         assignedClinicianId = assigned.id;
         assignedClinicianName = assigned.name;
       }
     } // <-- Missing closing brace properly closed here.
 
-    const actualAuthenticatedUserId = sessionUserId || assignedClinicianId || "00000000-0000-0000-0000-000000000001";
+    const actualAuthenticatedUserId = sessionUser.id;
 
     // ── 4. Execute Transaction (Enterprise ACID Compliance) ───────────────────
     const txResult = await db.transaction(async (tx) => {
+      const [existingAppointment] = await tx
+        .select({ id: appointments.id })
+        .from(appointments)
+        .where(
+          and(
+            eq(appointments.tenantId, sessionUser.organizationId),
+            eq(appointments.clinicianId, assignedClinicianId),
+            eq(appointments.scheduledDate, validated.scheduledDate),
+            inArray(appointments.status, ["scheduled", "confirmed", "checked_in"] as any),
+            sql`${appointments.scheduledTime}::time < (${validated.scheduledTime}::time + ${validated.durationMinutes} * interval '1 minute')`,
+            sql`(${appointments.scheduledTime}::time + ${appointments.durationMinutes} * interval '1 minute') > ${validated.scheduledTime}::time`,
+          ),
+        )
+        .limit(1);
+
+      if (existingAppointment) {
+        throw new Error("This appointment time is no longer available. Please choose another time.");
+      }
+
       const [newAppt] = await tx
         .insert(appointments)
         .values({
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: sessionUser.organizationId,
           patientId: resolvedPatientId,
           clinicianId: assignedClinicianId,
           facilityId,
@@ -267,7 +378,7 @@ export async function POST(req: NextRequest) {
         const [encounter] = await tx
           .insert(encounters)
           .values({
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: sessionUser.organizationId,
             patientId: resolvedPatientId,
             clinicianId: assignedClinicianId,
             encounterType: "telehealth",
@@ -278,12 +389,12 @@ export async function POST(req: NextRequest) {
           .returning();
 
         createdEncounterId = encounter.id;
-        roomId = `room-${DEFAULT_TENANT_ID.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        roomId = `room-${sessionUser.organizationId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
         const [session] = await tx
           .insert(telemedicineSessions)
           .values({
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: sessionUser.organizationId,
             encounterId: encounter.id,
             patientId: resolvedPatientId,
             doctorId: assignedClinicianId,
@@ -301,7 +412,7 @@ export async function POST(req: NextRequest) {
       }
 
       await tx.insert(auditLogs).values({
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: sessionUser.organizationId,
         action: "APPOINTMENT_SCHEDULED",
         entityType: "appointments",
         entityId: newAppt.id,
@@ -316,12 +427,16 @@ export async function POST(req: NextRequest) {
 
     // ── 5. Post-Transaction Dual Notifications & Workflow Firing ───────────────
     try {
-      const [patientRec] = await db.select().from(patients).where(eq(patients.id, validated.patientId)).limit(1);
+      const [patientRec] = await db
+        .select()
+        .from(patients)
+        .where(and(eq(patients.id, resolvedPatientId), eq(patients.tenantId, sessionUser.organizationId)))
+        .limit(1);
       const patientUserId = patientRec?.userId;
 
       const modalityLabel = validated.appointmentType === "telehealth" ? "Video Visit" : "In-Person Visit";
       const baseActionPatient = joinUrls?.patient || `/patient/dashboard`;
-      const baseActionClinician = joinUrls?.clinician || `/patients/${validated.patientId}`;
+      const baseActionClinician = joinUrls?.clinician || `/patients/${resolvedPatientId}`;
 
       if (patientUserId && patientUserId.length === 36) {
         await dispatchNotification({
@@ -364,7 +479,7 @@ export async function POST(req: NextRequest) {
             appointmentType: validated.appointmentType,
             queueToken,
             joinUrl: joinUrls?.clinician || null,
-            patientId: validated.patientId,
+            patientId: resolvedPatientId,
             scheduledDate: validated.scheduledDate,
             scheduledTime: validated.scheduledTime,
           },
@@ -377,7 +492,7 @@ export async function POST(req: NextRequest) {
 
       executeWorkflowsForTrigger({
         triggerEvent: apptTrigger,
-        patientId: validated.patientId,
+        patientId: resolvedPatientId,
         triggeredByUserId: actualAuthenticatedUserId,
         subjectLabel: `${validated.appointmentType === "telehealth" ? "Telehealth" : "In-Person"} Visit — ${validated.scheduledDate} at ${validated.scheduledTime}`,
         patientActionUrl: joinUrls?.patient || "/patient/dashboard",
@@ -410,6 +525,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Validation failed", details: error.errors }, { status: 422 });
     }
     console.error("[Appointments POST] Error:", error);
-    return NextResponse.json({ success: false, error: error.message || "Failed to book appointment" }, { status: 500 });
+    const isConflict = typeof error?.message === "string" && error.message.includes("no longer available");
+    return NextResponse.json(
+      { success: false, error: error.message || "Failed to book appointment" },
+      { status: isConflict ? 409 : 500 },
+    );
   }
 }

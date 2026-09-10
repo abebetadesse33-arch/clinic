@@ -146,7 +146,7 @@ export default function SuperAdminCommandCenter() {
   // New user form
   const [newUser, setNewUser] = useState({
     fullName: "", email: "", password: "", role: "physician",
-    department: "", licenseNumber: "", phone: "",
+    department: "", designation: "", licenseNumber: "", phone: "",
   });
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
@@ -210,18 +210,24 @@ export default function SuperAdminCommandCenter() {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUser.fullName || !newUser.email || !newUser.password) {
-      showToast("Full name, email, and password are required.", "error"); return;
+    if (!newUser.fullName || !newUser.email || !newUser.password || (newUser.role !== "patient" && (!newUser.department || !newUser.designation))) {
+      showToast(newUser.role === "patient"
+        ? "Full name, email, and password are required."
+        : "Full name, email, password, department, and designation are required for staff.", "error");
+      return;
     }
     try {
-      const res = await fetch("/api/v1/auth/signup", {
+      const res = await fetch("/api/v1/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newUser, accountType: newUser.role === "patient" ? "patient" : "clinician" }),
+        body: JSON.stringify({
+          ...newUser,
+          designation: newUser.designation,
+        }),
       }).then(r => r.json());
       if (res.success) {
         showToast(`✅ User ${newUser.fullName} created successfully!`);
-        setNewUser({ fullName: "", email: "", password: "", role: "physician", department: "", licenseNumber: "", phone: "" });
+        setNewUser({ fullName: "", email: "", password: "", role: "physician", department: "", designation: "", licenseNumber: "", phone: "" });
         setShowAddUser(false);
         fetchUsers();
       } else { showToast(res.error || "Failed to create user.", "error"); }
@@ -618,7 +624,8 @@ export default function SuperAdminCommandCenter() {
                     { label: "Full Name *", key: "fullName", type: "text", placeholder: "Dr. Jane Smith, MD" },
                     { label: "Email Address *", key: "email", type: "email", placeholder: "email@Ninimed.org" },
                     { label: "Password *", key: "password", type: "password", placeholder: "Secure password" },
-                    { label: "Department", key: "department", type: "text", placeholder: "Department of Medicine" },
+                    { label: "Department *", key: "department", type: "text", placeholder: "Department of Medicine" },
+                    { label: "Designation *", key: "designation", type: "text", placeholder: "Senior Physician" },
                     { label: "License Number", key: "licenseNumber", type: "text", placeholder: "MD-XXXXXX" },
                     { label: "Phone", key: "phone", type: "text", placeholder: "+251 91 xxx xxxx" },
                   ].map(f => (

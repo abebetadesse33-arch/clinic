@@ -127,12 +127,9 @@ export default function ThemeToggle() {
             minWidth: "200px",
           }}
         >
-          {/* Header */}
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2.5 px-1">
             Choose Theme
           </p>
-
-          {/* Grid of swatches */}
           <div className="grid grid-cols-4 gap-2">
             {THEME_OPTIONS.map((opt) => {
               const isActive = theme === opt.id;
@@ -148,7 +145,6 @@ export default function ThemeToggle() {
                     outlineOffset: "1px",
                   }}
                 >
-                  {/* Swatch circle */}
                   <div
                     className="w-9 h-9 rounded-full relative flex items-center justify-center border-2 transition-all duration-150"
                     style={{
@@ -159,15 +155,10 @@ export default function ThemeToggle() {
                       boxShadow: isActive ? `0 0 10px ${opt.accent}55` : undefined,
                     }}
                   >
-                    {/* Accent dot */}
                     <span
                       className="w-3 h-3 rounded-full"
-                      style={{
-                        background: opt.accent,
-                        boxShadow: `0 0 6px ${opt.accent}`,
-                      }}
+                      style={{ background: opt.accent, boxShadow: `0 0 6px ${opt.accent}` }}
                     />
-                    {/* Checkmark overlay */}
                     {isActive && (
                       <span
                         className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
@@ -177,7 +168,6 @@ export default function ThemeToggle() {
                       </span>
                     )}
                   </div>
-                  {/* Label */}
                   <span
                     className="text-[9px] font-semibold leading-none transition-colors"
                     style={{ color: isActive ? opt.accent : "#94a3b8" }}
@@ -188,8 +178,6 @@ export default function ThemeToggle() {
               );
             })}
           </div>
-
-          {/* Active label footer */}
           <div
             className="mt-2.5 pt-2 border-t flex items-center gap-1.5 px-1"
             style={{ borderColor: "rgba(56, 109, 143, 0.25)" }}
