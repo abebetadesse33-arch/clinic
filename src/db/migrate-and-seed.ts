@@ -622,14 +622,6 @@ export async function ensureDatabaseInitialized(
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
 
       -- Patient consents schema alignment
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001';
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS version TEXT DEFAULT '1.0';
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS ip_address TEXT;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS user_agent TEXT;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS signature_url TEXT;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP;
-
       -- Patient registrations schema alignment
       ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_token TEXT;
       ALTER TABLE patient_registrations ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMP;
@@ -705,12 +697,25 @@ export async function ensureDatabaseInitialized(
 
       CREATE TABLE IF NOT EXISTS patient_consents (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          organization_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001',
           patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
           consent_type TEXT NOT NULL,
-          is_granted BOOLEAN DEFAULT FALSE NOT NULL,
-          signed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-          signature_ref TEXT
+          is_granted BOOLEAN DEFAULT TRUE NOT NULL,
+          version TEXT DEFAULT '1.0' NOT NULL,
+          ip_address TEXT,
+          user_agent TEXT,
+          signature_url TEXT,
+          granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+          revoked_at TIMESTAMP
       );
+
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES organizations(id) DEFAULT '00000000-0000-0000-0000-000000000001';
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS version TEXT DEFAULT '1.0';
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS ip_address TEXT;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS user_agent TEXT;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS signature_url TEXT;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE patient_consents ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP;
 
       CREATE TABLE IF NOT EXISTS patient_messages (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
