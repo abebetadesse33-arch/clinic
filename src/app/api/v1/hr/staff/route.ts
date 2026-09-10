@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import {
-  staffProfiles, staffCertifications, users, organizations, auditLogs,
+  staffProfiles, staffCertifications, users, auditLogs,
 } from "@/db/schema";
-import { eq, desc, ilike, or, and, ne } from "drizzle-orm";
+import { eq, desc, and, ne } from "drizzle-orm";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/hr/staff — list staff with filters + available candidate users
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdminUser(req);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = req.nextUrl;
     const department = searchParams.get("department");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
-    const includeUsers = searchParams.get("includeUsers") === "true";
-
     let query = db
       .select({
         id: staffProfiles.id,
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       })
       .from(staffProfiles)
       .innerJoin(users, eq(staffProfiles.userId, users.id))
+      .where(eq(staffProfiles.tenantId, auth.user.organizationId))
       .orderBy(desc(staffProfiles.createdAt));
 
     const data = await query;
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
         phone: users.phone,
       })
       .from(users)
-      .where(ne(users.role, "patient"));
+      .where(and(ne(users.role, "patient"), eq(users.organizationId, auth.user.organizationId)));
 
     const unassignedUsers = allCandidateUsers.filter((u) => !staffUserIds.has(u.id));
 
@@ -95,9 +96,12 @@ export async function GET(req: NextRequest) {
 // POST /api/v1/hr/staff — onboard a new staff member
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdminUser(req);
+    if ("response" in auth) return auth.response;
+
     const body = await req.json();
     const {
-      userId, tenantId = DEFAULT_TENANT_ID, employeeCode, department, designation, specialization,
+      userId, employeeCode, department, designation, specialization,
       licenseNumber, licenseIssuingBody, licenseExpiryDate, employmentType,
       baseSalaryEtb, onCallAllowanceRate, consultationRevenueSharePct,
       bankAccountNumber, bankName, mobileWalletNumber, mobileWalletProvider,
@@ -111,6 +115,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const [targetUser] = await db
+      .select({ id: users.id, organizationId: users.organizationId, role: users.role })
+      .from(users)
+      .where(and(eq(users.id, userId), eq(users.organizationId, auth.user.organizationId)))
+      .limit(1);
+    if (!targetUser || targetUser.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "A non-patient staff account in the current organization is required." },
+        { status: 400 }
+      );
+    }
+    const tenantId = auth.user.organizationId;
+
     // Auto-generate employee code if missing
     const empCode = employeeCode || `EMP-${Date.now().toString().slice(-4)}`;
     const hireDate = hiredAt || new Date().toISOString().split("T")[0];
@@ -119,7 +136,7 @@ export async function POST(req: NextRequest) {
     const [existing] = await db
       .select()
       .from(staffProfiles)
-      .where(eq(staffProfiles.userId, userId))
+      .where(and(eq(staffProfiles.userId, userId), eq(staffProfiles.tenantId, tenantId)))
       .limit(1);
 
     let staffRecord;
@@ -168,7 +185,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Keep users.department in sync
-    await db.update(users).set({ department }).where(eq(users.id, userId));
+    await db.update(users).set({ department }).where(and(eq(users.id, userId), eq(users.organizationId, tenantId)));
 
     return NextResponse.json({ success: true, data: staffRecord, message: "Staff onboarded successfully." }, { status: 201 });
   } catch (error: any) {
@@ -180,6 +197,9 @@ export async function POST(req: NextRequest) {
 // PATCH /api/v1/hr/staff — assign department or update staff profile
 export async function PATCH(req: NextRequest) {
   try {
+    const auth = await requireAdminUser(req);
+    if ("response" in auth) return auth.response;
+
     const body = await req.json();
     const {
       id,
@@ -211,14 +231,14 @@ export async function PATCH(req: NextRequest) {
       const [found] = await db
         .select()
         .from(staffProfiles)
-        .where(eq(staffProfiles.id, targetStaffId))
+        .where(and(eq(staffProfiles.id, targetStaffId), eq(staffProfiles.tenantId, auth.user.organizationId)))
         .limit(1);
       profile = found;
     } else if (userId) {
       const [found] = await db
         .select()
         .from(staffProfiles)
-        .where(eq(staffProfiles.userId, userId))
+        .where(and(eq(staffProfiles.userId, userId), eq(staffProfiles.tenantId, auth.user.organizationId)))
         .limit(1);
       profile = found;
     }
@@ -230,7 +250,7 @@ export async function PATCH(req: NextRequest) {
         .insert(staffProfiles)
         .values({
           userId,
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: auth.user.organizationId,
           employeeCode: empCode,
           department: department || "General Outpatient",
           designation: designation || "Clinical Staff",
@@ -262,7 +282,7 @@ export async function PATCH(req: NextRequest) {
     const [updated] = await db
       .update(staffProfiles)
       .set(updateFields)
-      .where(eq(staffProfiles.id, profile.id))
+      .where(and(eq(staffProfiles.id, profile.id), eq(staffProfiles.tenantId, auth.user.organizationId)))
       .returning();
 
     // Synchronize users table if department or designation changed
@@ -270,7 +290,7 @@ export async function PATCH(req: NextRequest) {
       await db
         .update(users)
         .set({ department })
-        .where(eq(users.id, profile.userId));
+        .where(and(eq(users.id, profile.userId), eq(users.organizationId, auth.user.organizationId)));
     }
 
     // Dispatch notification to the staff member
@@ -289,7 +309,7 @@ export async function PATCH(req: NextRequest) {
 
     // Audit log
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       userId: profile.userId,
       action: "STAFF_DEPARTMENT_ASSIGNED",
       entityType: "staff_profiles",
@@ -308,4 +328,3 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: error?.message }, { status: 500 });
   }
 }
-

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 type Params = { params: { id: string } };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireAdminUser(_req);
+    if ("response" in auth) return auth.response;
+
     const [user] = await db
       .select({
         id: users.id,
@@ -21,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
         createdAt: users.createdAt,
       })
       .from(users)
-      .where(eq(users.id, params.id))
+      .where(and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)))
       .limit(1);
 
     if (!user) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
@@ -33,6 +37,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireAdminUser(req);
+    if ("response" in auth) return auth.response;
+
     const body = await req.json();
     const { role, isActive, fullName, department, licenseNumber, phone } = body;
 
@@ -51,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const [updated] = await db
       .update(users)
       .set(updatePayload)
-      .where(eq(users.id, params.id))
+      .where(and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)))
       .returning({
         id: users.id,
         fullName: users.fullName,
@@ -72,11 +79,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
+    const auth = await requireAdminUser(_req);
+    if ("response" in auth) return auth.response;
+
     // Soft delete — set isActive=false rather than hard delete (HIPAA compliance)
     const [updated] = await db
       .update(users)
       .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(users.id, params.id))
+      .where(and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)))
       .returning({ id: users.id, email: users.email });
 
     if (!updated) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });

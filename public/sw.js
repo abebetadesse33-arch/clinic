@@ -1,5 +1,5 @@
 // NiniMed Mobile Service Worker v1.0.0
-const CACHE_NAME = "ninimed-mobile-v1";
+const CACHE_NAME = "ninimed-mobile-v1-1";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_ASSETS = [
@@ -162,6 +162,27 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// Allow an active app window to request a device-level popup. This keeps
+// installed PWAs and mobile WebViews consistent with the in-app toast.
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "NINIMED_NOTIFICATION") return;
+  const notification = event.data.notification || {};
+  event.waitUntil(
+    self.registration.showNotification(notification.title || "NiniMed Notification", {
+      body: notification.body || "You have a new healthcare update.",
+      icon: "/icons/icon-192.svg",
+      badge: "/icons/icon-192.svg",
+      tag: `ninimed-${notification.id || notification.title || "notification"}`,
+      requireInteraction: notification.priority === "critical",
+      data: { url: notification.url || "/" },
+      actions: [
+        { action: "open", title: "View Details" },
+        { action: "dismiss", title: "Dismiss" },
+      ],
+    })
+  );
 });
 
 // Notification Click Event — Direct App Deep-linking

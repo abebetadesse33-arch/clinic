@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") ?? "60", 10);
 
     const conditions: any[] = [];
+    conditions.push(eq(notifications.organizationId, sessionUser.organizationId));
     const isSystemAdmin = sessionUser.role === "system_admin" || sessionUser.role === "tenant_admin";
 
     if (!isSystemAdmin) {
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
         isRead: r.isRead,
         actionUrl: r.actionUrl,
         actionText: (r as any).actionText || "Act Now",
+        requiresAction: Boolean(r.actionUrl),
         targetRole: (r as any).targetRole || null,
         targetDepartment: (r as any).targetDepartment || null,
         relatedEntityType: r.relatedEntityType,
@@ -129,7 +131,10 @@ export async function PATCH(request: NextRequest) {
       await db
         .update(notifications)
         .set({ isRead: true, readAt: new Date() })
-        .where(eq(notifications.recipientUserId, currentUserId));
+        .where(and(
+          eq(notifications.recipientUserId, currentUserId),
+          eq(notifications.organizationId, auth.user.organizationId)
+        ));
       return NextResponse.json({ success: true, data: { markedRead: true } });
     }
 
@@ -139,7 +144,11 @@ export async function PATCH(request: NextRequest) {
         await db
           .update(notifications)
           .set({ isRead: true, readAt: new Date() })
-          .where(and(inArray(notifications.id, validUuids), eq(notifications.recipientUserId, currentUserId)));
+          .where(and(
+            inArray(notifications.id, validUuids),
+            eq(notifications.recipientUserId, currentUserId),
+            eq(notifications.organizationId, auth.user.organizationId)
+          ));
       }
       return NextResponse.json({ success: true, data: { markedRead: validUuids.length } });
     }
@@ -210,4 +219,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || "Internal error" }, { status: 500 });
   }
 }
-

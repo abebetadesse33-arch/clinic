@@ -129,7 +129,7 @@ export const createAppointmentSchema = z.object({
   ),
   specialty: z.string().default("Internal Medicine"),
   scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  scheduledTime: z.string().min(1, "Time is required"),
+  scheduledTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "Time must be HH:mm"),
   durationMinutes: z.number().int().min(5).default(30),
   reason: z.string().min(1, "Reason is required"),
   notes: z.string().optional(),

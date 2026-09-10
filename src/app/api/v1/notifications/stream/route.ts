@@ -23,12 +23,11 @@ export async function GET(request: NextRequest) {
       const onNotification = (notif: any) => {
         try {
           // Privilege & Scoping filter
-          const isSystemAdmin = role === "system_admin" || role === "tenant_admin";
           const isDirectRecipient = Boolean(userId && notif.recipientUserId === userId);
           const isRoleTarget = Boolean(role && notif.targetRole === role);
           const isBroadcast = !notif.recipientUserId && !notif.targetRole;
 
-          if (isSystemAdmin || isDirectRecipient || isRoleTarget || isBroadcast) {
+          if (notif.organizationId === auth.user.organizationId && (isDirectRecipient || isRoleTarget || isBroadcast)) {
             controller.enqueue(
               encoder.encode(`event: notification\ndata: ${JSON.stringify(notif)}\n\n`)
             );

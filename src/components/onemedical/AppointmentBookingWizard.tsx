@@ -24,12 +24,12 @@ interface DoctorOption {
 }
 
 const VISIT_REASONS = [
-  { id: "annual-wellness", label: "Annual Wellness Checkup", icon: "🌱", time: "45 min", desc: "Comprehensive physical exam, bloodwork order & prevention goals" },
-  { id: "illness-injury", label: "New Illness or Injury", icon: "🩺", time: "30 min", desc: "Cough, sprain, rash, abdominal pain, sudden symptoms" },
-  { id: "mental-health", label: "Mental Health & Stress", icon: "🧠", time: "45 min", desc: "Anxiety, depression, burnout, therapy referral, medication review" },
-  { id: "chronic-followup", label: "Chronic Condition Follow-up", icon: "📊", time: "30 min", desc: "Hypertension, diabetes, thyroid, cholesterol management" },
-  { id: "lab-draw", label: "In-Office Lab Draw & Vitals", icon: "🧪", time: "15 min", desc: "Routine blood test, urine panel, vaccine administration" },
-  { id: "rx-consult", label: "Medication Review & Refill", icon: "💊", time: "20 min", desc: "Adjust dosing, discuss side effects, ongoing refills" },
+  { id: "annual-wellness", label: "Annual Wellness Checkup", icon: "🌱", time: "45 min", durationMinutes: 45, desc: "Comprehensive physical exam, bloodwork order & prevention goals" },
+  { id: "illness-injury", label: "New Illness or Injury", icon: "🩺", time: "30 min", durationMinutes: 30, desc: "Cough, sprain, rash, abdominal pain, sudden symptoms" },
+  { id: "mental-health", label: "Mental Health & Stress", icon: "🧠", time: "45 min", durationMinutes: 45, desc: "Anxiety, depression, burnout, therapy referral, medication review" },
+  { id: "chronic-followup", label: "Chronic Condition Follow-up", icon: "📊", time: "30 min", durationMinutes: 30, desc: "Hypertension, diabetes, thyroid, cholesterol management" },
+  { id: "lab-draw", label: "In-Office Lab Draw & Vitals", icon: "🧪", time: "15 min", durationMinutes: 15, desc: "Routine blood test, urine panel, vaccine administration" },
+  { id: "rx-consult", label: "Medication Review & Refill", icon: "💊", time: "20 min", durationMinutes: 20, desc: "Adjust dosing, discuss side effects, ongoing refills" },
 ];
 
 const TIME_SLOTS = [
@@ -43,68 +43,42 @@ const TIME_SLOTS = [
   { time: "17:15", display: "5:15 PM", label: "Evening" },
 ];
 
+function formatLocalDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export default function AppointmentBookingWizard() {
   const { currentUser, patients, refreshData } = useClinic();
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [modality, setModality] = useState<"in_person" | "video">("in_person");
   const [reason, setReason] = useState<string>("annual-wellness");
-  const [doctorsList, setDoctorsList] = useState<DoctorOption[]>([
-    {
-      id: "",
-      name: "Dr. Sarah Mitchell, MD",
-      title: "Lead Attending Physician",
-      specialty: "Internal Medicine",
-      rating: 4.98,
-      reviewsCount: 150,
-      initials: "SM",
-      location: "Main Medical Pavilion & Virtual",
-      nextAvailable: "Available on Demand",
-      role: "physician",
-    },
-  ]);
+  const [doctorsList, setDoctorsList] = useState<DoctorOption[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
+  const [providerError, setProviderError] = useState<string | null>(null);
+  const [providersLoading, setProvidersLoading] = useState(true);
   
   // Format today as YYYY-MM-DD for real DB queries
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = formatLocalDate(new Date());
+  const initialTime = TIME_SLOTS.find((slot) => {
+    const [hours, minutes] = slot.time.split(":").map(Number);
+    const now = new Date();
+    return hours * 60 + minutes > now.getHours() * 60 + now.getMinutes();
+  })?.time || TIME_SLOTS[0].time;
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedDateLabel, setSelectedDateLabel] = useState<string>("Today");
-  const [selectedTime, setSelectedTime] = useState<string>("14:30");
+  const [selectedTime, setSelectedTime] = useState<string>(initialTime);
   const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [bookingResult, setBookingResult] = useState<any>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [isBooking, setIsBooking] = useState(false);
 
   // Clinic Locations state
-  const [locationsList, setLocationsList] = useState<any[]>([
-    {
-      id: "loc-habitat-main",
-      name: "NiniMed Habitat Clinic & 24/7 Emergency",
-      neighborhood: "Habitat Sub-City, Debre Birhan",
-      address: "Main Campus Highway, Habitat, Debre Birhan",
-      isMain: true,
-    },
-    {
-      id: "loc-tebasse-hub",
-      name: "NiniMed Tebasse Clinic",
-      neighborhood: "Tebasse District, Debre Birhan",
-      address: "Commercial Avenue, Near Tebasse Square",
-      isMain: false,
-    },
-    {
-      id: "loc-atakilt-branch",
-      name: "NiniMed Atakilt Clinic",
-      neighborhood: "Atakilt Market District, Debre Birhan",
-      address: "Atakilt Center Street, Debre Birhan",
-      isMain: false,
-    },
-    {
-      id: "loc-liche-pharmacy",
-      name: "NiniMed Liche Clinic",
-      neighborhood: "Liche District, Debre Birhan",
-      address: "Liche North Boulevard, Debre Birhan",
-      isMain: false,
-    },
-  ]);
-  const [selectedLocation, setSelectedLocation] = useState<string>("loc-habitat-main");
+  const [locationsList, setLocationsList] = useState<any[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>("");
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationsLoading, setLocationsLoading] = useState(true);
 
   // Payment gating state
   const [regStatus, setRegStatus] = useState<any>(null);
@@ -129,16 +103,24 @@ export default function AppointmentBookingWizard() {
     fetch("/api/v1/locations")
       .then((r) => r.json())
       .then((d) => {
+        setLocationsLoading(false);
         if (d.success && Array.isArray(d.data) && d.data.length > 0) {
           setLocationsList(d.data);
+          setSelectedLocation((current) => d.data.some((location: any) => location.id === current) ? current : d.data[0].id);
+        } else {
+          setLocationError(d.error || "No active clinic locations are available.");
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        setLocationsLoading(false);
+        setLocationError("Clinic locations could not be loaded. Please try again.");
+      });
 
     // Fetch real clinicians from public providers API
     fetch("/api/v1/public/providers")
       .then((r) => r.json())
       .then((d) => {
+        setProvidersLoading(false);
         if (d.success && Array.isArray(d.data) && d.data.length > 0) {
           const list: DoctorOption[] = d.data.map((doc: any) => ({
             id: doc.id,
@@ -154,30 +136,64 @@ export default function AppointmentBookingWizard() {
           }));
           setDoctorsList(list);
           setSelectedDoctor(list[0].id);
+        } else {
+          setProviderError(d.error || "No active clinicians are available.");
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        setProvidersLoading(false);
+        setProviderError("Clinicians could not be loaded. Please try again.");
+      });
   }, []);
 
   // Fetch booked slots for the selected doctor & date
   useEffect(() => {
     if (!selectedDoctor || !selectedDate) return;
-    fetch(`/api/v1/appointments?clinicianId=${selectedDoctor}&date=${selectedDate}`)
+    let cancelled = false;
+    const loadAvailability = () => {
+      setBookedSlots([]);
+      setAvailabilityError(null);
+      fetch(`/api/v1/appointments?clinicianId=${encodeURIComponent(selectedDoctor)}&date=${encodeURIComponent(selectedDate)}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.success && Array.isArray(d.data)) {
+        if (!cancelled && d.success && Array.isArray(d.data)) {
           const booked = d.data
             .filter((a: any) => a.status !== "cancelled")
             .map((a: any) => a.scheduledTime);
           setBookedSlots(booked);
+          setSelectedTime((current) => booked.includes(current) ? "" : current);
+        } else if (!cancelled) {
+          setAvailabilityError(d.error || "Availability could not be loaded.");
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        if (!cancelled) {
+          setBookedSlots([]);
+          setAvailabilityError("Availability could not be loaded. Please refresh and try again.");
+        }
+      });
+    };
+
+    loadAvailability();
+    window.addEventListener("focus", loadAvailability);
+    window.addEventListener("online", loadAvailability);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", loadAvailability);
+      window.removeEventListener("online", loadAvailability);
+    };
   }, [selectedDoctor, selectedDate]);
 
-  const activeDoc = doctorsList.find((d) => d.id === selectedDoctor) || doctorsList[0];
+  const activeDoc = doctorsList.find((d) => d.id === selectedDoctor);
   const activeReason = VISIT_REASONS.find((r) => r.id === reason) || VISIT_REASONS[0];
-  const activeLoc = locationsList.find((l) => l.id === selectedLocation) || locationsList[0];
+  const activeLoc = locationsList.find((l) => l.id === selectedLocation);
+  const isPastTimeForDate = (date: string, time: string) => {
+    if (date !== todayStr) return false;
+    const [hours, minutes] = time.split(":").map(Number);
+    const now = new Date();
+    return hours * 60 + minutes <= now.getHours() * 60 + now.getMinutes();
+  };
+  const isPastTime = (time: string) => isPastTimeForDate(selectedDate, time);
 
   // Map visit reason → service code for billing
   const REASON_SERVICE_MAP: Record<string, { code: string; price: number }> = {
@@ -193,6 +209,19 @@ export default function AppointmentBookingWizard() {
   };
 
   const handleConfirmBooking = () => {
+    if (!activeDoc || (modality === "in_person" && !activeLoc)) {
+      setBookingError("Please select an available clinician and clinic location before continuing.");
+      return;
+    }
+    if (!selectedDate || !selectedTime) {
+      setBookingError("Please choose an available date and time before continuing.");
+      return;
+    }
+    if (bookedSlots.includes(selectedTime)) {
+      setBookingError("That time was just booked. Please choose another available time.");
+      return;
+    }
+    setBookingError(null);
     if (regStatus?.isFreeGlobal) {
       proceedBooking();
       return;
@@ -211,10 +240,14 @@ export default function AppointmentBookingWizard() {
   };
 
   const proceedBooking = async () => {
+    if (isBooking) return;
+    setBookingError(null);
+    setIsBooking(true);
     try {
-      const resolvedPatientId =
-        (currentUser as any)?.patientId ||
-        (patients && patients.length > 0 ? patients[0].id : "00000000-0000-0000-0000-000000000001");
+      const resolvedPatientId = (currentUser as any)?.patientId || patients?.[0]?.id;
+      if (!resolvedPatientId) {
+        throw new Error("We could not find your patient profile. Please refresh or contact support before booking.");
+      }
 
       const resolvedClinicianId =
         activeDoc?.id && activeDoc.id.length === 36 && !activeDoc.id.endsWith("99") ? activeDoc.id : undefined;
@@ -224,12 +257,12 @@ export default function AppointmentBookingWizard() {
       const payload = {
         patientId: resolvedPatientId,
         clinicianId: resolvedClinicianId,
-        facilityId: "11111111-0000-0000-0000-000000000001",
+        facilityId: activeLoc?.id && /^[0-9a-f-]{36}$/i.test(activeLoc.id) ? activeLoc.id : undefined,
         appointmentType,
         specialty: activeDoc?.specialty || "Internal Medicine",
         scheduledDate: selectedDate,
         scheduledTime: selectedTime,
-        durationMinutes: 30,
+        durationMinutes: activeReason.durationMinutes,
         reason: activeReason.label,
         notes: activeReason.desc,
       };
@@ -241,30 +274,20 @@ export default function AppointmentBookingWizard() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        setBookingResult(data.data);
+      if (!res.ok || !data.success || !data.data) {
+        throw new Error(data.error || "We could not confirm this appointment. Please choose another time and try again.");
       }
+      setBookingResult(data.data);
 
-      // Also mirror to patient legacy endpoint if active
-      fetch("/api/v1/patient/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: activeDoc.name,
-          type: activeReason.label,
-          isTelehealth: modality === "video",
-          time: selectedTime,
-          reason: activeReason.desc,
-          location: modality === "in_person" ? `${activeLoc.name} (${activeLoc.neighborhood})` : "Encrypted Telehealth Room",
-        }),
-      }).catch(() => { });
-
-      if (refreshData) refreshData();
+      await refreshData?.();
+      setIsConfirmed(true);
+      setStep(5);
     } catch (err) {
       console.error("Booking error:", err);
+      setBookingError(err instanceof Error ? err.message : "Booking failed. Please try again.");
+    } finally {
+      setIsBooking(false);
     }
-    setIsConfirmed(true);
-    setStep(5);
   };
 
 
@@ -274,7 +297,7 @@ export default function AppointmentBookingWizard() {
       <div className="bg-[#FAF8F5] border-b border-[#E7E2D8] px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="badge-mint font-semibold text-xs">Step {step} of 4</span>
+            <span className="badge-mint font-semibold text-xs">Step {step} of 5</span>
             <h2 className="text-base font-bold text-[#162E27]">
               {step === 1 && "Select Visit Format"}
               {step === 2 && "Reason for Visit"}
@@ -378,6 +401,11 @@ export default function AppointmentBookingWizard() {
                 <label className="text-xs font-bold text-[#162E27] uppercase tracking-wider block">
                   Select Clinic Office (Debre Birhan Network)
                 </label>
+                {locationsLoading && (
+                  <div className="rounded-xl border border-[#E7E2D8] bg-[#FAF8F5] p-4 text-xs text-[#687B74]">
+                    Loading available clinic locations…
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {locationsList.map((loc) => (
                     <div
@@ -399,12 +427,18 @@ export default function AppointmentBookingWizard() {
                     </div>
                   ))}
                 </div>
+                {locationError && (
+                  <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                    {locationError}
+                  </div>
+                )}
               </div>
             )}
 
             <div className="flex justify-end pt-4">
               <button
                 onClick={() => setStep(2)}
+                disabled={modality === "in_person" && !activeLoc}
                 className="btn-pill-primary w-full sm:w-auto"
               >
                 <span>Continue to Reason</span>
@@ -472,6 +506,11 @@ export default function AppointmentBookingWizard() {
             </div>
 
             <div className="space-y-3">
+              {providersLoading && (
+                <div className="rounded-xl border border-[#E7E2D8] bg-[#FAF8F5] p-4 text-xs text-[#687B74]">
+                  Loading available clinicians…
+                </div>
+              )}
               {doctorsList.map((doc) => (
                 <div
                   key={doc.id}
@@ -515,11 +554,16 @@ export default function AppointmentBookingWizard() {
                   </div>
                 </div>
               ))}
+              {providerError && (
+                <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                  {providerError}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between items-center pt-4">
               <button onClick={() => setStep(2)} className="btn-pill-ghost text-xs">Back</button>
-              <button onClick={() => setStep(4)} className="btn-pill-primary">
+              <button onClick={() => setStep(4)} disabled={!activeDoc} className="btn-pill-primary disabled:opacity-60">
                 <span>Select Time Slot</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -535,7 +579,7 @@ export default function AppointmentBookingWizard() {
                 Choose date & time
               </h3>
               <p className="text-xs text-[#687B74] mt-1">
-                Appointment with <strong className="text-[#162E27]">{activeDoc.name}</strong>
+                Appointment with <strong className="text-[#162E27]">{activeDoc?.name || "your selected clinician"}</strong>
               </p>
             </div>
 
@@ -548,7 +592,7 @@ export default function AppointmentBookingWizard() {
                 {[0, 1, 2, 3].map((offset) => {
                   const d = new Date();
                   d.setDate(d.getDate() + offset);
-                  const dateStr = d.toISOString().split("T")[0];
+                  const dateStr = formatLocalDate(d);
                   const label = offset === 0 ? "Today" : offset === 1 ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
                   const isSel = selectedDate === dateStr;
                   return (
@@ -558,6 +602,10 @@ export default function AppointmentBookingWizard() {
                       onClick={() => {
                         setSelectedDate(dateStr);
                         setSelectedDateLabel(label);
+                        setBookingError(null);
+                        if (dateStr === todayStr && isPastTimeForDate(dateStr, selectedTime)) {
+                          setSelectedTime("");
+                        }
                       }}
                       className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all text-center ${
                         isSel
@@ -578,18 +626,27 @@ export default function AppointmentBookingWizard() {
               <label className="block text-xs font-bold text-[#162E27] uppercase tracking-wider mb-2">
                 Available Times
               </label>
+              {availabilityError && (
+                <div role="alert" className="mb-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                  {availabilityError}
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {TIME_SLOTS.map((slot) => {
                   const isBooked = bookedSlots.includes(slot.time);
+                  const isUnavailable = isBooked || isPastTime(slot.time);
                   const isSelected = selectedTime === slot.time;
                   return (
                     <button
                       key={slot.time}
                       type="button"
-                      disabled={isBooked}
-                      onClick={() => setSelectedTime(slot.time)}
+                        disabled={isUnavailable || isBooking}
+                        onClick={() => {
+                          setSelectedTime(slot.time);
+                          setBookingError(null);
+                        }}
                       className={`p-3 rounded-xl border text-center transition-all ${
-                        isBooked
+                        isUnavailable
                           ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60"
                           : isSelected
                           ? "border-[#005C4B] bg-[#E8F4F0] text-[#005C4B] font-bold ring-2 ring-[#005C4B]/20"
@@ -597,7 +654,7 @@ export default function AppointmentBookingWizard() {
                       }`}
                     >
                       <div className="text-xs">{slot.display}</div>
-                      <div className="text-[10px] text-[#687B74]">{isBooked ? "Booked" : slot.label}</div>
+                      <div className="text-[10px] text-[#687B74]">{isBooked ? "Booked" : isPastTime(slot.time) ? "Unavailable" : slot.label}</div>
                     </button>
                   );
                 })}
@@ -617,7 +674,7 @@ export default function AppointmentBookingWizard() {
                 <div>
                   <span className="text-[#687B74]">Location:</span>
                   <div className="font-bold text-[#005C4B] mt-0.5 truncate">
-                    {modality === "in_person" ? activeLoc.name : "Telehealth Room"}
+                    {modality === "in_person" ? activeLoc?.name || "Selected clinic" : "Telehealth Room"}
                   </div>
                 </div>
                 <div>
@@ -633,14 +690,21 @@ export default function AppointmentBookingWizard() {
 
             <div className="flex justify-between items-center pt-4">
               <button onClick={() => setStep(3)} className="btn-pill-ghost text-xs">Back</button>
-              <button onClick={handleConfirmBooking} className="btn-pill-primary">
+              <button onClick={handleConfirmBooking} disabled={isBooking} className="btn-pill-primary disabled:opacity-60 disabled:cursor-wait">
                 {regStatus && !regStatus.isFreeGlobal ? (
-                  <><CreditCard className="w-4 h-4" /><span>Review & Pay to Confirm</span></>
+                  <><CreditCard className="w-4 h-4" /><span>{isBooking ? "Booking…" : "Review & Pay to Confirm"}</span></>
                 ) : (
-                  <><span>Confirm & Book Appointment</span><CheckCircle2 className="w-4 h-4" /></>
+                  <><span>{isBooking ? "Booking…" : "Confirm & Book Appointment"}</span><CheckCircle2 className="w-4 h-4" /></>
                 )}
               </button>
             </div>
+
+            {bookingError && (
+              <div role="alert" className="mt-3 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                <span>{bookingError}</span>
+              </div>
+            )}
 
             {/* Registration expired warning */}
             {regStatus && !regStatus.isActive && !regStatus.isFreeGlobal && (
@@ -667,7 +731,7 @@ export default function AppointmentBookingWizard() {
             serviceCode={consultFeeData.serviceCode}
             serviceTitle={`${activeReason.label} — ${modality === "video" ? "Video Visit" : "In-Person Visit"}`}
             amountEtb={consultFeeData.amountEtb}
-            patientName="Patient"
+            patientName={(currentUser as any)?.fullName || "Patient"}
           />
         )}
 
@@ -682,25 +746,26 @@ export default function AppointmentBookingWizard() {
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold mb-2">
                 <span>Queue Token:</span>
                 <span className="font-mono bg-emerald-600 text-white px-2 py-0.5 rounded text-xs">
-                  {bookingResult?.queueToken || "T-204"}
+                  {bookingResult?.queueToken || "Pending"}
                 </span>
               </div>
               <h3 className="text-2xl font-bold text-[#162E27] font-display">
                 You’re all set for {selectedDate} at {selectedTime}!
               </h3>
               <p className="text-xs text-[#687B74] mt-1.5 max-w-md mx-auto">
-                We’ve sent confirmation, calendar invite, and intake details to your registered profile.
+                Your {modality === "video" ? "video visit" : "visit"} with {bookingResult?.assignedClinician?.name || activeDoc?.name || "your clinician"} is confirmed.
+                {modality === "in_person" ? ` Please arrive at ${activeLoc?.name || "the selected clinic"}.` : " Your secure visit link will be available from your dashboard."}
               </p>
             </div>
 
             <div className="bg-[#FAF8F5] p-5 rounded-2xl border border-[#E7E2D8] max-w-md mx-auto text-left space-y-2.5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[#005C4B] text-white flex items-center justify-center font-bold text-sm">
-                  {bookingResult?.assignedClinician?.name ? bookingResult.assignedClinician.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2) : activeDoc.initials}
+                  {bookingResult?.assignedClinician?.name ? bookingResult.assignedClinician.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2) : activeDoc?.initials || "MD"}
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#162E27]">{bookingResult?.assignedClinician?.name || activeDoc.name}</div>
-                  <div className="text-[11px] text-[#687B74]">{activeDoc.title}</div>
+                  <div className="text-xs font-bold text-[#162E27]">{bookingResult?.assignedClinician?.name || activeDoc?.name || "Assigned clinician"}</div>
+                  <div className="text-[11px] text-[#687B74]">{activeDoc?.title || "Clinical provider"}</div>
                 </div>
               </div>
               <div className="pt-2 border-t border-[#E7E2D8] flex items-center justify-between text-xs text-[#687B74]">
@@ -709,7 +774,7 @@ export default function AppointmentBookingWizard() {
               </div>
               <div className="flex items-center justify-between text-xs text-[#687B74]">
                 <span>Location:</span>
-                <strong className="text-[#005C4B]">{modality === "in_person" ? activeLoc.name : "Secure HD Video Room"}</strong>
+                <strong className="text-[#005C4B]">{modality === "in_person" ? activeLoc?.name || "Selected clinic" : "Secure HD Video Room"}</strong>
               </div>
               <div className="pt-2 border-t border-[#E7E2D8] flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />

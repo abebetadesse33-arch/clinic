@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, patients, systemAuthSettings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, organizations, patients, systemAuthSettings, clinicLocations } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
 import { createHash, randomInt } from "crypto";
+import { dispatchNotification } from "@/lib/notifications/notification-service";
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
@@ -96,19 +97,6 @@ export async function POST(req: NextRequest) {
       if (existingOrg) orgId = existingOrg.id;
     } catch {}
 
-    const [createdUser] = await db
-      .insert(users)
-      .values({
-        organizationId: orgId,
-        email: normalizedEmail,
-        passwordHash: sha256Hex(password),
-        fullName,
-        role: "patient",
-        nationalId: cleanNationalId,
-        phone: normalizedPhone,
-      })
-      .returning();
-
     const patientMrn = mrn || `MRN-${randomInt(10000, 99999)}`;
     const digitalCardNumber = `NINI-2026-${randomInt(1000, 9999)}-${randomInt(1000, 9999)}`;
     const loginPasscode = `NN-${randomInt(100000, 999999)}`;
@@ -119,32 +107,54 @@ export async function POST(req: NextRequest) {
     const firstName = nameParts[0] || fullName;
     const lastName = nameParts.slice(1).join(" ") || "Patient";
 
-    const [createdPatient] = await db
-      .insert(patients)
-      .values({
-        tenantId: orgId,
-        userId: createdUser.id,
-        mrn: patientMrn,
-        nationalId: cleanNationalId,
-        nationalIdVerified: Boolean(cleanNationalId),
-        digitalCardNumber,
-        preferredClinicBranch: preferredClinicBranch || "habitat-main",
-        firstName,
-        lastName,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split("T")[0] : "1990-01-01",
-        gender: (gender as any) || "other",
-        bloodType: bloodType || "O+",
-        email: normalizedEmail,
-        phone: normalizedPhone,
-      })
-      .returning();
+    const { createdUser, createdPatient } = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          organizationId: orgId,
+          email: normalizedEmail,
+          passwordHash: sha256Hex(password),
+          fullName,
+          role: "patient",
+          nationalId: cleanNationalId,
+          phone: normalizedPhone,
+        })
+        .returning();
 
-    const BRANCH_NAMES: Record<string, string> = {
-      "habitat-main": "NiniMed Habitat Clinic & 24/7 ER (Main)",
-      "tebasse-branch": "NiniMed Tebasse Clinic",
-      "atakilt-branch": "NiniMed Atakilt Clinic",
-      "liche-branch": "NiniMed Liche Health Center",
-    };
+      const [patient] = await tx
+        .insert(patients)
+        .values({
+          tenantId: orgId,
+          userId: user.id,
+          mrn: patientMrn,
+          nationalId: cleanNationalId,
+          nationalIdVerified: Boolean(cleanNationalId),
+          digitalCardNumber,
+          preferredClinicBranch: preferredClinicBranch || "habitat-main",
+          firstName,
+          lastName,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split("T")[0] : "1990-01-01",
+          gender: (gender as any) || "other",
+          bloodType: bloodType || "O+",
+          email: normalizedEmail,
+          phone: normalizedPhone,
+        })
+        .returning();
+
+      return { createdUser: user, createdPatient: patient };
+    });
+
+    const [preferredBranch] = await db
+      .select({ name: clinicLocations.name })
+      .from(clinicLocations)
+      .where(
+        and(
+          eq(clinicLocations.slug, preferredClinicBranch || "habitat-main"),
+          eq(clinicLocations.tenantId, orgId),
+          eq(clinicLocations.isActive, true),
+        ),
+      )
+      .limit(1);
 
     const patientCard = {
       cardId: digitalCardNumber,
@@ -155,7 +165,7 @@ export async function POST(req: NextRequest) {
       phone: normalizedPhone || "N/A",
       email: normalizedEmail,
       bloodType: bloodType || "O+",
-      primaryClinic: BRANCH_NAMES[preferredClinicBranch] || "NiniMed Habitat Main Clinic",
+      primaryClinic: preferredBranch?.name || "NiniMed Clinic",
       issuedAt: issueDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       validUntil: expiryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       status: "Active 3-Month Membership",
@@ -169,6 +179,24 @@ export async function POST(req: NextRequest) {
       }),
       loginPasscode,
     };
+
+    try {
+      await dispatchNotification({
+        category: "system",
+        type: "welcome_message",
+        title: `Welcome to NiniMed, ${firstName}!`,
+        body: "Your patient account is ready. Explore your dashboard, book a visit, and keep your digital patient card available for check-in.",
+        priority: "normal",
+        recipientUserId: createdUser.id,
+        actionUrl: "/patient/dashboard",
+        actionText: "Open Patient Dashboard",
+        relatedEntityType: "patient",
+        relatedEntityId: createdPatient.id,
+        metadata: { messageKind: "welcome", mrn: patientMrn },
+      });
+    } catch (notificationError) {
+      console.error("[Signup] Welcome notification delivery failed:", notificationError);
+    }
 
     const response = NextResponse.json(
       {

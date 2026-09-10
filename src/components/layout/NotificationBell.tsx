@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
-  Bell, X, CheckCheck, Video, Calendar, AlertCircle, MessageSquare,
+  Bell, BellRing, X, CheckCheck, Video, Calendar, AlertCircle, MessageSquare,
   Zap, ShoppingCart, FlaskConical, Pill, CreditCard, UserCheck, LogIn, LogOut,
   ExternalLink, Filter, Volume2, BellOff
 } from "lucide-react";
@@ -17,6 +17,7 @@ interface Notification {
   isRead: boolean;
   actionUrl?: string;
   actionText?: string;
+  requiresAction?: boolean;
   targetRole?: string;
   createdAt: string;
   metadata?: Record<string, any>;
@@ -34,6 +35,7 @@ function timeSince(dateStr: string): string {
 
 function notifIcon(type: string, priority: string) {
   if (priority === "critical") return <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />;
+  if (type.includes("reminder")) return <BellRing className="w-4 h-4 text-amber-500 shrink-0" />;
   if (type === "appointment_booked" || type === "treat_me_now") return <Calendar className="w-4 h-4 text-teal-500 shrink-0" />;
   if (type === "order_placed") return <ShoppingCart className="w-4 h-4 text-indigo-500 shrink-0" />;
   if (type === "payment_pending") return <CreditCard className="w-4 h-4 text-amber-500 shrink-0" />;
@@ -89,11 +91,81 @@ export default function NotificationBell() {
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [browserAlerts, setBrowserAlerts] = useState(false);
+  const [popupNotification, setPopupNotification] = useState<Notification | null>(null);
+  const [popupQueue, setPopupQueue] = useState<Notification[]>([]);
   const eventSourceRef = useRef<EventSource | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const notificationIdsRef = useRef<Set<string>>(new Set());
+  const hasHydratedNotificationsRef = useRef(false);
+  const mutedRef = useRef(false);
+  const browserAlertsRef = useRef(false);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const disposedRef = useRef(false);
+
+  useEffect(() => {
+    if (popupNotification || popupQueue.length === 0) return;
+    const [next, ...remaining] = popupQueue;
+    setPopupNotification(next);
+    setPopupQueue(remaining);
+  }, [popupNotification, popupQueue]);
+
+  useEffect(() => {
+    if (!popupNotification) return;
+    const timeout = window.setTimeout(() => {
+      setPopupNotification((current) =>
+        current?.id === popupNotification.id ? null : current
+      );
+    }, popupNotification.priority === "critical" ? 12000 : 7000);
+    return () => window.clearTimeout(timeout);
+  }, [popupNotification]);
+
+  const enqueuePopup = useCallback((notification: Notification) => {
+    setPopupQueue((queue) => [...queue, notification]);
+  }, []);
+
+  useEffect(() => {
+    const muted = window.localStorage.getItem("Nini_notification_sound") === "muted";
+    const alerts = typeof Notification !== "undefined" && Notification.permission === "granted";
+    setIsMuted(muted);
+    setBrowserAlerts(alerts);
+    mutedRef.current = muted;
+    browserAlertsRef.current = alerts;
+  }, []);
 
   const userId = (currentUser as any)?.id || "";
   const role = (currentUser as any)?.role || (currentRole as string) || "";
+
+  const notifyDevice = useCallback((notif: Notification) => {
+    if (!mutedRef.current) playChime(notif.priority);
+    if (notif.priority === "critical" || notif.priority === "high") {
+      navigator.vibrate?.(notif.priority === "critical" ? [120, 60, 120] : [80]);
+    }
+
+    if (browserAlertsRef.current && typeof Notification !== "undefined") {
+      new Notification(notif.title, { body: notif.body, tag: notif.id });
+      return;
+    }
+
+    if (typeof Notification !== "undefined" && Notification.permission === "granted" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.ready
+        .then((registration) => {
+          registration.active?.postMessage({
+            type: "NINIMED_NOTIFICATION",
+            notification: {
+              id: notif.id,
+              title: notif.title,
+              body: notif.body,
+              priority: notif.priority,
+              url: notif.actionUrl || "/",
+            },
+          });
+        })
+        .catch(() => {
+          // The in-app popup remains available when the service worker is unavailable.
+        });
+    }
+  }, []);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -104,17 +176,30 @@ export default function NotificationBell() {
       const res = await fetch(`/api/v1/notifications?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
       if (data.success) {
-        setNotifications(data.data?.notifications || []);
+        const nextNotifications = data.data?.notifications || [];
+        const unseen = hasHydratedNotificationsRef.current
+          ? nextNotifications.filter((item: Notification) => !notificationIdsRef.current.has(item.id))
+          : [];
+        notificationIdsRef.current = new Set(nextNotifications.map((item: Notification) => item.id));
+        setNotifications(nextNotifications);
         setUnreadCount(data.data?.unreadCount || 0);
+        const latestUnseen = unseen[0];
+        if (latestUnseen) {
+          unseen.forEach(enqueuePopup);
+          unseen.forEach(notifyDevice);
+        }
+        hasHydratedNotificationsRef.current = true;
       }
     } catch { /* silent */ }
-  }, [userId, role]);
+  }, [userId, role, notifyDevice, enqueuePopup]);
 
   // SSE real-time stream
   useEffect(() => {
     if (!userId && !role) return;
+    disposedRef.current = false;
 
     const connect = () => {
+      if (disposedRef.current) return;
       const params = new URLSearchParams();
       if (userId) params.set("userId", userId);
       if (role) params.set("role", role);
@@ -126,17 +211,21 @@ export default function NotificationBell() {
       es.addEventListener("notification", (e) => {
         try {
           const notif: Notification = JSON.parse(e.data);
+          if (notificationIdsRef.current.has(notif.id)) return;
+          notificationIdsRef.current.add(notif.id);
           setNotifications((prev) => [{ ...notif, isRead: false }, ...prev.slice(0, 59)]);
+          enqueuePopup(notif);
           setUnreadCount((c) => c + 1);
-          if (!isMuted) playChime(notif.priority);
+          notifyDevice(notif);
         } catch { /* ignore parse errors */ }
       });
 
       es.onerror = () => {
         setIsConnected(false);
         es.close();
-        // Reconnect after 5s
-        setTimeout(connect, 5000);
+        if (!disposedRef.current) {
+          reconnectTimerRef.current = window.setTimeout(connect, 5000);
+        }
       };
     };
 
@@ -145,9 +234,24 @@ export default function NotificationBell() {
 
     // Fallback polling every 30s (in case SSE connection drops)
     const poll = setInterval(fetchNotifications, 30000);
+    const refreshOnResume = () => {
+      if (!document.hidden && navigator.onLine) {
+        fetchNotifications();
+      }
+    };
+    const refreshOnOnline = () => fetchNotifications();
+    document.addEventListener("visibilitychange", refreshOnResume);
+    window.addEventListener("online", refreshOnOnline);
 
     return () => {
+      disposedRef.current = true;
       clearInterval(poll);
+      if (reconnectTimerRef.current !== null) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      document.removeEventListener("visibilitychange", refreshOnResume);
+      window.removeEventListener("online", refreshOnOnline);
       eventSourceRef.current?.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,6 +295,21 @@ export default function NotificationBell() {
     } catch { /* silent */ }
   };
 
+  const enableBrowserAlerts = async () => {
+    if (typeof Notification === "undefined") return;
+    const permission = await Notification.requestPermission();
+    const enabled = permission === "granted";
+    setBrowserAlerts(enabled);
+    browserAlertsRef.current = enabled;
+  };
+
+  const toggleSound = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    mutedRef.current = nextMuted;
+    window.localStorage.setItem("Nini_notification_sound", nextMuted ? "muted" : "enabled");
+  };
+
   const handleNotifClick = async (notif: Notification) => {
     if (!notif.isRead) await markOneRead(notif.id);
     if (notif.actionUrl) {
@@ -203,7 +322,7 @@ export default function NotificationBell() {
   const filteredNotifications = notifications.filter((n) => {
     if (filterTab === "unread") return !n.isRead;
     if (filterTab === "critical") return n.priority === "critical" || n.priority === "high";
-    if (filterTab === "action") return Boolean(n.actionUrl);
+    if (filterTab === "action") return Boolean(n.requiresAction ?? n.actionUrl);
     return true;
   });
 
@@ -211,10 +330,64 @@ export default function NotificationBell() {
     { id: "all", label: "All" },
     { id: "unread", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
     { id: "critical", label: "Priority" },
-    { id: "action", label: "Action Required" },
+    { id: "action", label: `Action Required${notifications.filter((n) => !n.isRead && (n.requiresAction ?? n.actionUrl)).length ? ` (${notifications.filter((n) => !n.isRead && (n.requiresAction ?? n.actionUrl)).length})` : ""}` },
   ];
 
   return (
+    <>
+    {popupNotification && (
+      <div className="fixed top-[calc(env(safe-area-inset-top)+1rem)] right-4 sm:right-6 z-[400] w-[calc(100vw-2rem)] max-w-sm animate-in slide-in-from-right-4 duration-200">
+        <div
+          onClick={() => {
+            const notification = popupNotification;
+            setPopupNotification(null);
+            if (notification.actionUrl) window.location.href = notification.actionUrl;
+            else setIsOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              const notification = popupNotification;
+              setPopupNotification(null);
+              if (notification.actionUrl) window.location.href = notification.actionUrl;
+              else setIsOpen(true);
+            }
+          }}
+          tabIndex={0}
+          className={`w-full text-left rounded-2xl border bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-2xl p-4 ${
+            popupNotification.priority === "critical"
+              ? "border-red-400 shadow-red-500/20"
+              : popupNotification.priority === "high"
+                ? "border-amber-400 shadow-amber-500/20"
+                : "border-teal-400 shadow-teal-500/10"
+          }`}
+          role="status"
+          aria-live={popupNotification.priority === "critical" ? "assertive" : "polite"}
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5">{notifIcon(popupNotification.type, popupNotification.priority)}</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{popupNotification.title}</p>
+                <span className="text-[10px] font-semibold uppercase text-slate-400">New</span>
+              </div>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-2">{popupNotification.body}</p>
+              <p className="mt-2 text-[10px] font-semibold text-teal-700 dark:text-teal-300">
+                {popupNotification.actionUrl ? (popupNotification.actionText || "Open notification") : "Tap to view notifications"}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss notification popup"
+              onClick={(event) => { event.stopPropagation(); setPopupNotification(null); }}
+              className="text-slate-400 hover:text-slate-700 dark:hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="relative" ref={panelRef}>
       {/* Bell Button */}
       <button
@@ -232,6 +405,11 @@ export default function NotificationBell() {
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
+        {!notif.isRead && (notif.requiresAction ?? notif.actionUrl) && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300">
+            Action
+          </span>
+        )}
       </button>
 
       {/* Notification Panel */}
@@ -247,8 +425,17 @@ export default function NotificationBell() {
               </span>
             </div>
             <div className="flex items-center gap-1">
+              {!browserAlerts && typeof Notification !== "undefined" && Notification.permission !== "denied" && (
+                <button
+                  onClick={enableBrowserAlerts}
+                  className="text-[10px] text-white/80 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition"
+                  title="Enable desktop reminder alerts"
+                >
+                  Enable alerts
+                </button>
+              )}
               <button
-                onClick={() => setIsMuted((m) => !m)}
+                onClick={toggleSound}
                 className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition"
                 title={isMuted ? "Unmute alerts" : "Mute alerts"}
               >
@@ -367,5 +554,6 @@ export default function NotificationBell() {
         </div>
       )}
     </div>
+    </>
   );
 }

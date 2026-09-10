@@ -1,12 +1,21 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, professionalProfiles } from "@/db/schema";
-import { eq, or, inArray } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { getAuthenticatedSessionUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const sessionUser = await getAuthenticatedSessionUser(req);
+    if (!sessionUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: a valid authenticated session is required." },
+        { status: 401 },
+      );
+    }
+
     const clinicianRoles = [
       "physician",
       "nurse_practitioner",
@@ -30,29 +39,15 @@ export async function GET() {
         phone: users.phone,
       })
       .from(users)
-      .where(inArray(users.role, clinicianRoles as any));
-
-    if (clinicians.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: [
-          {
-            id: "prov-general",
-            name: "NiniMed Primary Care Team",
-            role: "physician",
-            title: "Internal & Family Medicine",
-            specialty: "Primary Care, Preventive Wellness & Chronic Care",
-            location: "Main Medical Pavilion & Telehealth",
-            initials: "AM",
-            rating: 4.98,
-            reviewsCount: 150,
-          },
-        ],
-      });
-    }
+      .where(and(
+        inArray(users.role, clinicianRoles as any),
+        eq(users.organizationId, sessionUser.organizationId),
+        eq(users.isActive, true),
+      ));
 
     const shaped = clinicians.map((c) => {
-      const initials = c.name
+      const providerName = c.name || "Clinical Provider";
+      const initials = providerName
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -73,7 +68,7 @@ export async function GET() {
 
       return {
         id: c.id,
-        name: c.name,
+        name: providerName,
         role: c.role,
         title: titleMap[c.role] || "Clinical Specialist",
         specialty: c.department || "Primary Healthcare & Multidisciplinary Medicine",
@@ -90,21 +85,9 @@ export async function GET() {
     });
   } catch (error: any) {
     console.error("Error fetching providers:", error);
-    return NextResponse.json({
-      success: true,
-      data: [
-        {
-          id: "prov-default",
-          name: "NiniMed Clinical Care Team",
-          role: "physician",
-          title: "Multidisciplinary Clinical Care",
-          specialty: "General Practice, Diagnostics & Telehealth",
-          location: "Downtown Clinic & Virtual Room",
-          initials: "AM",
-          rating: 4.95,
-          reviewsCount: 100,
-        },
-      ],
-    });
+    return NextResponse.json(
+      { success: false, error: "Unable to load clinicians right now." },
+      { status: 500 },
+    );
   }
 }

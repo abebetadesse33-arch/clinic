@@ -60,6 +60,16 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
     const priority = payload.priority || "normal";
     const actionUrl = payload.actionUrl;
     const actionText = payload.actionText || "View Details";
+    let notificationOrganizationId = DEFAULT_TENANT_ID;
+    const organizationSeedId = payload.senderUserId || payload.recipientUserId || payload.recipientUserIds?.[0];
+    if (organizationSeedId) {
+      const [seedUser] = await db
+        .select({ organizationId: users.organizationId })
+        .from(users)
+        .where(eq(users.id, organizationSeedId))
+        .limit(1);
+      if (seedUser?.organizationId) notificationOrganizationId = seedUser.organizationId;
+    }
 
     // 1. Resolve Target Users
     const recipientUserIds: string[] = [];
@@ -118,7 +128,11 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
       const matchedUsers = await db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.role, payload.targetRole as any))
+        .where(and(
+          eq(users.role, payload.targetRole as any),
+          eq(users.organizationId, notificationOrganizationId),
+          eq(users.isActive, true)
+        ))
         .limit(50);
 
       matchedUsers.forEach((u) => {
@@ -130,7 +144,19 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
 
     const excluded = new Set(payload.excludeUserIds || []);
     if (payload.senderUserId) excluded.add(payload.senderUserId);
-    const uniqueRecipientUserIds = Array.from(new Set(recipientUserIds)).filter((id) => !excluded.has(id));
+    const candidateRecipientIds = Array.from(new Set(recipientUserIds)).filter((id) => !excluded.has(id));
+    const organizationUsers = candidateRecipientIds.length > 0
+      ? await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(
+          inArray(users.id, candidateRecipientIds),
+          eq(users.organizationId, notificationOrganizationId),
+          eq(users.isActive, true)
+        ))
+      : [];
+    const allowedRecipientIds = new Set(organizationUsers.map((user) => user.id));
+    const uniqueRecipientUserIds = candidateRecipientIds.filter((id) => allowedRecipientIds.has(id));
     recipientUserIds.length = 0;
     recipientUserIds.push(...uniqueRecipientUserIds);
 
@@ -140,7 +166,11 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
       const adminUsers = await db
         .select({ id: users.id })
         .from(users)
-        .where(eq(users.role, "system_admin" as any))
+        .where(and(
+          eq(users.role, "system_admin" as any),
+          eq(users.organizationId, notificationOrganizationId),
+          eq(users.isActive, true)
+        ))
         .limit(5);
 
       if (adminUsers.length > 0) {
@@ -158,7 +188,7 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
       const [inserted] = await db
         .insert(notifications)
         .values({
-          organizationId: DEFAULT_TENANT_ID,
+          organizationId: notificationOrganizationId,
           userId: userId,
           recipientUserId: userId,
           senderUserId: payload.senderUserId || null,
@@ -189,6 +219,7 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
         // Broadcast to in-memory Real-Time SSE listeners with verified senderUserId
         notificationBus.emit("notification", {
           id: inserted.id,
+          organizationId: notificationOrganizationId,
           recipientUserId: userId,
           senderUserId: payload.senderUserId || null,
           targetRole: payload.targetRole,
@@ -198,6 +229,7 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
           priority: priority,
           actionUrl,
           actionText,
+          requiresAction: Boolean(actionUrl),
           relatedEntityType: payload.relatedEntityType,
           relatedEntityId: payload.relatedEntityId,
           metadata: payload.metadata || {},

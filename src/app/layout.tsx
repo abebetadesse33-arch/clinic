@@ -9,6 +9,7 @@ import PwaRegistrar from "../components/mobile/PwaRegistrar";
 import MobileBottomNav from "../components/mobile/MobileBottomNav";
 // import ClinicalAiCopilot from "../components/ui/ClinicalAiCopilot"; // Hidden — re-enable to restore AI Copilot
 import AppFooter from "../components/layout/AppFooter";
+import NotificationBell from "../components/layout/NotificationBell";
 
 export const viewport: Viewport = {
   themeColor: "#075985",
@@ -56,6 +57,9 @@ export default function RootLayout({
               <ClinicProvider>
               <PwaRegistrar />
               <NavigationHeader />
+              <div className="md:hidden fixed top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 z-[300]">
+                <NotificationBell />
+              </div>
               <main className="flex-1 min-w-0 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
                 <div className="w-full min-w-0 overflow-x-hidden">
                   {children}
