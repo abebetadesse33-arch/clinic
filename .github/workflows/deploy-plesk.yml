@@ -29,6 +29,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     environment: production
+    env:
+      DEPLOY_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DEPLOY_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
     permissions:
       contents: read
 
@@ -89,7 +92,9 @@ jobs:
           [ -n "${PLESK_USERNAME:-}" ]               || missing+=(PLESK_USERNAME)
           [ -n "${PLESK_DEPLOY_PATH:-}" ]            || missing+=(PLESK_DEPLOY_PATH)
           [ -n "${PLESK_DOMAIN:-}" ]                 || missing+=(PLESK_DOMAIN)
-          [ -n "${DATABASE_URL:-}" ]                 || missing+=(DATABASE_URL)
+          if [ -z "${DATABASE_URL:-}" ] && [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
+            missing+=(DATABASE_URL)
+          fi
           if [ -z "${PLESK_PASSWORD:-}" ] && [ -z "${PLESK_SSH_KEY:-}" ] && [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
             missing+=("PLESK_PASSWORD or PLESK_SSH_KEY or PLESK_WEBHOOK_URL")
           fi
@@ -97,7 +102,7 @@ jobs:
             printf '❌ Missing GitHub Actions secrets: %s\n' "${missing[*]}" >&2
             exit 1
           fi
-          if [[ "${DATABASE_URL}" =~ @(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?/ ]]; then
+          if [ -n "${DATABASE_URL:-}" ] && [[ "${DATABASE_URL}" =~ @(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?/ ]] && [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
             echo "❌ DATABASE_URL points to localhost. Set it to the PostgreSQL host reachable from Plesk, not the GitHub runner." >&2
             exit 1
           fi
@@ -115,10 +120,15 @@ jobs:
         run: bun install --frozen-lockfile || bun install
 
       - name: Run production database migration
+        if: env.DEPLOY_WEBHOOK_URL == '' || (!contains(env.DEPLOY_DATABASE_URL, 'localhost') && !contains(env.DEPLOY_DATABASE_URL, '127.0.0.1') && !contains(env.DEPLOY_DATABASE_URL, '::1'))
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NINIMED_STRICT_DB: "true"
         run: bun run db:migrate
+
+      - name: Use remote Plesk migration for webhook deployment
+        if: env.DEPLOY_WEBHOOK_URL != '' && (contains(env.DEPLOY_DATABASE_URL, 'localhost') || contains(env.DEPLOY_DATABASE_URL, '127.0.0.1') || contains(env.DEPLOY_DATABASE_URL, '::1'))
+        run: echo "DATABASE_URL is local to the runner; Plesk webhook deployment will run migrations on the Plesk host."
 
       - name: Run explicitly requested production seed
         if: github.event_name == 'workflow_dispatch' && inputs.seed_enabled == true
