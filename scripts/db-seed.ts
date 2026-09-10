@@ -1,5 +1,5 @@
-import postgres from "postgres";
 import { ensureDatabaseInitialized } from "../src/db/migrate-and-seed";
+import { connectToDatabase } from "./db-connection";
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
@@ -11,7 +11,7 @@ async function main() {
     throw new Error("Production seeding requires ALLOW_PRODUCTION_SEED=true.");
   }
 
-  const sql = postgres(connectionString, { max: 1 });
+  const sql = await connectToDatabase(connectionString, "Seed");
   try {
     await sql`select pg_advisory_lock(hashtext('ninimed-schema-migration'))`;
     process.env.NINIMED_STRICT_DB = "true";
