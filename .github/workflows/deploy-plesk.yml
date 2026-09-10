@@ -168,7 +168,15 @@ jobs:
             cp -f scripts/server-prelude.js release/plesk-prelude.js
             cat > release/server.js <<'NODE_ENTRYPOINT'
           require('./plesk-prelude.js');
-          require('./.next/standalone/server.js');
+          try {
+            require('./.next/standalone/server.js');
+          } catch (error) {
+            const fs = require('fs');
+            const message = `[${new Date().toISOString()}] Synchronous startup failure:\n${error?.stack || error}\n\n`;
+            try { fs.appendFileSync('./passenger-startup-error.log', message); } catch (_) {}
+            console.error(message);
+            throw error;
+          }
           NODE_ENTRYPOINT
           fi
           cp -f release/server.js release/app.js 2>/dev/null || true
@@ -549,9 +557,10 @@ jobs:
           echo "❌ Production health check failed after deployment." >&2
           echo "" >&2
           echo "Common causes of HTTP 500 on first boot:" >&2
-          echo "  • Missing runtime env vars on Plesk (DATABASE_URL, NEXTAUTH_SECRET, NEXTAUTH_URL)." >&2
+          echo "  • Missing DATABASE_URL on Plesk, or a database host unreachable from Plesk." >&2
           echo "    → Check Plesk → Websites & Domains → <domain> → Node.js → Environment Variables." >&2
+          echo "    → This application does not use NextAuth; NEXTAUTH_SECRET/NEXTAUTH_URL are not required." >&2
           echo "  • The app cannot reach its database from the Plesk host." >&2
           echo "  • plesk-release.sh did not run 'bun run db:migrate' after deployment." >&2
-          echo "  → Check the Node.js application log in Plesk for the actual startup error." >&2
+          echo "  → Check the Node.js application log and current/passenger-startup-error.log for the actual startup error." >&2
           exit 1

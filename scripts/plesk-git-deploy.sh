@@ -47,7 +47,15 @@ if [ -f ".next/standalone/server.js" ]; then
   cp -f scripts/server-prelude.js plesk-prelude.js
   cat > server.js <<'NODE_ENTRYPOINT'
 require('./plesk-prelude.js');
-require('./.next/standalone/server.js');
+try {
+  require('./.next/standalone/server.js');
+} catch (error) {
+  const fs = require('fs');
+  const message = `[${new Date().toISOString()}] Synchronous startup failure:\n${error?.stack || error}\n\n`;
+  try { fs.appendFileSync('./passenger-startup-error.log', message); } catch (_) {}
+  console.error(message);
+  throw error;
+}
 NODE_ENTRYPOINT
   cp -f server.js app.js
 else

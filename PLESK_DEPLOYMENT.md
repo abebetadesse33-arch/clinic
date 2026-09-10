@@ -42,6 +42,17 @@ NEXT_PUBLIC_APP_NAME=NiniMed Enterprise CDSS
 NEXT_PUBLIC_APP_VERSION=3.0.0-enterprise
 ```
 
+This application does not use NextAuth, so `NEXTAUTH_SECRET` and `NEXTAUTH_URL`
+are not required runtime variables. Authentication uses the `Nini_session`
+cookie. Do not add placeholder `NEXTAUTH_*` values to Plesk as a workaround for
+startup failures.
+
+For the Plesk Node.js application, add the variables above under **Node.js >
+Environment variables**, using the real PostgreSQL host reachable from Plesk.
+In particular, do not copy the Docker defaults (`localhost`, `Nini_postgres_db`,
+or `postgres`) into production. The deployment migration will fail fast when
+`DATABASE_URL` is missing or unreachable.
+
 Optional integrations used by this repository:
 
 ```text
