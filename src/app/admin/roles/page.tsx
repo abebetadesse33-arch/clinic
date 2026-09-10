@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import RoleGuard from "@/components/auth/RoleGuard";
 import {
   ShieldCheck, Plus, Edit2, Trash2, UserPlus, Users, Check,
   ChevronDown, ChevronRight, Lock, Unlock, Search, X, Briefcase,
@@ -211,6 +212,11 @@ export default function AdminRolesPage() {
   );
 
   return (
+    <RoleGuard
+      allowedRoles={["system_admin", "tenant_admin"]}
+      fallbackTitle="Role Administration"
+      fallbackMessage="Only administrators can create, edit, delete, or assign roles."
+    >
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
       {/* Header */}
       <div className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-10">
@@ -458,5 +464,6 @@ export default function AdminRolesPage() {
         </div>
       )}
     </div>
+    </RoleGuard>
   );
 }

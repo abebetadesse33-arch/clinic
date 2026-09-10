@@ -126,6 +126,28 @@ bun run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### CI and Database Commands
+
+```bash
+bun run typecheck
+bun run ci
+bun run db:migrate
+bun run db:seed                 # local/test data only by default
+bun run healthcheck             # requires HEALTHCHECK_URL
+```
+
+The GitHub Actions CI workflow runs type checking, strict database migration,
+idempotent seed validation, the production build, and a Docker build using a
+temporary PostgreSQL/pgvector service. Production deployment is handled only by
+`.github/workflows/deploy-plesk.yml` and is serialized with a production
+environment approval gate.
+
+Required production Actions secrets include `DATABASE_URL`,
+`NEXT_PUBLIC_APP_URL`, `PLESK_HOST`, `PLESK_USERNAME`, `PLESK_DEPLOY_PATH`,
+`PLESK_DOMAIN`, and one of `PLESK_WEBHOOK_URL`, `PLESK_SSH_KEY`, or
+`PLESK_PASSWORD`. Production seed data requires an explicit manual workflow
+dispatch with `seed_enabled` enabled.
+
 ---
 
 ## 🐳 Quick Start with Docker

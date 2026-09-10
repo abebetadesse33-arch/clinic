@@ -25,6 +25,7 @@ export interface AuthenticatedUser {
   licenseNumber?: string | null;
   organizationId: string;
   isActive: boolean;
+  isAdminGrantedBySuperAdmin: boolean;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -76,6 +77,7 @@ export async function getAuthenticatedSessionUser(req: NextRequest): Promise<Aut
         licenseNumber: users.licenseNumber,
         organizationId: users.organizationId,
         isActive: users.isActive,
+        isAdminGrantedBySuperAdmin: users.isAdminGrantedBySuperAdmin,
       })
       .from(users)
       .where(and(eq(users.id, sessionId), eq(users.isActive, true)))
@@ -111,6 +113,33 @@ export async function requireAuthenticatedUser(
   }
 
   return { user };
+}
+
+/**
+ * Guard administrative configuration and workforce operations.
+ * Admin UI guards are useful for UX, but authorization must be enforced here
+ * because every API route is directly reachable by a client.
+ */
+export async function requireAdminUser(
+  req: NextRequest
+): Promise<{ user: AuthenticatedUser } | { response: NextResponse }> {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth;
+
+  const isSystemAdmin = auth.user.role === "system_admin";
+  const isGrantedTenantAdmin =
+    auth.user.role === "tenant_admin" && auth.user.isAdminGrantedBySuperAdmin;
+
+  if (!isSystemAdmin && !isGrantedTenantAdmin) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "Forbidden: administrator privileges are required." },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return auth;
 }
 
 export function isAuthorizedForRole(

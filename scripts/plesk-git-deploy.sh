@@ -49,12 +49,22 @@ echo "=== [3.5/4] Synchronizing PostgreSQL database schema & migrations ==="
 if [ -n "${DATABASE_URL:-}" ]; then
   echo "DATABASE_URL detected, applying database schema & table migrations..."
   if command -v bun >/dev/null 2>&1; then
-    bun src/db/run-init.ts || echo "Database auto-init executed."
+    NINIMED_STRICT_DB=true bun run db:migrate
   else
-    npx tsx src/db/run-init.ts 2>/dev/null || node -e 'console.log("Database schema check deferred to application startup.")' || true
+    NINIMED_STRICT_DB=true npx tsx scripts/db-migrate.ts
   fi
 else
-  echo "DATABASE_URL not set in shell environment; migrations will synchronize on first application request."
+  echo "ERROR: DATABASE_URL is required for deployment migrations." >&2
+  exit 1
+fi
+
+if [ "${ALLOW_PRODUCTION_SEED:-false}" = "true" ]; then
+  echo "Explicit production seed requested."
+  if command -v bun >/dev/null 2>&1; then
+    NODE_ENV=production ALLOW_PRODUCTION_SEED=true bun run db:seed
+  else
+    NODE_ENV=production ALLOW_PRODUCTION_SEED=true npx tsx scripts/db-seed.ts
+  fi
 fi
 
 echo "=== [4/4] Triggering Phusion Passenger application reload ==="

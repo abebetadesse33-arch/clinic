@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { customRoles, userCustomRoles, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-
-const TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await requireAdminUser(req);
+    if ("response" in auth) return auth.response;
+
     const { searchParams } = new URL(req.url);
     const view = searchParams.get("view") || "roles";
+    const tenantId = auth.user.organizationId;
 
     if (view === "roles") {
-      const roles = await db.select().from(customRoles).where(eq(customRoles.tenantId, TENANT_ID));
+      const roles = await db.select().from(customRoles).where(eq(customRoles.tenantId, tenantId));
       return NextResponse.json({ success: true, data: roles });
     }
 
@@ -33,7 +36,7 @@ export async function GET(req: NextRequest) {
         .from(userCustomRoles)
         .leftJoin(users, eq(userCustomRoles.userId, users.id))
         .leftJoin(customRoles, eq(userCustomRoles.roleId, customRoles.id))
-        .where(and(eq(userCustomRoles.tenantId, TENANT_ID), eq(userCustomRoles.isActive, true)));
+        .where(and(eq(userCustomRoles.tenantId, tenantId), eq(userCustomRoles.isActive, true)));
       return NextResponse.json({ success: true, data: assignments });
     }
 
@@ -41,7 +44,7 @@ export async function GET(req: NextRequest) {
       const staff = await db
         .select({ id: users.id, fullName: users.fullName, email: users.email, role: users.role, department: users.department })
         .from(users)
-        .where(eq(users.organizationId, TENANT_ID));
+        .where(eq(users.organizationId, tenantId));
       return NextResponse.json({ success: true, data: staff });
     }
 
@@ -54,15 +57,19 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdminUser(req);
+    if ("response" in auth) return auth.response;
+
     const body = await req.json();
     const { action } = body;
+    const tenantId = auth.user.organizationId;
 
     if (action === "create_role") {
       const { code, name, description, category, permissions } = body;
       if (!code || !name) return NextResponse.json({ error: "code and name required" }, { status: 400 });
 
       const [role] = await db.insert(customRoles).values({
-        tenantId: TENANT_ID,
+        tenantId,
         code: code.toLowerCase().replace(/\s+/g, "_"),
         name,
         description: description || null,
@@ -77,9 +84,25 @@ export async function POST(req: NextRequest) {
       const { userId, roleId, expiresAt } = body;
       if (!userId || !roleId) return NextResponse.json({ error: "userId and roleId required" }, { status: 400 });
 
+      const [targetUser] = await db.select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.id, userId), eq(users.organizationId, tenantId)))
+        .limit(1);
+      const [targetRole] = await db.select({ id: customRoles.id })
+        .from(customRoles)
+        .where(and(eq(customRoles.id, roleId), eq(customRoles.tenantId, tenantId)))
+        .limit(1);
+      if (!targetUser || !targetRole) {
+        return NextResponse.json({ error: "User and role must belong to the current organization." }, { status: 400 });
+      }
+
       // Upsert: if already exists reactivate
       const existing = await db.select().from(userCustomRoles)
-        .where(and(eq(userCustomRoles.userId, userId), eq(userCustomRoles.roleId, roleId)));
+        .where(and(
+          eq(userCustomRoles.userId, userId),
+          eq(userCustomRoles.roleId, roleId),
+          eq(userCustomRoles.tenantId, tenantId)
+        ));
 
       if (existing.length > 0) {
         const [updated] = await db.update(userCustomRoles)
@@ -90,7 +113,7 @@ export async function POST(req: NextRequest) {
       }
 
       const [assignment] = await db.insert(userCustomRoles).values({
-        tenantId: TENANT_ID,
+        tenantId,
         userId,
         roleId,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
@@ -103,7 +126,11 @@ export async function POST(req: NextRequest) {
       const { userId, roleId } = body;
       await db.update(userCustomRoles)
         .set({ isActive: false })
-        .where(and(eq(userCustomRoles.userId, userId), eq(userCustomRoles.roleId, roleId)));
+        .where(and(
+          eq(userCustomRoles.userId, userId),
+          eq(userCustomRoles.roleId, roleId),
+          eq(userCustomRoles.tenantId, tenantId)
+        ));
       return NextResponse.json({ success: true });
     }
 
@@ -112,14 +139,22 @@ export async function POST(req: NextRequest) {
       if (!roleId) return NextResponse.json({ error: "roleId required" }, { status: 400 });
       const [updated] = await db.update(customRoles)
         .set({ name, description, category, permissions, updatedAt: new Date() })
-        .where(and(eq(customRoles.id, roleId), eq(customRoles.isSystem, false)))
+        .where(and(
+          eq(customRoles.id, roleId),
+          eq(customRoles.tenantId, tenantId),
+          eq(customRoles.isSystem, false)
+        ))
         .returning();
       return NextResponse.json({ success: true, data: updated });
     }
 
     if (action === "delete_role") {
       const { roleId } = body;
-      await db.delete(customRoles).where(and(eq(customRoles.id, roleId), eq(customRoles.isSystem, false)));
+      await db.delete(customRoles).where(and(
+        eq(customRoles.id, roleId),
+        eq(customRoles.tenantId, tenantId),
+        eq(customRoles.isSystem, false)
+      ));
       return NextResponse.json({ success: true });
     }
 

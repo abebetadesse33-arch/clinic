@@ -23,6 +23,7 @@ export default function PwaRegistrar() {
         .register("/sw.js")
         .then((reg) => {
           console.log("NiniMed PWA ServiceWorker registered with scope:", reg.scope);
+          void reg.update();
         })
         .catch((err) => {
           console.warn("ServiceWorker registration failed:", err);

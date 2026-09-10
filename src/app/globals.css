@@ -49,6 +49,27 @@
   --ring: 199 85% 55%;
 }
 
+/* Personalizable, high-legibility palettes inspired by mobile keyboard themes. */
+.lavender-mode {
+  --background: 270 45% 97%;
+  --foreground: 264 32% 20%;
+  --card: 270 50% 99%;
+  --card-foreground: 264 32% 20%;
+  --primary: 262 72% 54%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 270 45% 92%;
+  --secondary-foreground: 264 32% 24%;
+  --accent: 315 68% 52%;
+  --border: 270 28% 86%;
+  --ring: 262 72% 54%;
+}
+
+.midnight-mode {
+  --primary: 188 86% 56%;
+  --accent: 265 85% 68%;
+  --ring: 188 86% 56%;
+}
+
 html {
   scroll-behavior: smooth;
   color-scheme: light;
@@ -138,6 +159,19 @@ html.dark body {
     radial-gradient(circle at 8% -8%, rgba(14, 165, 233, 0.18), transparent 28%),
     radial-gradient(circle at 92% 4%, rgba(37, 99, 235, 0.13), transparent 25%),
     linear-gradient(145deg, #06131f 0%, #0a1b2a 52%, #0d2233 100%);
+}
+
+html.lavender-mode body {
+  color: #2f2445;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(167, 139, 250, 0.2), transparent 30%),
+    linear-gradient(180deg, #faf7ff 0%, #f1eafe 100%);
+}
+
+html.dark.midnight-mode body {
+  background:
+    radial-gradient(circle at 10% -5%, rgba(34, 211, 238, 0.16), transparent 28%),
+    linear-gradient(145deg, #050816 0%, #0b1025 55%, #111936 100%);
 }
 
 * {

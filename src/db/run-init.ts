@@ -4,7 +4,7 @@ import { ensureDatabaseInitialized } from "./migrate-and-seed";
 async function main() {
   const connectionString =
     process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/clinic_enterprise";
-  console.log("Connecting to:", connectionString);
+  console.log("Connecting to the configured PostgreSQL database...");
   const sql = postgres(connectionString);
   try {
     await ensureDatabaseInitialized(sql);

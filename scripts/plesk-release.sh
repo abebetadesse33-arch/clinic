@@ -41,7 +41,16 @@ if [ -f "${deploy_path}/.env" ]; then
   cp -f "${deploy_path}/.env" "${release_dir}/.env" 2>/dev/null || true
 fi
 
-find "${deploy_path}/releases" -mindepth 1 -maxdepth 1 -type d ! -name "$release_id" -exec rm -rf {} +
+# Keep the current release plus two previous releases for fast rollback.
+mapfile -t stale_releases < <(
+  find "${deploy_path}/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+    | sort -nr \
+    | tail -n +4 \
+    | cut -d' ' -f2-
+)
+for stale_release in "${stale_releases[@]}"; do
+  rm -rf -- "$stale_release"
+done
 
 # Phusion Passenger (Plesk Node.js engine) restarts when tmp/restart.txt is updated.
 mkdir -p "${deploy_path}/tmp" "${deploy_path}/current/tmp" "${release_dir}/tmp"

@@ -10,10 +10,25 @@ on:
         description: "Force a specific deployment method: webhook | ssh | ftp | api"
         required: false
         default: ""
+      migration_only:
+        description: "Run migrations without deploying the application"
+        required: false
+        type: boolean
+        default: false
+      seed_enabled:
+        description: "Explicitly run production seed data"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    environment: production
     permissions:
       contents: read
 
@@ -37,6 +52,7 @@ jobs:
           PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
           PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
           PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
 
@@ -73,6 +89,7 @@ jobs:
           [ -n "${PLESK_USERNAME:-}" ]               || missing+=(PLESK_USERNAME)
           [ -n "${PLESK_DEPLOY_PATH:-}" ]            || missing+=(PLESK_DEPLOY_PATH)
           [ -n "${PLESK_DOMAIN:-}" ]                 || missing+=(PLESK_DOMAIN)
+          [ -n "${DATABASE_URL:-}" ]                 || missing+=(DATABASE_URL)
           if [ -z "${PLESK_PASSWORD:-}" ] && [ -z "${PLESK_SSH_KEY:-}" ] && [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
             missing+=("PLESK_PASSWORD or PLESK_SSH_KEY or PLESK_WEBHOOK_URL")
           fi
@@ -92,6 +109,21 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile || bun install
+
+      - name: Run production database migration
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NINIMED_STRICT_DB: "true"
+        run: bun run db:migrate
+
+      - name: Run explicitly requested production seed
+        if: github.event_name == 'workflow_dispatch' && inputs.seed_enabled == true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_ENV: production
+          ALLOW_PRODUCTION_SEED: "true"
+          NINIMED_STRICT_DB: "true"
+        run: bun run db:seed
 
       - name: Build Next.js standalone application
         run: bun run build
@@ -185,6 +217,7 @@ jobs:
       # STEP 5: Deploy (4 methods, first success wins)
       # ────────────────────────────────────────────────────────────────────────
       - name: Deploy to Live Plesk
+        if: inputs.migration_only != true
         shell: bash
         env:
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
@@ -328,18 +361,7 @@ jobs:
                 -u "${PLESK_USERNAME}:${PLESK_PASSWORD}" \
                 "${API_BASE}/sites" 2>/dev/null || echo "")
 
-              site_id=$(echo "$sites_response" | \
-                python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    domain = '${PLESK_DOMAIN}'
-    for site in (data if isinstance(data, list) else []):
-        if domain in str(site.get('name','')) or domain in str(site.get('webspace_name','')):
-            print(site.get('id', ''))
-            break
-except: pass
-" 2>/dev/null || true)
+                site_id=$(echo "$sites_response" | python3 -c "import sys,json; data=json.load(sys.stdin); domain='${PLESK_DOMAIN}'; print(next((site.get('id','') for site in (data if isinstance(data,list) else []) if domain in str(site.get('name','')) or domain in str(site.get('webspace_name',''))), ''))" 2>/dev/null || true)
 
               if [ -n "$site_id" ]; then
                 echo "  Found Plesk site ID: $site_id"
@@ -464,5 +486,21 @@ except: pass
           3. PLESK_PASSWORD should match the FTP user password.
           4. Re-run this workflow.
           ──────────────────────────────────────────────────────────────────────
-EOF
+          EOF
+          exit 1
+
+      - name: Verify production health
+        if: inputs.migration_only != true
+        env:
+          HEALTHCHECK_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}/api/health
+        run: |
+          set -Eeuo pipefail
+          for attempt in $(seq 1 12); do
+            if bun run healthcheck; then
+              exit 0
+            fi
+            echo "Health check attempt ${attempt}/12 failed; retrying in 10 seconds."
+            sleep 10
+          done
+          echo "Production health check failed after deployment." >&2
           exit 1

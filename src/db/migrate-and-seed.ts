@@ -3,7 +3,15 @@ import { seedDemoAccounts } from "./demo-accounts";
 import { PHARMACY_MASTER_CATALOGUE } from "../lib/catalogue/pharmacy-master-catalogue";
 import { LABORATORY_PROTOCOLS_CATALOGUE } from "../lib/catalogue/laboratory-protocols-catalogue";
 
-export async function ensureDatabaseInitialized(client: postgres.Sql) {
+export type DatabaseInitializationOptions = {
+    seed?: boolean;
+};
+
+export async function ensureDatabaseInitialized(
+    client: postgres.Sql,
+    options: DatabaseInitializationOptions = {},
+) {
+    const shouldSeed = options.seed ?? true;
     try {
         console.log("⚡ Checking and synchronizing NiniMed PostgreSQL schema...");
 
@@ -3368,6 +3376,11 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
 
         console.log("✅ PostgreSQL schema verification complete (all 50+ tables, pricing, 376 pharmacy items and 79 lab protocols confirmed).");
 
+        if (!shouldSeed) {
+            console.log("ℹ️ Seed data disabled for this database operation.");
+            return;
+        }
+
         // 3. Check if Seed Data exists before inserting
         const [orgCheck] = await client`
       SELECT count(*) as count FROM organizations;
@@ -3575,6 +3588,9 @@ export async function ensureDatabaseInitialized(client: postgres.Sql) {
             console.log("ℹ️ Database connection not ready yet. Schema synchronization will occur upon container connection.");
         } else {
             console.error("Database initialization note:", error?.message || error);
+            if (process.env.NINIMED_STRICT_DB === "true") {
+                throw error;
+            }
         }
     }
 }

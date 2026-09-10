@@ -76,6 +76,7 @@ PLESK_FTP_HOST        (Optional: actual FTP/FTPS hostname; never assume the webs
 PLESK_FTP_PORT        (Optional: FTP/FTPS port, defaults to 21)
 NEXT_PUBLIC_APP_URL
 NEXT_PUBLIC_API_URL
+DATABASE_URL
 ```
 
 `PLESK_PASSWORD` is the password for the Plesk SSH user. Never place it in the repository or in a workflow file. Rotate it if it has been exposed outside GitHub Secrets.
@@ -88,7 +89,7 @@ secret is omitted. Test that this port is reachable from GitHub-hosted runners.
 workflow no longer falls back to `PLESK_HOST`, because a web domain commonly
 redirects FTP connections to HTTPS and produces misleading `500` errors.
 
-The workflow is triggered by pushes to `main` and can also be started manually with **Run workflow**.
+The workflow is triggered by pushes to `main` and can also be started manually with **Run workflow**. It is the only production deployment workflow; the `migration_only` and `seed_enabled` inputs control database-only operations and explicit production seeding.
 
 ## 4. First deployment
 
@@ -97,13 +98,13 @@ The workflow is triggered by pushes to `main` and can also be started manually w
 3. Confirm the SSH user can write to the deployment path.
 4. Push to `main` or run the workflow manually.
 5. In Plesk, confirm the application root points to `current` and the startup file is `server.js`.
-6. Open `https://app.example.com/api/v1/system/health` and the application home page.
+6. Open `https://app.example.com/api/health` and the application home page.
 
 The workflow builds on GitHub, packages `.next/standalone`, `.next/static`, and `public`, then uses bounded native SSH streams to upload the package and [scripts/plesk-release.sh](scripts/plesk-release.sh) to create the release, switch the `current` symlink, and restart the application. The GitHub runner installs `sshpass`; the Plesk SSH user must have `tar`, `node`, and permission to write the deployment path.
 
 ## 5. Rollback
 
-The workflow removes old releases after switching to the new release. For a rollback, deploy the desired commit again from GitHub using **Run workflow**. This recreates a clean release from that commit and switches `current` back to it.
+The release server keeps the three newest releases. To roll back to the previous release over SSH, run `bash scripts/plesk-rollback.sh <deploy-path>` on the Plesk host, or provide a specific release ID as the second argument. The script switches `current` and signals Passenger to restart.
 
 The workflow requires the Plesk Node.js CLI to restart the application. If the CLI is unavailable to the SSH user, the deployment fails after uploading the release; restart/configure the Node.js application from **Plesk > Domains > app.example.com > Node.js**, then rerun the workflow. The workflow now fails fast when the SSH endpoint is unreachable instead of waiting inside an SCP action.
 
