@@ -3383,22 +3383,13 @@ export async function ensureDatabaseInitialized(
             throw new Error("Migration schema boundary was not found.");
         }
 
-        if (shouldSeed) {
-            await client.unsafe(dynamicSeedAndSchemaSql.slice(0, schemaBoundary));
-        }
         await client.unsafe(dynamicSeedAndSchemaSql.slice(schemaBoundary));
-
-        // Catalogues are seed data and require the default organization.
-        if (shouldSeed) {
-            await syncComprehensiveCatalogues(client);
-        }
 
         console.log("✅ PostgreSQL schema verification complete (all 50+ tables, pricing, 376 pharmacy items and 79 lab protocols confirmed).");
 
-        if (!shouldSeed) {
-            console.log("ℹ️ Seed data disabled for this database operation.");
-            return;
-        }
+        const runDynamicSeed = async () => {
+            await client.unsafe(dynamicSeedAndSchemaSql.slice(0, schemaBoundary));
+        };
 
         // 3. Check if Seed Data exists before inserting
         const [orgCheck] = await client`
@@ -3407,6 +3398,8 @@ export async function ensureDatabaseInitialized(
 
         if (orgCheck && parseInt(orgCheck.count, 10) > 0) {
             console.log("ℹ️ Database already has seed organizations. Skipping initial seed insert.");
+            await syncComprehensiveCatalogues(client);
+            await runDynamicSeed();
             await seedDemoAccounts(client);
             return;
         }
@@ -3544,6 +3537,10 @@ export async function ensureDatabaseInitialized(
       ON CONFLICT (case_id) DO NOTHING;
     `);
 
+                await syncComprehensiveCatalogues(client);
+                await runDynamicSeed();
+                await seedDemoAccounts(client);
+
     // ── Notification Privileges & Telegram Integrations (idempotent) ─────────
     await client.unsafe(`
       CREATE TABLE IF NOT EXISTS notification_privileges (
@@ -3580,6 +3577,21 @@ export async function ensureDatabaseInitialized(
 
       -- Add national_id column to users if not present (for webhook linking)
       ALTER TABLE users ADD COLUMN IF NOT EXISTS national_id TEXT;
+
+            -- Legacy HR seed rows reference these stable system-user IDs.
+            INSERT INTO users (id, organization_id, email, password_hash, full_name, role, is_active)
+            VALUES
+                ('11111111-1111-1111-1111-111111111101', '00000000-0000-0000-0000-000000000001', 'legacy.staff.001@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 001', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111102', '00000000-0000-0000-0000-000000000001', 'legacy.staff.002@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 002', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111103', '00000000-0000-0000-0000-000000000001', 'legacy.staff.003@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 003', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111104', '00000000-0000-0000-0000-000000000001', 'legacy.staff.004@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 004', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111105', '00000000-0000-0000-0000-000000000001', 'legacy.staff.005@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 005', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111106', '00000000-0000-0000-0000-000000000001', 'legacy.staff.006@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 006', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111107', '00000000-0000-0000-0000-000000000001', 'legacy.staff.007@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 007', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111108', '00000000-0000-0000-0000-000000000001', 'legacy.staff.008@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 008', 'staff', TRUE),
+                ('11111111-1111-1111-1111-111111111109', '00000000-0000-0000-0000-000000000001', 'legacy.staff.009@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 009', 'staff', TRUE),
+                ('5c254614-7cb0-4e72-a7cb-7bbe0a98c42d', '00000000-0000-0000-0000-000000000001', 'legacy.staff.010@Ninimed.org', encode(digest('123456', 'sha256'), 'hex'), 'Legacy Staff 010', 'staff', TRUE)
+            ON CONFLICT (id) DO NOTHING;
 
       -- Seed Staff Profiles for core clinical and administrative staff
       INSERT INTO staff_profiles (
