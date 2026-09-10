@@ -51,6 +51,7 @@ export const users = pgTable("users", {
       "physician",
       "nurse_practitioner",
       "nurse",
+      "triage_staff",
       "pharmacist",
       "physiotherapist",
       "occupational_therapist",
@@ -59,6 +60,7 @@ export const users = pgTable("users", {
       "radiologist",
       "pathologist",
       "lab_technician",
+      "laboratorist",
       "genetic_counselor",
       "respiratory_therapist",
       "psychologist",
@@ -68,6 +70,7 @@ export const users = pgTable("users", {
       "auditor",
     ],
   }).notNull(),
+
   avatarUrl: text("avatar_url"),
   phone: text("phone"),
   nationalId: text("national_id"),

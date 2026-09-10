@@ -512,6 +512,30 @@ export const ROLE_CAPABILITIES_MATRIX: Record<Role, RoleScopeDefinition> = {
     borderColor: "border-sky-500/30",
   },
 
+  laboratorist: {
+    role: "laboratorist",
+    label: "Laboratorist (BMSc / MT)",
+    category: "diagnostic",
+    credentialBadge: "Biomedical Scientist",
+    prescribingLevel: "None",
+    clinicalPrivilegesSummary: "Full-cycle specimen processing, culture and sensitivity analysis, STAT result verification, critical value alert dispatch and LIS quality control.",
+    allowedPermissions: [
+      "view_clinical_cdss",
+      "input_lab_results",
+      "order_lab_tests",
+      "send_clinical_team_messages",
+    ],
+    primaryNavRoutes: [
+      { label: "LIS Lab Workstation", path: "/patients", iconName: "FlaskConical" },
+      { label: "Lab Orders Queue", path: "/prescriptions", iconName: "FileCheck" },
+      { label: "Catalog Management Hub", path: "/clinical/catalog", iconName: "Database" },
+      { label: "Clinical Tasks", path: "/tasks", iconName: "CheckSquare" },
+    ],
+    accentColor: "text-cyan-400",
+    badgeBg: "bg-cyan-500/15",
+    borderColor: "border-cyan-500/30",
+  },
+
   respiratory_therapist: {
     role: "respiratory_therapist",
     label: "Respiratory Therapist (RRT-ACCS)",

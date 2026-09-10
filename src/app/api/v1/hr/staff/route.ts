@@ -5,6 +5,9 @@ import {
 } from "@/db/schema";
 import { eq, desc, ilike, or, and, ne } from "drizzle-orm";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { getAuthenticatedSessionUser, isAuthorizedForRole } from "@/lib/security/auth-session";
+
+const HR_ALLOWED_ROLES = ["system_admin", "tenant_admin"];
 
 export const dynamic = "force-dynamic";
 
@@ -92,9 +95,18 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/v1/hr/staff — onboard a new staff member
+// POST /api/v1/hr/staff — onboard a new staff member (HR / Admin only)
 export async function POST(req: NextRequest) {
   try {
+    // ── Auth guard: HR or Admin role required ───────────────────────────
+    const sessionUser = await getAuthenticatedSessionUser(req);
+    if (!sessionUser || !isAuthorizedForRole(sessionUser.role, HR_ALLOWED_ROLES)) {
+      return NextResponse.json(
+        { success: false, error: "Access denied. HR Administrator or System Admin role is required to onboard staff members." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const {
       userId, tenantId = DEFAULT_TENANT_ID, employeeCode, department, designation, specialization,
@@ -177,9 +189,18 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH /api/v1/hr/staff — assign department or update staff profile
+// PATCH /api/v1/hr/staff — assign department or update staff profile (HR / Admin only)
 export async function PATCH(req: NextRequest) {
   try {
+    // ── Auth guard: HR or Admin role required ───────────────────────────
+    const sessionUser = await getAuthenticatedSessionUser(req);
+    if (!sessionUser || !isAuthorizedForRole(sessionUser.role, HR_ALLOWED_ROLES)) {
+      return NextResponse.json(
+        { success: false, error: "Access denied. HR Administrator or System Admin role is required to update staff profiles." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const {
       id,

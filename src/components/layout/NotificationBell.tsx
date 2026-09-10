@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Bell, X, CheckCheck, Video, Calendar, AlertCircle, MessageSquare,
   Zap, ShoppingCart, FlaskConical, Pill, CreditCard, UserCheck, LogIn, LogOut,
-  ExternalLink, Filter, Volume2, BellOff
+  ExternalLink, Filter, Volume2, BellOff, Clock
 } from "lucide-react";
 import { useClinic } from "@/context/ClinicContext";
 
@@ -47,14 +47,16 @@ function notifIcon(type: string, priority: string) {
   if (type === "consult_request") return <Zap className="w-4 h-4 text-amber-500 shrink-0" />;
   if (type === "message_received") return <MessageSquare className="w-4 h-4 text-blue-500 shrink-0" />;
   if (type.includes("referral")) return <ExternalLink className="w-4 h-4 text-orange-500 shrink-0" />;
+  if (type === "appointment_reminder") return <Clock className="w-4 h-4 text-teal-400 shrink-0 animate-pulse" />;
   return <Bell className="w-4 h-4 text-[#005C4B] shrink-0" />;
 }
 
 const PRIORITY_STYLES: Record<string, { border: string; bg: string; badge: string }> = {
-  critical: { border: "border-l-4 border-l-red-500", bg: "bg-red-50/80 dark:bg-red-950/40", badge: "bg-red-500 text-white" },
-  high:     { border: "border-l-4 border-l-amber-400", bg: "bg-amber-50/60 dark:bg-amber-950/30", badge: "bg-amber-400 text-white" },
-  normal:   { border: "border-l-4 border-l-emerald-400", bg: "bg-white dark:bg-slate-800", badge: "bg-emerald-500 text-white" },
-  low:      { border: "border-l-4 border-l-slate-300", bg: "bg-slate-50/60 dark:bg-slate-800/50", badge: "bg-slate-400 text-white" },
+  critical:            { border: "border-l-4 border-l-red-500",   bg: "bg-red-50/80 dark:bg-red-950/40",    badge: "bg-red-500 text-white" },
+  high:                { border: "border-l-4 border-l-amber-400", bg: "bg-amber-50/60 dark:bg-amber-950/30", badge: "bg-amber-400 text-white" },
+  normal:              { border: "border-l-4 border-l-emerald-400", bg: "bg-white dark:bg-slate-800",          badge: "bg-emerald-500 text-white" },
+  low:                 { border: "border-l-4 border-l-slate-300", bg: "bg-slate-50/60 dark:bg-slate-800/50", badge: "bg-slate-400 text-white" },
+  appointment_reminder:{ border: "border-l-4 border-l-teal-400",  bg: "bg-teal-50/60 dark:bg-teal-950/30",  badge: "bg-teal-500 text-white" },
 };
 
 function playChime(priority: string) {
@@ -268,6 +270,32 @@ export default function NotificationBell() {
               </button>
             </div>
           </div>
+
+          {/* Urgent appointment reminder banner */}
+          {(() => {
+            const urgentReminder = notifications.find(
+              (n) => n.type === "appointment_reminder" && n.metadata?.window === "1h" && !n.isRead
+            );
+            if (!urgentReminder) return null;
+            return (
+              <div className="mx-3 mt-2 mb-1 flex items-start gap-2.5 rounded-xl border border-teal-500/40 bg-teal-500/10 px-3 py-2.5 animate-pulse">
+                <Clock className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-teal-300 leading-tight">⏰ Appointment in ~1 Hour</p>
+                  <p className="text-[10px] text-teal-400/80 mt-0.5 line-clamp-2">{urgentReminder.body}</p>
+                </div>
+                {urgentReminder.actionUrl && (
+                  <a
+                    href={urgentReminder.actionUrl}
+                    className="text-[10px] font-semibold text-teal-300 hover:text-white whitespace-nowrap transition"
+                    onClick={() => { markOneRead(urgentReminder.id); setIsOpen(false); }}
+                  >
+                    View →
+                  </a>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Filter Tabs */}
           <div className="flex border-b border-[#E7E2D8] dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60">

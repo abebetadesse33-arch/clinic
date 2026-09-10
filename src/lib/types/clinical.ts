@@ -20,6 +20,7 @@ export type Role =
   | "radiologist"
   | "pathologist"
   | "lab_technician"
+  | "laboratorist"
   | "genetic_counselor"
   | "respiratory_therapist"
   | "psychologist"
@@ -27,6 +28,7 @@ export type Role =
   | "care_coordinator"
   | "patient"
   | "auditor";
+
 
 export interface User {
   id: string;

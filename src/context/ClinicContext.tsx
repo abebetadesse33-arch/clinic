@@ -110,6 +110,13 @@ export const SYSTEM_ROLE_PROFILES: Record<Role, User> = {
     email: "labtech@Ninimed.org",
     role: "lab_technician",
   },
+  laboratorist: {
+    id: "",
+    fullName: "Biomedical Scientist",
+    email: "laboratorist@Ninimed.org",
+    role: "laboratorist",
+  },
+
   genetic_counselor: {
     id: "",
     fullName: "Genetic Counselor",

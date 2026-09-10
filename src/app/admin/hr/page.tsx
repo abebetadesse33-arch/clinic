@@ -45,6 +45,7 @@ const STANDARD_DEPARTMENTS = [
   "Surgery",
   "Obstetrics & Gynaecology",
   "Laboratory",
+  "Laboratory Services",
   "Radiology",
   "Pharmacy",
   "ICU & Critical Care",
@@ -55,8 +56,11 @@ const STANDARD_DEPARTMENTS = [
   "Nutrition",
   "Social Work",
   "Clinical Operations",
+  "Human Resources",
   "System Administration",
 ];
+
+const HR_ADMIN_ROLES = ["system_admin", "tenant_admin"];
 
 const SHIFT_TEMPLATES = [
   { id: "morning", label: "Morning", time: "07:00 – 15:00", color: "amber" },

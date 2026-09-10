@@ -2,7 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-export type Theme = "light" | "dark" | "contrast";
+export type Theme =
+  | "light"
+  | "dark"
+  | "dark-emerald"
+  | "dark-violet"
+  | "dark-amber"
+  | "dark-midnight"
+  | "contrast";
 
 interface ThemeContextType {
   theme: Theme;
@@ -18,6 +25,27 @@ const ThemeContext = createContext<ThemeContextType>({
   isDark: false,
 });
 
+const DARK_THEMES: Theme[] = ["dark", "dark-emerald", "dark-violet", "dark-amber", "dark-midnight", "contrast"];
+
+function applyThemeClass(t: Theme) {
+  const root = document.documentElement;
+  // Remove all theme classes and data attributes
+  root.classList.remove("dark", "contrast-mode");
+  root.removeAttribute("data-theme");
+
+  if (t === "light") return;
+
+  // All non-light themes get the dark class
+  root.classList.add("dark");
+
+  if (t === "contrast") {
+    root.classList.add("contrast-mode");
+  } else if (t !== "dark") {
+    // dark-emerald, dark-violet, dark-amber, dark-midnight
+    root.setAttribute("data-theme", t);
+  }
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
@@ -25,25 +53,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("Nini_theme") as Theme | null;
-    if (saved && (saved === "light" || saved === "dark" || saved === "contrast")) {
-      setThemeState(saved);
-      applyThemeClass(saved);
-    } else {
-      const initial: Theme = "light";
-      setThemeState(initial);
-      applyThemeClass(initial);
-    }
+    const validThemes: Theme[] = ["light", "dark", "dark-emerald", "dark-violet", "dark-amber", "dark-midnight", "contrast"];
+    const initial: Theme = saved && validThemes.includes(saved) ? saved : "light";
+    setThemeState(initial);
+    applyThemeClass(initial);
   }, []);
-
-  const applyThemeClass = (t: Theme) => {
-    const root = document.documentElement;
-    root.classList.remove("dark", "contrast-mode");
-    if (t === "dark") {
-      root.classList.add("dark");
-    } else if (t === "contrast") {
-      root.classList.add("dark", "contrast-mode");
-    }
-  };
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
@@ -52,11 +66,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const toggleTheme = () => {
-    const next = theme === "light" ? "dark" : theme === "dark" ? "contrast" : "light";
-    setTheme(next);
+    const cycle: Theme[] = ["light", "dark", "dark-emerald", "dark-violet", "dark-amber", "dark-midnight", "contrast"];
+    const idx = cycle.indexOf(theme);
+    setTheme(cycle[(idx + 1) % cycle.length]);
   };
 
-  const isDark = theme === "dark" || theme === "contrast";
+  const isDark = DARK_THEMES.includes(theme);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, isDark }}>

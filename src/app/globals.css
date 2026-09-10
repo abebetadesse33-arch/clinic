@@ -1087,3 +1087,100 @@ html.dark.contrast-mode .skip-link {
   background: #facc15 !important;
   color: #000000 !important;
 }
+
+/* ============================================================
+   DARK MODE SEARCH BAR & INPUT OVERRIDES
+   Ensures all native <input> and <select> elements never show
+   white backgrounds in any dark theme variant.
+   ============================================================ */
+
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.7;
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25) !important;
+  outline: none !important;
+}
+
+/* Force dark for bg-white inside inputs wrappers */
+html.dark [class*="bg-white"] input,
+html.dark [class*="bg-slate-50"] input {
+  background-color: hsl(var(--input)) !important;
+}
+
+/* ============================================================
+   THEME COLOR SCHEMES — data-theme variants
+   Applied on <html data-theme="..."> alongside class="dark"
+   ============================================================ */
+
+/* --- EMERALD CLINICAL --- */
+html.dark[data-theme="dark-emerald"] {
+  --primary: 160 84% 39%;
+  --ring: 160 84% 39%;
+  --accent: 156 72% 47%;
+  --accent-foreground: 0 0% 100%;
+}
+html.dark[data-theme="dark-emerald"] body {
+  background:
+    radial-gradient(circle at 8% -8%, rgba(16, 185, 129, 0.18), transparent 28%),
+    radial-gradient(circle at 92% 4%, rgba(5, 150, 105, 0.13), transparent 25%),
+    linear-gradient(145deg, #06131a 0%, #081f16 52%, #0a2b1e 100%);
+}
+
+/* --- VIOLET CLINICAL --- */
+html.dark[data-theme="dark-violet"] {
+  --primary: 263 70% 58%;
+  --ring: 263 70% 58%;
+  --accent: 270 72% 62%;
+  --accent-foreground: 0 0% 100%;
+}
+html.dark[data-theme="dark-violet"] body {
+  background:
+    radial-gradient(circle at 8% -8%, rgba(139, 92, 246, 0.18), transparent 28%),
+    radial-gradient(circle at 92% 4%, rgba(124, 58, 237, 0.13), transparent 25%),
+    linear-gradient(145deg, #0a0614 0%, #130a25 52%, #1a0f34 100%);
+}
+
+/* --- AMBER DUSK --- */
+html.dark[data-theme="dark-amber"] {
+  --primary: 38 92% 50%;
+  --ring: 38 92% 50%;
+  --accent: 45 93% 47%;
+  --accent-foreground: 20 14% 4%;
+}
+html.dark[data-theme="dark-amber"] body {
+  background:
+    radial-gradient(circle at 8% -8%, rgba(251, 191, 36, 0.16), transparent 28%),
+    radial-gradient(circle at 92% 4%, rgba(245, 158, 11, 0.12), transparent 25%),
+    linear-gradient(145deg, #130d01 0%, #1e1503 52%, #221a04 100%);
+}
+
+/* --- MIDNIGHT BLUE --- */
+html.dark[data-theme="dark-midnight"] {
+  --primary: 215 90% 58%;
+  --ring: 215 90% 58%;
+  --accent: 220 85% 62%;
+  --accent-foreground: 0 0% 100%;
+  --background: 222 60% 5%;
+  --card: 220 48% 9%;
+}
+html.dark[data-theme="dark-midnight"] body {
+  background:
+    radial-gradient(circle at 8% -8%, rgba(59, 130, 246, 0.18), transparent 28%),
+    radial-gradient(circle at 92% 4%, rgba(37, 99, 235, 0.13), transparent 25%),
+    linear-gradient(145deg, #020514 0%, #030a1f 52%, #040c26 100%);
+}
