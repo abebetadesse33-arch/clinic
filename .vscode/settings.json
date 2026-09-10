@@ -4,5 +4,6 @@
   "geminicodeassist.agentYoloMode": true,
   "geminicodeassist.codeGenerationPaneViewEnabled": true,
   "geminicodeassist.inlineSuggestions.nextEditPredictions": true,
-  "geminicodeassist.verboseLogging": true
+  "geminicodeassist.verboseLogging": true,
+  "python.terminal.useEnvFile": false
 }
