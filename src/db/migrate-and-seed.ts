@@ -621,12 +621,7 @@ export async function ensureDatabaseInitialized(
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP;
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
 
-    -- Patient consents schema alignment
-
-      -- Automation rules schema alignment
-      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS description TEXT;
-      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS escalation_timeout_minutes INTEGER DEFAULT 1440;
-      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
+            -- Patient consents schema alignment
 
       CREATE OR REPLACE FUNCTION trg_sync_notifications_columns()
       RETURNS TRIGGER AS $$
@@ -769,9 +764,16 @@ export async function ensureDatabaseInitialized(
           action JSONB NOT NULL,
           priority INT DEFAULT 1 NOT NULL,
           is_active BOOLEAN DEFAULT TRUE NOT NULL,
+          description TEXT,
+          escalation_timeout_minutes INTEGER DEFAULT 1440,
+          created_by UUID REFERENCES users(id),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
+
+      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS description TEXT;
+      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS escalation_timeout_minutes INTEGER DEFAULT 1440;
+      ALTER TABLE automation_rules ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
 
       CREATE TABLE IF NOT EXISTS config_audit_logs (
           id BIGSERIAL PRIMARY KEY,
