@@ -49,7 +49,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="min-h-screen flex flex-col antialiased pb-16 md:pb-0 transition-colors duration-200 bg-transparent text-slate-800 dark:text-slate-100">
+      <body className="min-h-screen flex flex-col antialiased pb-24 md:pb-0 transition-colors duration-200 bg-transparent text-slate-800 dark:text-slate-100">
         <QueryProvider>
           <ThemeProvider>
             <LanguageProvider>

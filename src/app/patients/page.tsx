@@ -317,13 +317,15 @@ export default function PatientsDirectoryPage() {
                         {patient.mrn}
                       </td>
                       <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
-                        {patient.age} yrs • {(patient.gender || "U").toUpperCase()}
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-slate-700 dark:text-slate-300">
-                        {patient.bloodType || "O+"}
+                        {patient.age}y / {patient.gender}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${priorityBadge}`}>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {patient.bloodType || "N/A"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${priorityBadge}`}>
                           {patient.triagePriority || "routine"}
                         </span>
                       </td>
@@ -334,10 +336,10 @@ export default function PatientsDirectoryPage() {
                         <Link
                           href={`/patients/${patient.id}`}
                           onClick={() => selectPatient(patient.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#005C4B]/10 hover:bg-[#005C4B] text-[#005C4B] hover:text-white dark:bg-teal-500/15 dark:hover:bg-teal-500 dark:text-teal-300 dark:hover:text-slate-950 font-bold transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#005C4B]/10 hover:bg-[#005C4B] text-[#005C4B] hover:text-white font-bold text-xs transition-colors"
                         >
-                          <span>Open Chart</span>
-                          <ArrowRight className="w-3 h-3" />
+                          <span>View Record</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </Link>
                       </td>
                     </tr>
@@ -348,7 +350,7 @@ export default function PatientsDirectoryPage() {
           </div>
         </div>
       ) : (
-        /* Patient Cards Grid */
+        /* Spacious Yango-Style Patient Cards Grid (Uncramped, big tap targets, rounded-3xl) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filtered.map((patient) => {
             const priorityBadge =
@@ -361,129 +363,103 @@ export default function PatientsDirectoryPage() {
             return (
               <div
                 key={patient.id}
-                className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+                className="group p-5 sm:p-6 rounded-3xl border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-slate-900/95 shadow-sm hover:shadow-xl hover:border-[#005C4B]/40 dark:hover:border-teal-500/40 transition-all flex flex-col justify-between gap-5"
               >
-                <div>
-                  {/* Top Info */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={patient.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300"}
-                        alt={patient.firstName || "Patient"}
-                        className="w-11 h-11 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shrink-0"
-                      />
-                      <div>
-                        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                          {patient.firstName} {patient.lastName}
-                        </h3>
-                        <p className="text-[11px] font-mono text-[#005C4B] dark:text-teal-400 font-semibold">
+                {/* Header: Large Avatar + Patient Info + Triage Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <img
+                      src={patient.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300"}
+                      alt={patient.firstName}
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-100 dark:border-slate-800 shadow-sm shrink-0"
+                    />
+                    <div>
+                      <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-snug group-hover:text-[#005C4B] dark:group-hover:text-teal-400 transition-colors">
+                        {patient.firstName} {patient.lastName}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-xs font-bold text-[#005C4B] dark:text-teal-400">
                           {patient.mrn}
-                        </p>
+                        </span>
+                        <span className="text-slate-300 dark:text-slate-700">•</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                          {patient.age}y, {patient.gender}
+                        </span>
                       </div>
                     </div>
-                    <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border ${priorityBadge}`}>
-                      {patient.triagePriority || "routine"}
+                  </div>
+
+                  <span className={`shrink-0 inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold border uppercase tracking-wider ${priorityBadge}`}>
+                    {patient.triagePriority || "routine"}
+                  </span>
+                </div>
+
+                {/* Info Tiles: Spacious 2-col pill stats */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Blood Group</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {patient.bloodType || "Not recorded"}
                     </span>
                   </div>
-
-                  {/* Demographics */}
-                  <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-slate-400 text-[10px] uppercase block">Age / Gender</span>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">
-                        {patient.age} yrs • {(patient.gender || "U").toUpperCase()}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400 text-[10px] uppercase block">Blood Group</span>
-                      <p className="font-semibold text-slate-800 dark:text-slate-200">{patient.bloodType || "O+"}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <span className="text-slate-400 text-[10px] uppercase block">Attending Physician</span>
-                      <p className="font-medium text-slate-700 dark:text-slate-300 truncate">
-                        {patient.primaryDoctor || "Unassigned"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Allergies Tag */}
-                  <div className="mt-2.5">
-                    {(patient.allergies || []).length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {(patient.allergies || []).map((a: any, i: number) => (
-                          <span
-                            key={i}
-                            className="text-[9px] px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20 font-medium"
-                          >
-                            {typeof a === "string" ? a : `${a.substance || "Allergen"}`}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic">No known drug allergies (NKDA)</span>
-                    )}
+                  <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                    <span className="block text-[10px] uppercase font-bold text-slate-400">Attending Doctor</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate block">
+                      {patient.primaryDoctor || "General Clinic"}
+                    </span>
                   </div>
                 </div>
 
-                {/* Bottom Action */}
-                <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400">
-                    Reg: {patient.registeredDate || "Recent"}
-                  </span>
-                  <Link
-                    href={`/patients/${patient.id}`}
-                    onClick={() => selectPatient(patient.id)}
-                    className="px-3 py-1.5 rounded-xl bg-[#005C4B]/10 hover:bg-[#005C4B] text-[#005C4B] hover:text-white dark:bg-teal-500/15 dark:hover:bg-teal-500 dark:text-teal-300 dark:hover:text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <span>View Record</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
+                {/* Big Yango-Style Action Button: 48px high, full width, easy tap */}
+                <Link
+                  href={`/patients/${patient.id}`}
+                  onClick={() => selectPatient(patient.id)}
+                  className="w-full h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-[#005C4B] hover:text-white dark:hover:bg-[#005C4B] dark:hover:text-white text-slate-800 dark:text-slate-200 font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm"
+                >
+                  <span>View Full Medical Record</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Registration Modal */}
+      {/* Add Patient Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-          <div className="p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 max-w-lg w-full shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-3">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-[#005C4B] dark:text-teal-400" />
-                <span>Register New Patient Record</span>
-              </h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 w-full max-w-lg p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Register New Patient</h2>
               <button
-                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreatePatient} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreatePatient} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">First Name *</label>
+                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">First Name</label>
                   <input
                     type="text"
                     required
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-[#005C4B] dark:focus:border-teal-400"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-[#005C4B]"
                     placeholder="e.g. Eleanor"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Last Name *</label>
+                  <label className="block text-slate-600 dark:text-slate-400 mb-1 font-medium">Last Name</label>
                   <input
                     type="text"
                     required
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-[#005C4B] dark:focus:border-teal-400"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-slate-900 dark:text-white focus:outline-none focus:border-[#005C4B]"
                     placeholder="e.g. Vance"
                   />
                 </div>
