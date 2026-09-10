@@ -71,6 +71,7 @@ PLESK_PASSWORD
 PLESK_SSH_PORT
 PLESK_DEPLOY_PATH
 PLESK_DOMAIN
+PLESK_API_HOST       (Optional: direct Plesk server hostname/IP for API calls)
 PLESK_WEBHOOK_URL     (Recommended: Copies from Plesk > Domains > Git for 5s Zero-SSH deploy)
 PLESK_FTP_HOST        (Optional: actual FTP/FTPS hostname; never assume the website host supports FTP)
 PLESK_FTP_PORT        (Optional: FTP/FTPS port, defaults to 21)
@@ -88,6 +89,10 @@ secret is omitted. Test that this port is reachable from GitHub-hosted runners.
 `PLESK_FTP_HOST` is optional and must point to a real FTP/FTPS service. The
 workflow no longer falls back to `PLESK_HOST`, because a web domain commonly
 redirects FTP connections to HTTPS and produces misleading `500` errors.
+
+`PLESK_API_HOST` should be the direct Plesk server hostname or IP when the
+public domain is behind Cloudflare or another proxy. The Plesk API is reached
+on port `8443`; the public website hostname may return `404` or the wrong site.
 
 The workflow is triggered by pushes to `main` and can also be started manually with **Run workflow**. It is the only production deployment workflow; the `migration_only` and `seed_enabled` inputs control database-only operations and explicit production seeding.
 
