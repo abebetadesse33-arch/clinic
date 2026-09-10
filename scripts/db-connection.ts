@@ -27,6 +27,7 @@ function errorDetails(error: unknown): string[] {
 }
 
 export async function connectToDatabase(connectionString: string, operation: string): Promise<Sql> {
+
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
