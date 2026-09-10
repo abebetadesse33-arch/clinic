@@ -522,6 +522,7 @@ jobs:
         if: inputs.migration_only != true
         env:
           HEALTHCHECK_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}/api/health
+          HEALTHCHECK_INSECURE_TLS: "true"
         run: |
           set -Eeuo pipefail
           for attempt in $(seq 1 12); do
