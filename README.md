@@ -16,7 +16,7 @@ This repository now includes a **complete technical specification** for building
 
 ---
 
-## Current Platform
+## Current Platfor
 
 NiniMed Enterprise is a production-ready, multi-tenant Clinical Decision Support System (CDSS) built on **Next.js 14+ (App Router)**, **Bun**, **Docker**, **Drizzle ORM**, **PostgreSQL 16 (pgvector)**, and **Google Gemini 1.5 Pro**.
 
