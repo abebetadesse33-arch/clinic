@@ -260,13 +260,15 @@ jobs:
 
               # Try the URL as-is, then with GET as fallback (some Plesk versions differ)
               for method in POST GET; do
-                response=$(curl -k -s -o /tmp/webhook_body -w "%{http_code}" \
+                response=$(curl -k -sS -o /tmp/webhook_body -w "%{http_code}" \
                   -X "$method" \
                   -H "Content-Type: application/json" \
                   --connect-timeout 20 --max-time 60 \
-                  "$PLESK_WEBHOOK_URL" 2>/dev/null || echo "000")
+                  "$PLESK_WEBHOOK_URL" 2>/tmp/webhook_error || true)
                 body=$(cat /tmp/webhook_body 2>/dev/null || true)
-                echo "  Webhook $method → HTTP ${response}: ${body}"
+                transport_error=$(cat /tmp/webhook_error 2>/dev/null || true)
+                if [ -z "$response" ]; then response="000"; fi
+                echo "  Webhook $method → HTTP ${response}: ${body}${transport_error:+ | ${transport_error}}"
 
                 if [ "$response" -ge 200 ] && [ "$response" -lt 400 ] 2>/dev/null; then
                   echo "======================================================"
@@ -375,11 +377,13 @@ jobs:
               echo "  Plesk API host: ${API_HOST}:8443"
 
               # Find git site ID via REST API
-              sites_http=$(curl -k -s -o /tmp/plesk_sites_response -w "%{http_code}" --connect-timeout 15 --max-time 30 \
+              sites_http=$(curl -k -sS -o /tmp/plesk_sites_response -w "%{http_code}" --connect-timeout 15 --max-time 30 \
                 -u "${PLESK_USERNAME}:${PLESK_PASSWORD}" \
-                "${API_BASE}/sites" 2>/dev/null || echo "000")
+                "${API_BASE}/sites" 2>/tmp/plesk_api_error || true)
               sites_response=$(cat /tmp/plesk_sites_response 2>/dev/null || true)
-              echo "  Plesk sites API → HTTP ${sites_http}"
+              api_transport_error=$(cat /tmp/plesk_api_error 2>/dev/null || true)
+              if [ -z "$sites_http" ]; then sites_http="000"; fi
+              echo "  Plesk sites API → HTTP ${sites_http}${api_transport_error:+ | ${api_transport_error}}"
               if [ "$sites_http" = "401" ] || [ "$sites_http" = "403" ]; then
                 echo "  Plesk API authentication failed. Check PLESK_USERNAME/PLESK_PASSWORD."
               elif [ "$sites_http" = "404" ]; then
