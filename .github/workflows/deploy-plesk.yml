@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force_method:
+        description: "Force a specific deployment method: webhook | ssh | ftp | api"
+        required: false
+        default: ""
 
 jobs:
   build-and-deploy:
@@ -16,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ────────────────────────────────────────────────────────────────────────
+      # STEP 1: Validate & normalize secrets
+      # ────────────────────────────────────────────────────────────────────────
       - name: Validate deployment secrets
         shell: bash
         env:
@@ -23,46 +31,60 @@ jobs:
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
           PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
-          PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT || '22' }}
+          PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT }}
           PLESK_DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
           PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
-          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT || '21' }}
+          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT }}
         run: |
-          set -Eeuo pipefail
-          
-          # Clean and sanitize PLESK_HOST (strip protocol schemes, trailing slashes, and ports)
-          if [ -n "${PLESK_HOST:-}" ]; then
-            CLEAN_HOST=$(echo "$PLESK_HOST" | sed -E 's|^[a-zA-Z]+://||' | sed -E 's|:[0-9]+$||' | sed -E 's|/.*$||' | xargs)
-            echo "PLESK_CLEAN_HOST=${CLEAN_HOST}" >> "$GITHUB_ENV"
-            echo "PLESK_HOST=${CLEAN_HOST}" >> "$GITHUB_ENV"
+          set -euo pipefail
+
+          # Sanitize PLESK_HOST: strip protocol, trailing slashes, ports
+          RAW_HOST="${PLESK_HOST:-}"
+          CLEAN_HOST=""
+          if [ -n "$RAW_HOST" ]; then
+            CLEAN_HOST=$(printf '%s' "$RAW_HOST" \
+              | sed -E 's|^[a-zA-Z]+://||' \
+              | sed -E 's|:[0-9]+$||' \
+              | sed -E 's|/.*$||' \
+              | xargs)
           fi
+
           SSH_PORT="${PLESK_SSH_PORT:-22}"
-          echo "PLESK_SSH_PORT=${SSH_PORT}" >> "$GITHUB_ENV"
           FTP_PORT="${PLESK_FTP_PORT:-21}"
-          echo "PLESK_FTP_PORT=${FTP_PORT}" >> "$GITHUB_ENV"
 
-          if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
-            echo "PLESK_WEBHOOK_URL is configured for instant HTTPS Zero-SSH deployment."
-          fi
+          {
+            echo "PLESK_HOST=${CLEAN_HOST}"
+            echo "PLESK_CLEAN_HOST=${CLEAN_HOST}"
+            echo "PLESK_SSH_PORT=${SSH_PORT}"
+            echo "PLESK_FTP_PORT=${FTP_PORT}"
+          } >> "$GITHUB_ENV"
 
+          echo "Host          : ${CLEAN_HOST}"
+          echo "SSH port hint : ${SSH_PORT}"
+          echo "FTP port hint : ${FTP_PORT}"
+          echo "Webhook URL   : ${PLESK_WEBHOOK_URL:+(set)}"
+          echo "FTP host      : ${PLESK_FTP_HOST:+(set)}"
+
+          # Validate minimum secrets (skip hard check when webhook is the sole method)
           missing=()
-          [ -n "${PLESK_HOST:-}" ] || missing+=(PLESK_HOST)
-          [ -n "${PLESK_USERNAME:-}" ] || missing+=(PLESK_USERNAME)
-          [ -n "${PLESK_DEPLOY_PATH:-}" ] || missing+=(PLESK_DEPLOY_PATH)
-          [ -n "${PLESK_DOMAIN:-}" ] || missing+=(PLESK_DOMAIN)
+          [ -n "$CLEAN_HOST" ]                      || missing+=(PLESK_HOST)
+          [ -n "${PLESK_USERNAME:-}" ]               || missing+=(PLESK_USERNAME)
+          [ -n "${PLESK_DEPLOY_PATH:-}" ]            || missing+=(PLESK_DEPLOY_PATH)
+          [ -n "${PLESK_DOMAIN:-}" ]                 || missing+=(PLESK_DOMAIN)
           if [ -z "${PLESK_PASSWORD:-}" ] && [ -z "${PLESK_SSH_KEY:-}" ] && [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
-            missing+=( "PLESK_PASSWORD, PLESK_SSH_KEY, or PLESK_WEBHOOK_URL" )
+            missing+=("PLESK_PASSWORD or PLESK_SSH_KEY or PLESK_WEBHOOK_URL")
           fi
-          if [ "${#missing[@]}" -gt 0 ] && [ -z "${PLESK_WEBHOOK_URL:-}" ]; then
-            printf 'Missing GitHub Actions secret(s): %s\n' "${missing[*]}"
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '❌ Missing GitHub Actions secrets: %s\n' "${missing[*]}" >&2
             exit 1
           fi
-          [[ "${SSH_PORT}" =~ ^[0-9]+$ ]] || { printf 'PLESK_SSH_PORT must be numeric.\n'; exit 1; }
-          [[ "${FTP_PORT}" =~ ^[0-9]+$ ]] || { printf 'PLESK_FTP_PORT must be numeric.\n'; exit 1; }
-          echo "Plesk deployment configuration validated."
+          echo "✅ Deployment secrets validated."
 
+      # ────────────────────────────────────────────────────────────────────────
+      # STEP 2: Build
+      # ────────────────────────────────────────────────────────────────────────
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -78,19 +100,22 @@ jobs:
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
+      # ────────────────────────────────────────────────────────────────────────
+      # STEP 3: Assemble release package
+      # ────────────────────────────────────────────────────────────────────────
       - name: Assemble deployment package
         shell: bash
         run: |
-          set -Eeuo pipefail
+          set -euo pipefail
           rm -rf release deploy.tar.gz
           mkdir -p release/.next release/tmp
 
           cp -R .next/standalone/. release/
-          cp -R .next/static release/.next/static
-          cp -R public release/public
+          cp -R .next/static       release/.next/static
+          cp -R public             release/public
           touch release/tmp/restart.txt
 
-          # Prepend auto-dotenv and startup error logger to release/server.js
+          # Prepend auto-dotenv prelude if available
           if [ -f scripts/server-prelude.js ]; then
             cat scripts/server-prelude.js release/server.js > release/server-combined.js
             mv -f release/server-combined.js release/server.js
@@ -98,78 +123,68 @@ jobs:
           cp -f release/server.js release/app.js 2>/dev/null || true
 
           tar -czf deploy.tar.gz -C release .
-          echo "Deployment package assembled (size: $(du -h deploy.tar.gz | cut -f1))."
+          echo "✅ Package assembled: $(du -h deploy.tar.gz | cut -f1)"
 
-      - name: Discover active Plesk endpoints (SSH, FTPS, Webhook)
+      # ────────────────────────────────────────────────────────────────────────
+      # STEP 4: Discover active SSH port across common Plesk ports
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Discover active Plesk SSH port
         shell: bash
         env:
           PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
-          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT || '21' }}
         run: |
-          set -Eeuo pipefail
+          set -euo pipefail
 
-          RAW_HOST="${PLESK_CLEAN_HOST:-${PLESK_HOST:-}}"
-          CLEAN_HOST=$(echo "$RAW_HOST" | sed -E 's|^[a-zA-Z]+://||' | sed -E 's|:[0-9]+$||' | sed -E 's|/.*$||' | xargs)
-          echo "Target Host: ${CLEAN_HOST}"
+          CLEAN_HOST="${PLESK_CLEAN_HOST}"
+          echo "🔍 Probing SSH on host: ${CLEAN_HOST}"
 
-          # Probe Candidate Hosts (resolves Cloudflare CDN bypass when domain is orange-clouded)
+          # Build candidate hostnames (bypass Cloudflare orange-cloud CDN)
           CANDIDATES=("${CLEAN_HOST}")
-          for prefix in "ftp." "plesk." "mail." "server."; do
+          for prefix in "ftp." "mail." "server." "plesk." "direct."; do
             candidate="${prefix}${CLEAN_HOST}"
-            if getent hosts "$candidate" >/dev/null 2>&1; then
+            if getent hosts "$candidate" > /dev/null 2>&1; then
               CANDIDATES+=("$candidate")
+              echo "  Found DNS candidate: $candidate"
             fi
           done
 
-          echo "Candidate host endpoints: ${CANDIDATES[*]}"
+          # Common SSH ports used by Plesk hosting providers
+          SSH_PORTS=("${PLESK_SSH_PORT}" 22 2222 2200 8022 22000 10022 2022)
 
-          ACTIVE_SSH_HOST=""
-          ACTIVE_SSH_PORT=""
-          ACTIVE_FTP_HOST="${PLESK_FTP_HOST:-}"
-
-          # 1. Probe SSH daemons
-          echo "--- Probing SSH endpoints ---"
-          PORTS_TO_CHECK=("${PLESK_SSH_PORT:-22}" 22 2222 2200 22222 10022)
-          UNIQUE_PORTS=($(echo "${PORTS_TO_CHECK[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
+          ACTIVE_HOST=""
+          ACTIVE_PORT=""
 
           for host in "${CANDIDATES[@]}"; do
-            for port in "${UNIQUE_PORTS[@]}"; do
-              banner=$(echo "" | timeout 3s nc -w 3 "$host" "$port" 2>/dev/null || true)
+            for port in "${SSH_PORTS[@]}"; do
+              banner=$(echo "" | timeout 4s nc -w 4 "$host" "$port" 2>/dev/null || true)
               if [[ "$banner" == SSH-* ]]; then
-                echo "SUCCESS: Found active SSH banner on ${host}:${port} -> ${banner}"
-                ACTIVE_SSH_HOST="$host"
-                ACTIVE_SSH_PORT="$port"
+                echo "✅ SSH banner found on ${host}:${port} → ${banner}"
+                ACTIVE_HOST="$host"
+                ACTIVE_PORT="$port"
                 break 2
               fi
             done
           done
 
-          # 2. Probe the explicitly configured FTP/FTPS endpoint
-          echo "--- Probing FTP/FTPS endpoint (port ${PLESK_FTP_PORT:-21}) ---"
-          if [ -n "$ACTIVE_FTP_HOST" ]; then
-            ftp_banner=$(echo "" | timeout 3s nc -w 3 "$ACTIVE_FTP_HOST" "${PLESK_FTP_PORT:-21}" 2>/dev/null || true)
-            if [[ "$ftp_banner" == 220* ]] || timeout 3s bash -c "</dev/tcp/${ACTIVE_FTP_HOST}/${PLESK_FTP_PORT:-21}" 2>/dev/null; then
-              echo "SUCCESS: Found active FTP service on ${ACTIVE_FTP_HOST}:${PLESK_FTP_PORT:-21}"
-            else
-              echo "WARNING: PLESK_FTP_HOST is configured but its FTP port is unreachable."
-            fi
-          else
-            echo "No PLESK_FTP_HOST configured; FTP fallback is disabled."
+          if [ -z "$ACTIVE_HOST" ]; then
+            echo "⚠️  No SSH banner found on any port. SSH deployment will be skipped."
+            ACTIVE_HOST="${CLEAN_HOST}"
+            ACTIVE_PORT="${PLESK_SSH_PORT:-22}"
           fi
 
-          # Fallbacks if nc was silent but port might be open
-          [ -n "$ACTIVE_SSH_HOST" ] || ACTIVE_SSH_HOST="${CLEAN_HOST}"
-          [ -n "$ACTIVE_SSH_PORT" ] || ACTIVE_SSH_PORT="${PLESK_SSH_PORT:-22}"
+          ACTIVE_FTP_HOST="${PLESK_FTP_HOST:-}"
 
-          echo "PLESK_ACTIVE_HOST=${ACTIVE_SSH_HOST}" >> "$GITHUB_ENV"
-          echo "PLESK_ACTIVE_PORT=${ACTIVE_SSH_PORT}" >> "$GITHUB_ENV"
-          echo "PLESK_ACTIVE_FTP_HOST=${ACTIVE_FTP_HOST}" >> "$GITHUB_ENV"
-          echo "PLESK_HOST=${ACTIVE_SSH_HOST}" >> "$GITHUB_ENV"
-          echo "PLESK_PORT=${ACTIVE_SSH_PORT}" >> "$GITHUB_ENV"
-          echo "PLESK_FTP_HOST=${ACTIVE_FTP_HOST}" >> "$GITHUB_ENV"
-          echo "Discovered SSH: ${ACTIVE_SSH_HOST}:${ACTIVE_SSH_PORT} | FTP: ${ACTIVE_FTP_HOST:-disabled}:${PLESK_FTP_PORT:-21}"
+          {
+            echo "PLESK_ACTIVE_HOST=${ACTIVE_HOST}"
+            echo "PLESK_ACTIVE_PORT=${ACTIVE_PORT}"
+            echo "PLESK_ACTIVE_FTP_HOST=${ACTIVE_FTP_HOST}"
+          } >> "$GITHUB_ENV"
+          echo "Discovery result → SSH: ${ACTIVE_HOST}:${ACTIVE_PORT} | FTP: ${ACTIVE_FTP_HOST:-disabled}"
 
-      - name: Deploy package to Live Plesk
+      # ────────────────────────────────────────────────────────────────────────
+      # STEP 5: Deploy (4 methods, first success wins)
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Deploy to Live Plesk
         shell: bash
         env:
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
@@ -177,175 +192,277 @@ jobs:
           PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
           PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
           PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
-          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT || '21' }}
+          PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT }}
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
+          FORCE_METHOD: ${{ github.event.inputs.force_method }}
         run: |
-          set -Eeuo pipefail
+          set -euo pipefail
+          DEPLOYED=false
 
-          # ══════════════════════════════════════════════════════════════════
-          # METHOD 1: Plesk Native Git Webhook (Zero-SSH, HTTPS, < 5 Seconds)
-          # ══════════════════════════════════════════════════════════════════
-          if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
-            echo ">>> [Method 1] Triggering Plesk Native Git Webhook..."
-            response=$(curl -k -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$PLESK_WEBHOOK_URL" || true)
-            http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2 || true)
-            body=$(echo "$response" | sed '/HTTP_STATUS:/d' || true)
-            echo "Webhook Response (HTTP $http_status): $body"
-            if [ -n "$http_status" ] && [ "$http_status" -ge 200 ] && [ "$http_status" -lt 400 ]; then
-              echo "=================================================================="
-              echo "SUCCESS: Plesk Git Webhook executed successfully (HTTP $http_status)!"
-              echo "Live deployment finalized via Plesk Native Git."
-              echo "=================================================================="
-              exit 0
+          # ════════════════════════════════════════════════════════════════════
+          # METHOD 1 — Plesk Native Git Webhook (Zero-SSH, HTTPS, ~5 seconds)
+          # Set secret: PLESK_WEBHOOK_URL = https://your-host:8443/modules/git/public/web-hook.php?uuid=...
+          # ════════════════════════════════════════════════════════════════════
+          if [ "${FORCE_METHOD:-}" != "ssh" ] && [ "${FORCE_METHOD:-}" != "ftp" ] && [ "${FORCE_METHOD:-}" != "api" ]; then
+            if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
+              echo ">>> [Method 1] Triggering Plesk Native Git Webhook..."
+
+              # Try the URL as-is, then with GET as fallback (some Plesk versions differ)
+              for method in POST GET; do
+                response=$(curl -k -s -o /tmp/webhook_body -w "%{http_code}" \
+                  -X "$method" \
+                  -H "Content-Type: application/json" \
+                  --connect-timeout 20 --max-time 60 \
+                  "$PLESK_WEBHOOK_URL" 2>/dev/null || echo "000")
+                body=$(cat /tmp/webhook_body 2>/dev/null || true)
+                echo "  Webhook $method → HTTP ${response}: ${body}"
+
+                if [ "$response" -ge 200 ] && [ "$response" -lt 400 ] 2>/dev/null; then
+                  echo "======================================================"
+                  echo "✅ SUCCESS [Method 1]: Plesk Git Webhook (HTTP $response)"
+                  echo "======================================================"
+                  DEPLOYED=true
+                  break
+                fi
+              done
+
+              if [ "$DEPLOYED" = "true" ]; then
+                exit 0
+              fi
+
+              echo "⚠️  Webhook returned HTTP ${response}. See fix instructions at bottom of log."
+              echo "    Common causes:"
+              echo "    • URL is wrong — copy it from Plesk > Domains > Git > Webhook URL"
+              echo "    • Plesk Git Extension is not installed (check Extensions tab)"
+              echo "    • Repository has not been added to Plesk Git yet"
             fi
-            echo "Plesk Webhook returned HTTP $http_status. Proceeding to direct deployment methods..."
           fi
 
-          # ══════════════════════════════════════════════════════════════════
-          # METHOD 2: Direct SSH Release Pipeline
-          # ══════════════════════════════════════════════════════════════════
-          known_hosts="$RUNNER_TEMP/plesk-known-hosts"
-          mux_socket="$RUNNER_TEMP/ssh_mux_%h_%p_%r"
+          # ════════════════════════════════════════════════════════════════════
+          # METHOD 2 — Direct SSH Release Pipeline (port-agnostic, key or password)
+          # ════════════════════════════════════════════════════════════════════
+          if [ "${FORCE_METHOD:-}" != "ftp" ] && [ "${FORCE_METHOD:-}" != "api" ] && [ "${FORCE_METHOD:-}" != "webhook" ]; then
+            SSH_HOST="${PLESK_ACTIVE_HOST}"
+            SSH_PORT="${PLESK_ACTIVE_PORT}"
+            known_hosts="$RUNNER_TEMP/plesk-known-hosts"
+            mux_socket="$RUNNER_TEMP/ssh_mux_%h_%p_%r"
 
-          ssh_base_options=(
-            -p "$PLESK_PORT"
-            -o StrictHostKeyChecking=accept-new
-            -o UserKnownHostsFile="$known_hosts"
-            -o ConnectTimeout=12
-            -o ConnectionAttempts=1
-            -o ServerAliveInterval=10
-            -o ServerAliveCountMax=3
-            -o IPQoS=throughput
-            -o ControlMaster=auto
-            -o ControlPath="$mux_socket"
-            -o ControlPersist=10m
-          )
+            ssh_opts=(
+              -p "$SSH_PORT"
+              -o StrictHostKeyChecking=accept-new
+              -o UserKnownHostsFile="$known_hosts"
+              -o ConnectTimeout=15
+              -o ConnectionAttempts=1
+              -o ServerAliveInterval=15
+              -o ServerAliveCountMax=3
+              -o ControlMaster=auto
+              -o "ControlPath=$mux_socket"
+              -o ControlPersist=10m
+            )
 
-          ssh_available=false
-          if [ -n "${PLESK_SSH_KEY:-}" ]; then
-            echo "Configured SSH private key authentication."
-            key_file="$RUNNER_TEMP/plesk_id_rsa"
-            printf '%s\n' "$PLESK_SSH_KEY" > "$key_file"
-            chmod 600 "$key_file"
-            ssh_base_options+=( -i "$key_file" -o IdentitiesOnly=yes )
-            ssh_cmd=( ssh "${ssh_base_options[@]}" )
-            ssh_available=true
-          elif [ -n "${PLESK_PASSWORD:-}" ]; then
-            echo "Configured SSH password authentication (sshpass)."
-            if ! command -v sshpass >/dev/null 2>&1; then
-              sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends sshpass
+            ssh_available=false
+            if [ -n "${PLESK_SSH_KEY:-}" ]; then
+              echo "🔑 Using SSH private key authentication."
+              key_file="$RUNNER_TEMP/plesk_deploy_key"
+              printf '%s\n' "$PLESK_SSH_KEY" > "$key_file"
+              chmod 600 "$key_file"
+              ssh_opts+=(-i "$key_file" -o IdentitiesOnly=yes)
+              ssh_cmd=(ssh "${ssh_opts[@]}")
+              ssh_available=true
+            elif [ -n "${PLESK_PASSWORD:-}" ]; then
+              echo "🔑 Using SSH password authentication (sshpass)."
+              if ! command -v sshpass > /dev/null 2>&1; then
+                sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends sshpass
+              fi
+              export SSHPASS="$PLESK_PASSWORD"
+              ssh_cmd=(sshpass -e ssh "${ssh_opts[@]}")
+              ssh_available=true
             fi
-            export SSHPASS="$PLESK_PASSWORD"
-            ssh_cmd=( sshpass -e ssh "${ssh_base_options[@]}" )
-            ssh_available=true
+
+            if [ "$ssh_available" = "true" ]; then
+              remote="${PLESK_USERNAME}@${SSH_HOST}"
+              pkg_dir="/tmp/ninimed-${RELEASE_ID:0:12}"
+              echo ">>> [Method 2] Connecting to SSH ${remote}:${SSH_PORT}..."
+
+              if timeout 18s "${ssh_cmd[@]}" "$remote" "mkdir -p '${pkg_dir}'" 2>/dev/null; then
+                echo "✅ SSH connected."
+                echo "  Uploading release script..."
+                timeout 120s "${ssh_cmd[@]}" "$remote" "cat > '${pkg_dir}/plesk-release.sh'" \
+                  < scripts/plesk-release.sh
+
+                echo "  Uploading package ($(du -h deploy.tar.gz | cut -f1))..."
+                timeout 600s "${ssh_cmd[@]}" "$remote" "cat > '${pkg_dir}/deploy.tar.gz'" \
+                  < deploy.tar.gz
+
+                echo "  Activating release on Plesk server..."
+                timeout 300s "${ssh_cmd[@]}" "$remote" \
+                  "chmod 700 '${pkg_dir}/plesk-release.sh' && \
+                   '${pkg_dir}/plesk-release.sh' '${pkg_dir}' '${DEPLOY_PATH}' '${PLESK_DOMAIN}'"
+
+                echo "======================================================"
+                echo "✅ SUCCESS [Method 2]: SSH deployment complete!"
+                echo "======================================================"
+                DEPLOYED=true
+              else
+                echo "⚠️  SSH port ${SSH_PORT} on ${SSH_HOST} is unreachable or firewalled."
+                echo "    Tip: Set PLESK_SSH_PORT secret to the actual SSH port (e.g. 8022, 2222)."
+              fi
+            fi
           fi
 
-          if [ "$ssh_available" = true ]; then
-            remote="${PLESK_USERNAME}@${PLESK_HOST}"
-            package_dir="/tmp/ninimed-deploy-${RELEASE_ID}"
-            remote_script="${package_dir}/plesk-release.sh"
+          if [ "$DEPLOYED" = "true" ]; then exit 0; fi
 
-            echo ">>> [Method 2] Attempting SSH connection to ${remote}:${PLESK_PORT}..."
-            if timeout 15s "${ssh_cmd[@]}" "$remote" "mkdir -p '$package_dir'" 2>/dev/null; then
-              echo "SSH connection established successfully!"
-              echo "Uploading release script..."
-              timeout 2m "${ssh_cmd[@]}" "$remote" "cat > '$remote_script'" < scripts/plesk-release.sh
+          # ════════════════════════════════════════════════════════════════════
+          # METHOD 3 — Plesk REST API (port 8443) — trigger git pull + deploy
+          # Requires: PLESK_HOST, PLESK_USERNAME, PLESK_PASSWORD, PLESK_DOMAIN
+          # ════════════════════════════════════════════════════════════════════
+          if [ "${FORCE_METHOD:-}" != "ftp" ] && [ "${FORCE_METHOD:-}" != "webhook" ] && [ "${FORCE_METHOD:-}" != "ssh" ]; then
+            if [ -n "${PLESK_PASSWORD:-}" ] && [ -n "${PLESK_HOST:-}" ]; then
+              echo ">>> [Method 3] Attempting Plesk REST API deployment (port 8443)..."
+              API_BASE="https://${PLESK_ACTIVE_HOST}:8443/api/v2"
 
-              echo "Uploading standalone package (deploy.tar.gz)..."
-              timeout 10m "${ssh_cmd[@]}" "$remote" "cat > '$package_dir/deploy.tar.gz'" < deploy.tar.gz
+              # Find git site ID via REST API
+              sites_response=$(curl -k -s --connect-timeout 15 --max-time 30 \
+                -u "${PLESK_USERNAME}:${PLESK_PASSWORD}" \
+                "${API_BASE}/sites" 2>/dev/null || echo "")
 
-              echo "Executing release activation on Plesk..."
-              timeout 10m "${ssh_cmd[@]}" "$remote" "chmod 700 '$remote_script' && '$remote_script' '$package_dir' '$DEPLOY_PATH' '$PLESK_DOMAIN'"
+              site_id=$(echo "$sites_response" | \
+                python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    domain = '${PLESK_DOMAIN}'
+    for site in (data if isinstance(data, list) else []):
+        if domain in str(site.get('name','')) or domain in str(site.get('webspace_name','')):
+            print(site.get('id', ''))
+            break
+except: pass
+" 2>/dev/null || true)
 
-              echo "=================================================================="
-              echo "SUCCESS: SSH deployment and Phusion Passenger activation completed!"
-              echo "=================================================================="
-              exit 0
+              if [ -n "$site_id" ]; then
+                echo "  Found Plesk site ID: $site_id"
+                deploy_resp=$(curl -k -s -o /tmp/api_deploy -w "%{http_code}" \
+                  --connect-timeout 15 --max-time 120 \
+                  -u "${PLESK_USERNAME}:${PLESK_PASSWORD}" \
+                  -X POST "${API_BASE}/sites/${site_id}/git/deploy" \
+                  -H "Content-Type: application/json" \
+                  -d '{}' 2>/dev/null || echo "000")
+                api_body=$(cat /tmp/api_deploy 2>/dev/null || true)
+                echo "  REST API deploy → HTTP ${deploy_resp}: ${api_body}"
+                if [ "$deploy_resp" -ge 200 ] && [ "$deploy_resp" -lt 400 ] 2>/dev/null; then
+                  echo "======================================================"
+                  echo "✅ SUCCESS [Method 3]: Plesk REST API deployment triggered!"
+                  echo "======================================================"
+                  DEPLOYED=true
+                fi
+              else
+                echo "  Could not find site ID via REST API. Skipping."
+              fi
+            fi
+          fi
+
+          if [ "$DEPLOYED" = "true" ]; then exit 0; fi
+
+          # ════════════════════════════════════════════════════════════════════
+          # METHOD 4 — FTPS / FTP (lftp mirror)
+          # Requires: PLESK_FTP_HOST secret
+          # ════════════════════════════════════════════════════════════════════
+          FTP_HOST="${PLESK_ACTIVE_FTP_HOST:-${PLESK_FTP_HOST:-}}"
+          FTP_PORT="${PLESK_FTP_PORT:-21}"
+
+          if [ -n "$FTP_HOST" ] && [ -n "${PLESK_PASSWORD:-}" ]; then
+            echo ">>> [Method 4] FTPS deployment to ${FTP_HOST}:${FTP_PORT}..."
+            if ! command -v lftp > /dev/null 2>&1; then
+              sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends lftp
+            fi
+
+            CLEAN_FTP_HOST=$(printf '%s' "$FTP_HOST" \
+              | sed -E 's|^[a-zA-Z]+://||' \
+              | sed -E 's|:[0-9]+$||' \
+              | sed -E 's|/.*$||' \
+              | xargs)
+
+            # Determine chroot-relative destination inside Plesk FTP jail
+            if [[ "${DEPLOY_PATH}" =~ /var/www/vhosts/[^/]+/(.+) ]]; then
+              FTP_DEST="${BASH_REMATCH[1]}"
             else
-              echo "SSH port ${PLESK_PORT} unreachable or firewalled. Proceeding to FTPS..."
+              FTP_DEST="${DEPLOY_PATH#/}"
+            fi
+            [ -n "$FTP_DEST" ] || FTP_DEST="httpdocs"
+            echo "  FTP chroot target: /${FTP_DEST}"
+
+            ftp_ok=false
+            # Try FTPS (TLS) first, then plain FTP
+            for ssl in "yes" "no"; do
+              if lftp -e "
+                set ftp:ssl-allow $ssl;
+                set ftp:ssl-protect-data $ssl;
+                set ssl:verify-certificate no;
+                set ssl:check-hostname no;
+                set ftp:passive-mode true;
+                set net:timeout 30;
+                set net:max-retries 2;
+                mirror --reverse --delete \
+                  --exclude-glob '.env*' --exclude-glob '*.log' \
+                  --verbose=1 release/ '${FTP_DEST}/';
+                quit;
+              " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" \
+                "ftp://${CLEAN_FTP_HOST}:${FTP_PORT}"; then
+                ftp_ok=true
+                break
+              fi
+              echo "  FTP ssl=${ssl} failed, retrying..."
+            done
+
+            if [ "$ftp_ok" = "true" ]; then
+              echo "======================================================"
+              echo "✅ SUCCESS [Method 4]: FTP/FTPS deployment complete!"
+              echo "======================================================"
+              DEPLOYED=true
             fi
           fi
 
-          # ══════════════════════════════════════════════════════════════════
-          # METHOD 3: Automated FTPS / FTP Deployment (Port 21)
-          # ══════════════════════════════════════════════════════════════════
-          if [ -z "${PLESK_FTP_HOST:-}" ]; then
-            echo "ERROR: SSH and webhook deployment failed, and PLESK_FTP_HOST is not configured."
-            echo "Set PLESK_WEBHOOK_URL or configure PLESK_FTP_HOST/PLESK_FTP_PORT for a real FTP service."
-            exit 1
-          fi
+          if [ "$DEPLOYED" = "true" ]; then exit 0; fi
 
-          echo ">>> [Method 3] Activating Automated FTPS deployment (port ${PLESK_FTP_PORT:-21})..."
-          if ! command -v lftp >/dev/null 2>&1; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends lftp
-          fi
+          # ════════════════════════════════════════════════════════════════════
+          # ALL METHODS FAILED — Print actionable fix guide
+          # ════════════════════════════════════════════════════════════════════
+          cat >&2 <<'EOF'
+          ──────────────────────────────────────────────────────────────────────
+          ❌ All deployment methods failed. Use ONE of the fixes below:
 
-          # Determine relative directory inside Plesk FTP chroot
-          FTP_DEST_DIR=""
-          if [[ "$DEPLOY_PATH" =~ /var/www/vhosts/[^/]+/(.+) ]]; then
-            FTP_DEST_DIR="${BASH_REMATCH[1]}"
-          elif [[ "$DEPLOY_PATH" =~ ^/(.+) ]]; then
-            FTP_DEST_DIR="${BASH_REMATCH[1]}"
-          else
-            FTP_DEST_DIR="${DEPLOY_PATH}"
-          fi
-          [ -n "$FTP_DEST_DIR" ] || FTP_DEST_DIR="httpdocs"
-          echo "Calculated FTP Chroot Target Path: '${FTP_DEST_DIR}'"
+          ══ FIX A (Easiest — 2 minutes, no SSH needed) ════════════════════════
+          1. In Plesk → Websites & Domains → Git
+          2. Click "Add Repository":
+             • Repository URL: https://github.com/abebetadesse33-arch/clinic.git
+             • Deployment mode: Automatic
+             • Additional deployment actions:
+               bash scripts/plesk-git-deploy.sh
+          3. Copy the "Webhook URL" shown (looks like:
+             https://YOUR-HOST:8443/modules/git/public/web-hook.php?uuid=XXXXX)
+          4. In GitHub → Settings → Secrets → Actions → New secret:
+             Name:  PLESK_WEBHOOK_URL
+             Value: <paste the URL from step 3>
+          5. Re-run this workflow. Done — deploys in <10 seconds every push.
 
-          # Clean FTP Host
-          CLEAN_FTP_HOST=$(echo "${PLESK_FTP_HOST}" | sed -E 's|^[a-zA-Z]+://||' | sed -E 's|:[0-9]+$||' | sed -E 's|/.*$||' | xargs)
-          echo "Connecting to FTP server: ftp://${CLEAN_FTP_HOST}:${PLESK_FTP_PORT:-21}"
+          ══ FIX B (SSH — if your host supports it) ════════════════════════════
+          1. Log in to Plesk → Domains → Web Hosting Access
+             → Set "Access to server over SSH" to /bin/bash
+          2. Find your SSH port in the welcome email from your host, or try:
+             2222, 8022, 22000 (set secret PLESK_SSH_PORT to the correct port)
+          3. Generate a deploy key (no passphrase):
+             ssh-keygen -t ed25519 -C "github-deploy" -f deploy_key -N ""
+          4. Add deploy_key.pub to Plesk SSH user's ~/.ssh/authorized_keys
+          5. Add deploy_key (private) to GitHub secret: PLESK_SSH_KEY
+          6. Re-run this workflow.
 
-          # Attempt 1: FTPS with TLS
-          ftps_success=false
-          if lftp -e "
-            set ftp:ssl-allow yes;
-            set ftp:ssl-protect-data yes;
-            set ssl:verify-certificate no;
-            set ssl:check-hostname no;
-            set ftp:passive-mode true;
-            set net:timeout 25;
-            set net:max-retries 2;
-            mirror --reverse --delete --exclude-glob .env* --exclude-glob *.log --verbose=1 release/ '${FTP_DEST_DIR}/' || mirror --reverse --delete --exclude-glob .env* --exclude-glob *.log --verbose=1 release/ '${DEPLOY_PATH}/';
-            quit;
-          " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" "ftp://${CLEAN_FTP_HOST}:${PLESK_FTP_PORT:-21}"; then
-            ftps_success=true
-          else
-            echo "FTPS TLS mirror failed; attempting plain FTP fallback..."
-            if lftp -e "
-              set ftp:ssl-allow no;
-              set ftp:passive-mode true;
-              set net:timeout 25;
-              set net:max-retries 2;
-              mirror --reverse --exclude-glob .env* --exclude-glob *.log --verbose=1 release/ '${FTP_DEST_DIR}/';
-              quit;
-            " -u "${PLESK_USERNAME},${PLESK_PASSWORD}" "ftp://${CLEAN_FTP_HOST}:${PLESK_FTP_PORT:-21}"; then
-              ftps_success=true
-            fi
-          fi
-
-          if [ "$ftps_success" = true ]; then
-            echo "=================================================================="
-            echo "SUCCESS: Deployment files synchronized via FTP/FTPS!"
-            echo "Phusion Passenger reload triggered via tmp/restart.txt."
-            echo "=================================================================="
-            exit 0
-          fi
-
-          # ══════════════════════════════════════════════════════════════════
-          # ERROR DIAGNOSTICS & 30-SECOND LIVE DEPLOY FIX
-          # ══════════════════════════════════════════════════════════════════
-          echo "----------------------------------------------------------------------------------" >&2
-          echo "ERROR: All automated deployment channels failed." >&2
-          echo "" >&2
-          echo "To finalize live deployment in 30 seconds with 100% reliability:" >&2
-          echo "  1. In Plesk > Domains > ${PLESK_DOMAIN} > Git:" >&2
-          echo "     Copy your 'Webhook URL' (e.g. https://${PLESK_HOST}:8443/modules/git/public/web-hook...)" >&2
-          echo "  2. In GitHub > Settings > Secrets and variables > Actions:" >&2
-          echo "     Add secret 'PLESK_WEBHOOK_URL' with that URL." >&2
-          echo "  3. In Plesk > Git > Additional deployment actions:" >&2
-          echo "     Ensure command is set to: bash scripts/plesk-git-deploy.sh" >&2
-          echo "----------------------------------------------------------------------------------" >&2
+          ══ FIX C (FTP) ════════════════════════════════════════════════════════
+          1. In Plesk → FTP Access, create an FTP user if needed.
+          2. Add GitHub secret: PLESK_FTP_HOST = ftp.your-domain.com
+          3. PLESK_PASSWORD should match the FTP user password.
+          4. Re-run this workflow.
+          ──────────────────────────────────────────────────────────────────────
+EOF
           exit 1
