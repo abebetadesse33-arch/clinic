@@ -2967,7 +2967,7 @@ export async function ensureDatabaseInitialized(
     `);
 
         // Ensure default system payment settings, auth settings, pricing catalog, and Debre Birhan clinic locations exist
-        await client.unsafe(`
+        const dynamicSeedAndSchemaSql = `
       INSERT INTO system_payment_settings (id, global_free_mode, registration_validity_days, grace_period_days, allow_cash_reconciliation)
       VALUES (
           '00000000-0000-0000-0000-000000000001',
@@ -3376,10 +3376,22 @@ export async function ensureDatabaseInitialized(
       );
       CREATE INDEX IF NOT EXISTS idx_encounter_tabs_encounter ON encounter_tabs(encounter_id);
       CREATE INDEX IF NOT EXISTS idx_encounter_tabs_patient ON encounter_tabs(patient_id);
-    `);
+    `;
 
-        // Synchronize Comprehensive Pharmacy & Laboratory Catalogues (Idempotent)
-        await syncComprehensiveCatalogues(client);
+        const schemaBoundary = dynamicSeedAndSchemaSql.indexOf("-- 48. UNIFIED ENCOUNTER TABS & SYSTEM PAYMENT SETTINGS");
+        if (schemaBoundary < 0) {
+            throw new Error("Migration schema boundary was not found.");
+        }
+
+        if (shouldSeed) {
+            await client.unsafe(dynamicSeedAndSchemaSql.slice(0, schemaBoundary));
+        }
+        await client.unsafe(dynamicSeedAndSchemaSql.slice(schemaBoundary));
+
+        // Catalogues are seed data and require the default organization.
+        if (shouldSeed) {
+            await syncComprehensiveCatalogues(client);
+        }
 
         console.log("✅ PostgreSQL schema verification complete (all 50+ tables, pricing, 376 pharmacy items and 79 lab protocols confirmed).");
 
