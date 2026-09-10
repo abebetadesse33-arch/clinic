@@ -37,6 +37,12 @@ for (const p of possibleEnvPaths) {
 
 // Ensure startup crashes are written to passenger-startup-error.log for instant debugging
 const errorLog = path.join(__dirname, 'passenger-startup-error.log');
+try {
+  fs.appendFileSync(
+    errorLog,
+    `[${new Date().toISOString()}] Starting NiniMed Passenger entrypoint from ${__dirname}\n`
+  );
+} catch (e) {}
 process.on('uncaughtException', (err) => {
   try {
     fs.appendFileSync(
