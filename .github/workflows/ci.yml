@@ -54,7 +54,18 @@ jobs:
         run: bun run typecheck
 
       - name: Validate database migration
-        run: bun run db:migrate
+        run: |
+          set -Eeuo pipefail
+          for attempt in 1 2 3 4 5; do
+            if pg_isready -h localhost -p 5432 -U postgres -d clinic_enterprise; then
+              break
+            fi
+            echo "PostgreSQL is not ready; retrying in 5 seconds (attempt ${attempt}/5)."
+            sleep 5
+          done
+          pg_isready -h localhost -p 5432 -U postgres -d clinic_enterprise
+          echo "Running migration against localhost:5432/clinic_enterprise"
+          bun run db:migrate
 
       - name: Validate idempotent seed
         run: bun run db:seed

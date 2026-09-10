@@ -20,6 +20,9 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Database migration failed:", error instanceof Error ? error.message : error);
+  const details = error instanceof Error
+    ? { name: error.name, message: error.message, cause: error.cause }
+    : error;
+  console.error("Database migration failed:", JSON.stringify(details, null, 2));
   process.exitCode = 1;
 });
