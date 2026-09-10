@@ -97,6 +97,10 @@ jobs:
             printf '❌ Missing GitHub Actions secrets: %s\n' "${missing[*]}" >&2
             exit 1
           fi
+          if [[ "${DATABASE_URL}" =~ @(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?/ ]]; then
+            echo "❌ DATABASE_URL points to localhost. Set it to the PostgreSQL host reachable from Plesk, not the GitHub runner." >&2
+            exit 1
+          fi
           echo "✅ Deployment secrets validated."
 
       # ────────────────────────────────────────────────────────────────────────
