@@ -3387,6 +3387,11 @@ export async function ensureDatabaseInitialized(
 
         console.log("✅ PostgreSQL schema verification complete (all 50+ tables, pricing, 376 pharmacy items and 79 lab protocols confirmed).");
 
+        if (!shouldSeed) {
+            console.log("ℹ️ Seed data disabled for this database operation.");
+            return;
+        }
+
         const runDynamicSeed = async () => {
             await client.unsafe(dynamicSeedAndSchemaSql.slice(0, schemaBoundary));
         };
