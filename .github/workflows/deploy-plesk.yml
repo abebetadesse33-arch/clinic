@@ -162,10 +162,14 @@ jobs:
           cp -R public             release/public
           touch release/tmp/restart.txt
 
-          # Prepend auto-dotenv prelude if available
+          # Keep Next's generated server in its own module context and package
+          # the auto-dotenv prelude beside a stable Passenger wrapper.
           if [ -f scripts/server-prelude.js ]; then
-            cat scripts/server-prelude.js release/server.js > release/server-combined.js
-            mv -f release/server-combined.js release/server.js
+            cp -f scripts/server-prelude.js release/plesk-prelude.js
+            cat > release/server.js <<'NODE_ENTRYPOINT'
+          require('./plesk-prelude.js');
+          require('./.next/standalone/server.js');
+          NODE_ENTRYPOINT
           fi
           cp -f release/server.js release/app.js 2>/dev/null || true
 
