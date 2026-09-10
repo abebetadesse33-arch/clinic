@@ -18,7 +18,11 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const { currentUser } = useClinic();
 
-  if (pathname.startsWith("/mobile-clinic")) {
+  if (
+    pathname.startsWith("/mobile-clinic") ||
+    pathname === "/signin" ||
+    pathname === "/login"
+  ) {
     return null;
   }
 

@@ -106,7 +106,7 @@ export default function NavigationHeader() {
 
   return (
     <>
-      <header ref={navRef} className="sticky top-0 z-40 w-full border-b border-sky-200/80 dark:border-slate-800 bg-sky-50/95 dark:bg-slate-950/95 backdrop-blur-xl transition-colors">
+      <header ref={navRef} className="hidden md:block sticky top-0 z-40 w-full border-b border-sky-200/80 dark:border-slate-800 bg-sky-50/95 dark:bg-slate-950/95 backdrop-blur-xl transition-colors">
         {/* Top 24/7 On-Demand Healthcare Sub-bar */}
         <div className="bg-gradient-to-r from-sky-100 via-cyan-50 to-blue-50 dark:from-slate-950 dark:via-sky-950/40 dark:to-slate-900 text-slate-700 dark:text-slate-300 py-1.5 px-4 sm:px-6 lg:px-8 text-xs border-b border-sky-200/80 dark:border-slate-800 transition-colors">
           <div className="max-w-7xl mx-auto flex items-center justify-between">

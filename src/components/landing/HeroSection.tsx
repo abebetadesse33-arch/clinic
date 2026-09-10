@@ -7,11 +7,11 @@ import { ArrowRight, Clock, MapPin, Users, Pill, Zap, ShieldCheck } from "lucide
 export function HeroSection() {
   return (
     <>
-      <section className="relative pt-4 sm:pt-6 pb-10 sm:pb-16 px-4 sm:px-8 max-w-7xl mx-auto" aria-labelledby="home-hero-title">
-        <div className="luxury-gradient-surface luxury-shadow rounded-[28px] sm:rounded-[32px] border border-white/70 p-5 sm:p-8 lg:p-12 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.9),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(186,230,253,0.3),transparent_28%)]" />
+      <section className="relative pt-2 sm:pt-4 pb-8 sm:pb-14 px-3 sm:px-6 max-w-7xl mx-auto" aria-labelledby="home-hero-title">
+        <div className="rounded-[28px] sm:rounded-[36px] border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 shadow-xl shadow-slate-200/50 dark:shadow-black/40 p-5 sm:p-8 lg:p-12 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_35%)] pointer-events-none" />
           <div className="relative z-10 text-center max-w-5xl mx-auto space-y-5 sm:space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 border border-sky-200 text-sky-700 text-xs font-bold shadow-sm backdrop-blur-md">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-300 text-xs font-bold shadow-xs">
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
@@ -19,19 +19,19 @@ export function HeroSection() {
               <span>24/7 Virtual Urgent Care Active · Same-Day Appointments Available</span>
             </div>
 
-            <h1 id="home-hero-title" className="text-[2.35rem] sm:text-6xl font-bold text-slate-900 tracking-tight leading-[1.06] font-serif-heading">
+            <h1 id="home-hero-title" className="text-[2.2rem] sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.08] font-serif-heading">
               Doctor’s appointments you might <br className="hidden sm:inline" />
-              <span className="bg-gradient-to-r from-sky-700 via-blue-600 to-cyan-600 bg-clip-text text-transparent italic">actually look forward to.</span>
+              <span className="bg-gradient-to-r from-[#005C4B] via-teal-600 to-sky-600 dark:from-teal-400 dark:via-sky-400 dark:to-cyan-400 bg-clip-text text-transparent italic">actually look forward to.</span>
             </h1>
 
-            <p className="text-sm sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-xs sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl mx-auto leading-relaxed">
               From 24/7 on-demand video visits with on-call physicians to un-rushed appointments in calming, quiet offices with on-site blood labs — this is healthcare reimagined around your life.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
               <Link
                 href="/patient/book"
-                className="btn-pill-primary min-h-11 w-full sm:w-auto text-sm py-3.5 px-8 flex items-center justify-center gap-2 group shadow-lg shadow-sky-600/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2"
+                className="min-h-11 w-full sm:w-auto text-xs sm:text-sm py-3 px-7 rounded-full bg-[#005C4B] hover:bg-[#00483B] dark:bg-teal-600 dark:hover:bg-teal-500 text-white font-extrabold flex items-center justify-center gap-2 group shadow-md shadow-teal-900/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <span>Book Appointment</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -39,14 +39,14 @@ export function HeroSection() {
 
               <Link
                 href="/services/virtual-urgent-care/triage"
-                className="btn-pill-secondary min-h-11 w-full sm:w-auto text-sm py-3.5 px-8 shadow-md shadow-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600 focus-visible:ring-offset-2"
+                className="min-h-11 w-full sm:w-auto text-xs sm:text-sm py-3 px-7 rounded-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-100 font-bold border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <Zap className="w-4 h-4" />
+                <Zap className="w-4 h-4 text-amber-500" />
                 <span>Treat Me Now™ (24/7 Virtual)</span>
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-10 text-left">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 pt-8 sm:pt-10 text-left">
               {[
                 {
                   title: "24/7 On-Demand Care",
@@ -75,17 +75,17 @@ export function HeroSection() {
               ].map(({ title, subtitle, icon: Icon, badge }) => (
                 <div
                   key={title}
-                  className="glass-card p-5 rounded-2xl hover:border-sky-200 transition-all duration-200 flex flex-col justify-between"
+                  className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/60 hover:border-teal-500/40 transition-all flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-100 to-cyan-100 text-sky-700 flex items-center justify-center shadow-sm">
-                        <Icon className="w-5 h-5" />
+                      <div className="w-9 h-9 rounded-xl bg-[#005C4B]/10 dark:bg-teal-500/15 text-[#005C4B] dark:text-teal-400 flex items-center justify-center shadow-xs">
+                        <Icon className="w-4 h-4" />
                       </div>
-                      <span className="badge-mint text-[10px]">{badge}</span>
+                      <span className="badge-mint text-[9px] font-bold px-2 py-0.5 rounded-full">{badge}</span>
                     </div>
-                    <h4 className="text-sm font-bold text-slate-800 font-display">{title}</h4>
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed">{subtitle}</p>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-display">{title}</h4>
+                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">{subtitle}</p>
                   </div>
                 </div>
               ))}

@@ -16,9 +16,27 @@ import Link from "next/link";
 
 export default function GuestLandingView() {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.10),transparent_25%),radial-gradient(circle_at_top_right,_rgba(59,130,246,0.08),transparent_28%),linear-gradient(180deg,#f8fbff_0%,#eef7f5_100%)] text-slate-800 font-sans flex flex-col">
+    <div className="min-h-screen text-slate-900 dark:text-slate-100 font-sans flex flex-col transition-colors">
       <a className="skip-link" href="#main-content">Skip to main content</a>
-      <main className="flex-1 space-y-4" id="main-content">
+      <main className="flex-1 space-y-4 sm:space-y-6" id="main-content">
+        {/* 1. Mobile Native App Header Quick Badge (Only on mobile for app feel) */}
+        <div className="md:hidden px-4 pt-3 pb-1 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-[#005C4B] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              NM
+            </div>
+            <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white font-display">
+              Nini<span className="text-[#005C4B] dark:text-teal-400">Med</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              24/7 Care Live
+            </span>
+          </div>
+        </div>
+
         {/* 2. Hero Section with Editorial Headline & 24/7 Care Indicator */}
         <HeroSection />
 

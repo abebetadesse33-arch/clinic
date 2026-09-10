@@ -6,7 +6,7 @@ import { ShieldCheck, Phone, Mail, MapPin, HeartPulse } from "lucide-react";
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-sky-200/50 bg-[#0C2B4E] text-white pt-16 pb-12 px-4 sm:px-8 max-w-7xl mx-auto rounded-t-3xl mt-12 shadow-2xl shadow-sky-950/40">
+    <footer className="hidden md:block border-t border-sky-200/50 bg-[#0C2B4E] text-white pt-16 pb-12 px-4 sm:px-8 max-w-7xl mx-auto rounded-t-3xl mt-12 shadow-2xl shadow-sky-950/40">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12 text-xs">
         {/* Column 1: Brand & Contact */}
         <div className="col-span-2 space-y-4">
