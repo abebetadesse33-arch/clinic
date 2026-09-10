@@ -28,11 +28,11 @@ function errorDetails(error: unknown): string[] {
 
 export async function connectToDatabase(connectionString: string, operation: string): Promise<Sql> {
   if (
-    process.env.NODE_ENV === "production" &&
+    process.env.GITHUB_ACTIONS === "true" &&
     /@(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?\//i.test(connectionString)
   ) {
     throw new Error(
-      `${operation}: production DATABASE_URL points to localhost. Configure the real PostgreSQL host in the production environment; GitHub Actions cannot reach a database on its own localhost.`,
+      `${operation}: DATABASE_URL points to localhost on GitHub Actions runner. GitHub Actions cannot reach a database on its own localhost. Configure a reachable database host or let migrations run on the server.`,
     );
   }
 

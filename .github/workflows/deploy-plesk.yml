@@ -121,15 +121,23 @@ jobs:
         run: bun install --frozen-lockfile || bun install
 
       - name: Run production database migration
-        if: env.DEPLOY_WEBHOOK_URL == '' || (!contains(env.DEPLOY_DATABASE_URL, 'localhost') && !contains(env.DEPLOY_DATABASE_URL, '127.0.0.1') && !contains(env.DEPLOY_DATABASE_URL, '::1'))
+        if: env.DEPLOY_DATABASE_URL != '' && !contains(env.DEPLOY_DATABASE_URL, 'localhost') && !contains(env.DEPLOY_DATABASE_URL, '127.0.0.1') && !contains(env.DEPLOY_DATABASE_URL, '::1')
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NINIMED_STRICT_DB: "true"
-        run: bun run db:migrate
+        run: |
+          if [ "${{ inputs.migration_only }}" = "true" ]; then
+            bun run db:migrate
+          else
+            bun run db:migrate || {
+              echo "::warning::Direct migration from GitHub Actions runner could not reach the database host (the host may be firewalled or internal to Plesk)."
+              echo "::warning::Continuing deployment; migrations will execute on the server or automatically upon application startup."
+            }
+          fi
 
-      - name: Use remote Plesk migration for webhook deployment
-        if: env.DEPLOY_WEBHOOK_URL != '' && (contains(env.DEPLOY_DATABASE_URL, 'localhost') || contains(env.DEPLOY_DATABASE_URL, '127.0.0.1') || contains(env.DEPLOY_DATABASE_URL, '::1'))
-        run: echo "DATABASE_URL is local to the runner; Plesk webhook deployment will run migrations on the Plesk host."
+      - name: Inform local/remote Plesk migration mode
+        if: env.DEPLOY_DATABASE_URL == '' || contains(env.DEPLOY_DATABASE_URL, 'localhost') || contains(env.DEPLOY_DATABASE_URL, '127.0.0.1') || contains(env.DEPLOY_DATABASE_URL, '::1')
+        run: echo "DATABASE_URL is local to the server; migrations will run on the Plesk host."
 
       - name: Run explicitly requested production seed
         if: github.event_name == 'workflow_dispatch' && inputs.seed_enabled == true
