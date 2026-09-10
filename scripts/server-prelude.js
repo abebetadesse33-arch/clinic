@@ -1,6 +1,7 @@
 // ==============================================================================
 // NiniMed - Plesk Phusion Passenger Auto-Dotenv & Crash Diagnostic Logger
 // ==============================================================================
+(function initializePassengerPrelude() {
 const fs = require('fs');
 const path = require('path');
 
@@ -64,3 +65,4 @@ process.on('unhandledRejection', (reason) => {
   console.error('[CRITICAL] Unhandled rejection:', reason);
 });
 // ==============================================================================
+})();

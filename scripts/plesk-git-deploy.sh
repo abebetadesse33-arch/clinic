@@ -42,12 +42,9 @@ if [ -f ".next/standalone/server.js" ]; then
   cp -rn .next/static .next/standalone/.next/ 2>/dev/null || true
   cp -rn public .next/standalone/ 2>/dev/null || true
 
-  # Passenger starts from the Plesk application root. Keep the standalone
-  # runtime in its own directory and use a stable wrapper as the startup file.
-  cat > server.js <<'NODE_ENTRYPOINT'
-require('./scripts/server-prelude.js');
-require('./.next/standalone/server.js');
-NODE_ENTRYPOINT
+  # Passenger starts from the Plesk application root. Embed the prelude so the
+  # startup file remains self-contained when Plesk points at a release root.
+  cat scripts/server-prelude.js .next/standalone/server.js > server.js
   cp -f server.js app.js
 else
   echo "ERROR: Next.js standalone server was not generated at .next/standalone/server.js." >&2
