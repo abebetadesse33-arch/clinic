@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { appointments, auditLogs, patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { requireAuthenticatedUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -26,6 +26,16 @@ export async function GET(
       );
     }
 
+    const auth = await resolveAuthorizedPatient(_req);
+    if (!("response" in auth) && auth.isPatient) {
+      if (appt.patientId !== auth.patient.id) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Patients may only view their own appointments." },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json({ success: true, data: appt });
   } catch (error: any) {
     return NextResponse.json(
@@ -44,6 +54,26 @@ export async function PATCH(
     const auth = await requireAuthenticatedUser(req);
     if ("response" in auth) {
       return auth.response;
+    }
+
+    const [existingAppt] = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.id, params.id))
+      .limit(1);
+
+    if (!existingAppt) {
+      return NextResponse.json({ success: false, error: "Appointment not found" }, { status: 404 });
+    }
+
+    if (auth.user.role === "patient") {
+      const patientAuth = await resolveAuthorizedPatient(req);
+      if ("response" in patientAuth || existingAppt.patientId !== patientAuth.patient?.id) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Patients cannot modify other patients' appointments." },
+          { status: 403 }
+        );
+      }
     }
 
     const sessionUserId = auth.user.id;

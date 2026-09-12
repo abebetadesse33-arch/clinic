@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { clinicalFiles, patients, users } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { logPatientActivity } from "@/lib/audit/activity-logger";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -15,7 +16,20 @@ export async function GET(req: NextRequest) {
     const category = searchParams.get("category");
     const search = searchParams.get("search");
 
-    let query = db
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
+    const isPatient = !("response" in auth) && auth.isPatient;
+    const effectivePatientId = isPatient ? auth.patient.id : patientId;
+
+    const whereConditions = [eq(clinicalFiles.archived, false)];
+    if (effectivePatientId) {
+      whereConditions.push(eq(clinicalFiles.patientId, effectivePatientId));
+    }
+
+    const records = await db
       .select({
         id: clinicalFiles.id,
         patientId: clinicalFiles.patientId,
@@ -41,15 +55,10 @@ export async function GET(req: NextRequest) {
       .from(clinicalFiles)
       .leftJoin(patients, eq(clinicalFiles.patientId, patients.id))
       .leftJoin(users, eq(clinicalFiles.uploadedByUserId, users.id))
-      .where(eq(clinicalFiles.archived, false))
+      .where(and(...whereConditions))
       .orderBy(desc(clinicalFiles.createdAt));
 
-    const records = await query;
-
     let filtered = records;
-    if (patientId) {
-      filtered = filtered.filter((r) => r.patientId === patientId);
-    }
     if (category && category !== "all") {
       filtered = filtered.filter((r) => r.category === category);
     }
@@ -58,12 +67,19 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter(
         (r) =>
           r.fileName.toLowerCase().includes(s) ||
-          r.patientName?.toLowerCase().includes(s) ||
-          r.patientMrn?.toLowerCase().includes(s)
+          (!isPatient && (r.patientName?.toLowerCase().includes(s) || r.patientMrn?.toLowerCase().includes(s)))
       );
     }
 
-    // If empty in database, provide high-value seed clinical files for initial experience
+    // Never return other patients' demo files to a patient
+    if (isPatient) {
+      return NextResponse.json({
+        success: true,
+        data: filtered,
+      });
+    }
+
+    // If empty in database, provide high-value seed clinical files for clinical staff demo
     if (filtered.length === 0 && !patientId) {
       const demoFiles = [
         {
@@ -191,7 +207,16 @@ export async function POST(req: NextRequest) {
       isConfidential,
     } = body;
 
-    if (!patientId || !fileName || !category) {
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
+    const isPatient = !("response" in auth) && auth.isPatient;
+    const effectivePatientId = isPatient ? auth.patient.id : patientId;
+    const effectiveUploaderId = (!("response" in auth) && auth.user) ? auth.user.id : (uploadedByUserId || null);
+
+    if (!effectivePatientId || !fileName || !category) {
       return NextResponse.json(
         { success: false, error: "patientId, fileName, and category are required" },
         { status: 400 }
@@ -202,8 +227,8 @@ export async function POST(req: NextRequest) {
       .insert(clinicalFiles)
       .values({
         tenantId: DEFAULT_TENANT_ID,
-        patientId,
-        uploadedByUserId: uploadedByUserId || null,
+        patientId: effectivePatientId,
+        uploadedByUserId: effectiveUploaderId,
         encounterId: encounterId || null,
         category,
         fileName,

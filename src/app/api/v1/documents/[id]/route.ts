@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { clinicalFiles, documentAccessLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,16 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+    if (auth.user.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "Patients are not authorized to modify clinical document metadata." },
+        { status: 403 }
+      );
+    }
     const body = await req.json();
     const { category, verificationStatus, tags, isConfidential, actorUserId } = body;
 
@@ -53,6 +64,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+    if (auth.user.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "Patients are not authorized to archive or delete clinical documents." },
+        { status: 403 }
+      );
+    }
     const [archived] = await db
       .update(clinicalFiles)
       .set({

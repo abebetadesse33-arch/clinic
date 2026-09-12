@@ -76,7 +76,27 @@ export default function PatientProfilePage() {
     isAnalyzing,
     checkSafetyForCandidate,
     selectPatient,
+    currentRole,
   } = useClinic();
+
+  if (currentRole === "patient") {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-6">
+        <div className="max-w-md rounded-2xl border border-rose-500/30 bg-white dark:bg-slate-900 p-6 text-center text-sm text-slate-800 dark:text-slate-200 shadow-sm space-y-4">
+          <p className="font-semibold text-rose-500 text-base">Access Restricted</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Patients can only access their personal medical records through the Patient Portal.
+          </p>
+          <Link
+            href="/patient/records"
+            className="inline-block px-4 py-2 rounded-xl bg-[#005C4B] hover:bg-[#00483B] text-white font-bold text-xs shadow-sm transition-colors"
+          >
+            Go to My Health Records
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const [activeTab, setActiveTab] = useState<
     "overview" | "prescriptions" | "orders" | "multimodal" | "biological" | "psychological" | "social" | "medications"

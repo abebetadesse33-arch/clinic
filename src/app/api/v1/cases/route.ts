@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cases, users, notifications, patients, telemedicineSessions, encounters } from "@/db/schema";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { eq, desc, and, or, inArray } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { personal, complaint, history, symptoms, filesCount, fileNames, fileTypes, patientId: passedPatientId } = body;
 
+    const auth = await resolveAuthorizedPatient(request, passedPatientId);
+    let resolvedPatientGuid: string | null = null;
+    let effectivePatientId: string | null = passedPatientId && passedPatientId.length === 36 ? passedPatientId : null;
+
+    if (!("response" in auth) && auth.patient) {
+      resolvedPatientGuid = auth.patient.id;
+      effectivePatientId = auth.patient.id;
+    }
+
     const random = Math.random().toString(36).substring(2, 7).toUpperCase();
     const caseId = `CASE-${new Date().getFullYear()}-${random}`;
 
@@ -73,16 +83,18 @@ export async function POST(request: NextRequest) {
     ];
 
     const resolvedPatient = {
-      fullName: personal?.fullName || "Patient",
-      gender: personal?.gender || "undisclosed",
-      dateOfBirth: personal?.dateOfBirth || "",
-      phone: personal?.phone || "",
-      email: personal?.email || "",
-      address: personal?.address || "",
+      fullName: (!("response" in auth) && auth.isPatient && auth.patient) 
+        ? `${auth.patient.firstName} ${auth.patient.lastName}`.trim() 
+        : (personal?.fullName || "Patient"),
+      gender: (!("response" in auth) && auth.isPatient && auth.patient?.gender) || personal?.gender || "undisclosed",
+      dateOfBirth: (!("response" in auth) && auth.isPatient && auth.patient?.dateOfBirth) || personal?.dateOfBirth || "",
+      phone: (!("response" in auth) && auth.isPatient && auth.patient?.phone) || personal?.phone || "",
+      email: (!("response" in auth) && auth.isPatient && (auth.patient?.email || auth.user.email)) || personal?.email || "",
+      address: (!("response" in auth) && auth.isPatient && auth.patient?.address) || personal?.address || "",
       occupation: personal?.occupation || "",
       emergencyContact: personal?.emergencyContact || "",
       emergencyPhone: personal?.emergencyPhone || "",
-      mrn: personal?.mrn || "",
+      mrn: (!("response" in auth) && auth.isPatient && auth.patient?.mrn) || personal?.mrn || "",
     };
 
     const resolvedComplaint = {
@@ -105,7 +117,7 @@ export async function POST(request: NextRequest) {
         caseId,
         caseNumber: caseId,
         tenantId: DEFAULT_TENANT_ID,
-        patientId: passedPatientId && passedPatientId.length === 36 ? passedPatientId : null,
+        patientId: effectivePatientId,
         status: "pending_ai_analysis",
         chiefComplaint: resolvedComplaint.chiefComplaint,
         severity: resolvedComplaint.severity as any,
@@ -130,9 +142,7 @@ export async function POST(request: NextRequest) {
     let urgentSessionId: string | null = null;
     if (body.seekingVideo || complaint?.seekingUrgent || complaint?.severity === "very_severe") {
       try {
-        // Resolve patientId → must be patients.id, not users.id
-        let resolvedPatientGuid: string | null = null;
-        if (passedPatientId && passedPatientId.length === 36) {
+        if (!resolvedPatientGuid && passedPatientId && passedPatientId.length === 36) {
           const [byPatId] = await db.select({ id: patients.id }).from(patients).where(eq(patients.id, passedPatientId)).limit(1);
           if (byPatId) {
             resolvedPatientGuid = byPatId.id;
@@ -140,10 +150,6 @@ export async function POST(request: NextRequest) {
             const [byUserId] = await db.select({ id: patients.id }).from(patients).where(eq(patients.userId, passedPatientId)).limit(1);
             if (byUserId) resolvedPatientGuid = byUserId.id;
           }
-        }
-        if (!resolvedPatientGuid) {
-          const [anyPat] = await db.select({ id: patients.id }).from(patients).limit(1);
-          resolvedPatientGuid = anyPat?.id ?? null;
         }
 
         const resolvedClinicianGuid = handler.id && handler.id.length === 36 ? handler.id : null;
@@ -273,13 +279,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const handlerId = searchParams.get("handlerId");
-    const patientId = searchParams.get("patientId");
+    const explicitPatientId = searchParams.get("patientId");
     const limit = parseInt(searchParams.get("limit") || "50");
+
+    const auth = await resolveAuthorizedPatient(request, explicitPatientId);
+    if ("response" in auth && request.cookies.get("Nini_session")) {
+      return auth.response;
+    }
 
     const conditions: any[] = [];
     if (status) conditions.push(eq(cases.status, status as any));
     if (handlerId) conditions.push(eq(cases.assignedHandlerId, handlerId));
-    if (patientId) conditions.push(eq(cases.patientId, patientId));
+
+    if (!("response" in auth) && auth.isPatient) {
+      conditions.push(eq(cases.patientId, auth.patient.id));
+    } else if (explicitPatientId) {
+      conditions.push(eq(cases.patientId, explicitPatientId));
+    }
 
     let query = db.select().from(cases);
     if (conditions.length > 0) {

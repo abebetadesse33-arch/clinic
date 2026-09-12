@@ -17,7 +17,7 @@ import { z } from "zod";
 import crypto from "crypto";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUserId, getAuthenticatedSessionUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -27,6 +27,20 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
     const status = searchParams.get("status");
+
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
+    if (!("response" in auth) && auth.isPatient) {
+      const data = await db
+        .select()
+        .from(prescriptions)
+        .where(eq(prescriptions.patientId, auth.patient.id))
+        .orderBy(desc(prescriptions.createdAt));
+      return NextResponse.json({ success: true, data });
+    }
 
     if (patientId) {
       const data = await db
@@ -65,6 +79,14 @@ export async function GET(req: NextRequest) {
 // POST /api/v1/prescriptions
 export async function POST(req: NextRequest) {
   try {
+    const currentUser = await getAuthenticatedSessionUser(req);
+    if (currentUser && currentUser.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Patients are not permitted to prescribe medications." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const validated = createPrescriptionSchema.parse(body);
 

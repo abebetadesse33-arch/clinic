@@ -6,7 +6,7 @@ import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUserId, getAuthenticatedSessionUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -73,6 +73,11 @@ export async function GET(req: NextRequest) {
     const status = searchParams.get("status");
     const orderId = searchParams.get("orderId") || searchParams.get("id");
 
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
     if (orderId) {
       const rows = await db
         .select({
@@ -105,6 +110,13 @@ export async function GET(req: NextRequest) {
           }
         : null;
 
+      if (single && !("response" in auth) && auth.isPatient && single.patientId !== auth.patient.id) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Patients may only view their own lab orders." },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json({ success: true, data: single });
     }
 
@@ -130,6 +142,17 @@ export async function GET(req: NextRequest) {
       .from(labOrders)
       .leftJoin(patients, eq(labOrders.patientId, patients.id))
       .leftJoin(users, eq(labOrders.doctorId, users.id));
+
+    if (!("response" in auth) && auth.isPatient) {
+      const data = await query
+        .where(eq(labOrders.patientId, auth.patient.id))
+        .orderBy(desc(labOrders.orderedAt));
+      const mapped = data.map((d) => ({
+        ...d,
+        patientName: `${d.patientFirstName || ""} ${d.patientLastName || ""}`.trim() || "Patient",
+      }));
+      return NextResponse.json({ success: true, data: mapped });
+    }
 
     if (patientId) {
       const data = await query
@@ -175,14 +198,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createLabOrderSchema.parse(body);
 
-    // 1. STRICT AUTHENTICATION: Server session is authoritative; reject if unauthenticated
-    const sessionUserId = await getAuthenticatedSessionUserId(req);
-    if (!sessionUserId) {
+    // 1. STRICT AUTHENTICATION: Server session is authoritative; reject if unauthenticated or patient
+    const sessionUser = await getAuthenticatedSessionUser(req);
+    if (!sessionUser || sessionUser.role === "patient") {
       return NextResponse.json(
         { success: false, error: "Unauthorized: Valid authenticated provider session required" },
-        { status: 401 }
+        { status: 403 }
       );
     }
+    const sessionUserId = sessionUser.id;
 
     // 2. CLINICAL DECISION SUPPORT (CDS): Prevent duplicate lab orders within 24 hours
     const { evaluateOrderCDS } = await import("@/lib/cds/order-cds-engine");

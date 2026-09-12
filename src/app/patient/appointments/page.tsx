@@ -81,15 +81,16 @@ export default function PatientAppointmentsPage() {
   const [cancelReason, setCancelReason] = useState<string>("");
   const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
 
-  const resolvedPatientId =
-    (currentUser as any)?.patientId ||
-    (patients && patients.length > 0 ? patients[0].id : null);
+  const isPatientRole = currentUser?.role === "patient";
+  const resolvedPatientId = isPatientRole
+    ? undefined
+    : ((currentUser as any)?.patientId || (patients && patients.length > 0 ? patients[0].id : null));
 
   const fetchAppointments = useCallback(async () => {
     setIsLoading(true);
     try {
       const url = resolvedPatientId
-        ? `/api/v1/appointments?patientId=${resolvedPatientId}`
+        ? `/api/v1/appointments?patientId=${encodeURIComponent(resolvedPatientId)}`
         : `/api/v1/appointments`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();

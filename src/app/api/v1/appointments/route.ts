@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { appointments, auditLogs, encounters, telemedicineSessions, users, patients, patientRegistrationPasses, servicePricingCatalog, systemPaymentSettings, clinicLocations } from "@/db/schema";
 import { createAppointmentSchema } from "@/lib/validations/schemas";
-import { eq, desc, and, inArray, sql } from "drizzle-orm";
+import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
@@ -107,7 +107,25 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     const conditions: any[] = [eq(appointments.tenantId, sessionUser.organizationId)];
-    if (patientId) conditions.push(eq(appointments.patientId, patientId));
+    if (sessionUser.role === "patient") {
+      const [ownPatient] = await db
+        .select({ id: patients.id })
+        .from(patients)
+        .where(
+          and(
+            eq(patients.tenantId, sessionUser.organizationId),
+            or(eq(patients.userId, sessionUser.id), eq(patients.email, sessionUser.email))
+          )
+        )
+        .limit(1);
+
+      if (!ownPatient) {
+        return NextResponse.json({ success: true, data: [] });
+      }
+      conditions.push(eq(appointments.patientId, ownPatient.id));
+    } else {
+      if (patientId) conditions.push(eq(appointments.patientId, patientId));
+    }
     if (clinicianId) conditions.push(eq(appointments.clinicianId, clinicianId));
     if (scheduledDate) conditions.push(eq(appointments.scheduledDate, scheduledDate as any));
     if (status && status !== "all") conditions.push(eq(appointments.status, status as any));
@@ -242,27 +260,55 @@ export async function POST(req: NextRequest) {
 
     // ── 2. Resolve patientId → must be a patients.id (FK) ────────────────────
     let resolvedPatientId = validated.patientId;
-    try {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedPatientId || "");
-      if (isUuid) {
-        const [byId] = await db
-          .select({ id: patients.id })
-          .from(patients)
-          .where(and(eq(patients.id, resolvedPatientId), eq(patients.tenantId, sessionUser!.organizationId)))
-          .limit(1);
-        if (!byId) {
-          const [byUserId] = await db
+
+    if (sessionUser.role === "patient") {
+      const [ownPatient] = await db
+        .select({ id: patients.id })
+        .from(patients)
+        .where(
+          and(
+            eq(patients.tenantId, sessionUser.organizationId),
+            or(eq(patients.userId, sessionUser.id), eq(patients.email, sessionUser.email))
+          )
+        )
+        .limit(1);
+
+      if (!ownPatient) {
+        return NextResponse.json(
+          { success: false, error: "No patient profile found for your user. Please complete registration." },
+          { status: 404 }
+        );
+      }
+      if (validated.patientId && validated.patientId !== ownPatient.id) {
+        return NextResponse.json(
+          { success: false, error: "Patients may only book appointments for themselves." },
+          { status: 403 }
+        );
+      }
+      resolvedPatientId = ownPatient.id;
+    } else {
+      try {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedPatientId || "");
+        if (isUuid) {
+          const [byId] = await db
             .select({ id: patients.id })
             .from(patients)
-            .where(and(eq(patients.userId, resolvedPatientId), eq(patients.tenantId, sessionUser!.organizationId)))
+            .where(and(eq(patients.id, resolvedPatientId), eq(patients.tenantId, sessionUser!.organizationId)))
             .limit(1);
-          if (byUserId) {
-            resolvedPatientId = byUserId.id;
+          if (!byId) {
+            const [byUserId] = await db
+              .select({ id: patients.id })
+              .from(patients)
+              .where(and(eq(patients.userId, resolvedPatientId), eq(patients.tenantId, sessionUser!.organizationId)))
+              .limit(1);
+            if (byUserId) {
+              resolvedPatientId = byUserId.id;
+            }
           }
         }
+      } catch (pErr) {
+        console.warn("[Patient Resolution] Error:", pErr);
       }
-    } catch (pErr) {
-      console.warn("[Patient Resolution] Error:", pErr);
     }
 
     const [patientExists] = await db

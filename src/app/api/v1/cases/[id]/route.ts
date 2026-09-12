@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cases, notifications, users } from "@/db/schema";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { eq, or } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,16 @@ export async function GET(
     }
 
     const r = rows[0];
+
+    const auth = await resolveAuthorizedPatient(_request);
+    if (!("response" in auth) && auth.isPatient) {
+      if (r.patientId && r.patientId !== auth.patient.id) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Patients may only view their own cases." },
+          { status: 403 }
+        );
+      }
+    }
     const personal = (r.personal || r.patientInfo || {}) as any;
     const complaint = (r.complaint || r.complaintDetails || {}) as any;
     const symptoms = (r.symptoms || {}) as any;
@@ -116,6 +127,17 @@ export async function PATCH(
     }
 
     const currentCase = rows[0];
+
+    const auth = await resolveAuthorizedPatient(request);
+    if (!("response" in auth) && auth.isPatient) {
+      if (currentCase.patientId && currentCase.patientId !== auth.patient.id) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Patients cannot modify other cases." },
+          { status: 403 }
+        );
+      }
+    }
+
     const updateFields: Record<string, any> = {
       updatedAt: new Date(),
     };

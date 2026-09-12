@@ -12,6 +12,7 @@ import {
   users,
 } from "@/db/schema";
 import { updatePatientSchema } from "@/lib/validations/schemas";
+import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -23,23 +24,11 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const sessionId = req.cookies.get("Nini_session")?.value;
-    const patientId = params.id;
-
-    if (sessionId) {
-      const [currentUser] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-      if (currentUser && currentUser.role === "patient") {
-        const [ownPatient] = await db
-          .select()
-          .from(patients)
-          .where(eq(patients.id, patientId))
-          .limit(1);
-
-        if (!ownPatient || (ownPatient.userId !== currentUser.id && ownPatient.email !== currentUser.email)) {
-          return NextResponse.json({ success: false, error: "Patients can only access their own chart." }, { status: 403 });
-        }
-      }
+    const auth = await resolveAuthorizedPatient(req, params.id);
+    if ("response" in auth) {
+      return auth.response;
     }
+    const patientId = auth.isPatient ? auth.patient.id : params.id;
 
     const patientRes = await db
       .select()
@@ -125,19 +114,12 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const sessionId = req.cookies.get("Nini_session")?.value;
-    const patientId = params.id;
-    const body = await req.json();
-
-    if (sessionId) {
-      const [currentUser] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-      if (currentUser && currentUser.role === "patient") {
-        const [ownPatient] = await db.select().from(patients).where(eq(patients.id, patientId)).limit(1);
-        if (!ownPatient || (ownPatient.userId !== currentUser.id && ownPatient.email !== currentUser.email)) {
-          return NextResponse.json({ success: false, error: "Patients can only update their own chart." }, { status: 403 });
-        }
-      }
+    const auth = await resolveAuthorizedPatient(req, params.id);
+    if ("response" in auth) {
+      return auth.response;
     }
+    const patientId = auth.isPatient ? auth.patient.id : params.id;
+    const body = await req.json();
 
     const validated = updatePatientSchema.parse(body);
 
@@ -192,6 +174,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+    if (auth.user.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "Patients are not authorized to delete patient records." },
+        { status: 403 }
+      );
+    }
     const patientId = params.id;
 
     const [deleted] = await db

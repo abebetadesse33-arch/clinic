@@ -8,6 +8,7 @@ import LabResultCard from "@/components/onemedical/LabResultCard";
 import PatientActivityTimeline from "@/components/patient/PatientActivityTimeline";
 import DocumentPreviewModal, { ClinicalDocument } from "@/components/documents/DocumentPreviewModal";
 import PatientContextSwitcher from "@/components/patient/PatientContextSwitcher";
+import RoleGuard from "@/components/auth/RoleGuard";
 import { useDynamicResource } from "@/hooks/useDynamicResource";
 import { DynamicIcon } from "@/components/dynamic/DynamicIcon";
 import {
@@ -176,15 +177,21 @@ function PatientHealthRecordsContent() {
     }
   }, [queryTab]);
 
-  // Determine active patient ID (Query param takes highest priority, followed by selectedPatient, then /api/v1/patient/me)
+  // Determine active patient ID:
+  // For patient role: strictly use authenticated session (/api/v1/patient/me with NO params).
+  // For clinicians/staff: Query param takes highest priority, followed by selectedPatient.
   useEffect(() => {
+    const isPatientRole = currentUser?.role === "patient";
     let url = "/api/v1/patient/me";
-    if (queryPatientId) {
-      url += `?patientId=${encodeURIComponent(queryPatientId)}`;
-    } else if (queryMrn) {
-      url += `?mrn=${encodeURIComponent(queryMrn)}`;
-    } else if (selectedPatient?.id) {
-      url += `?patientId=${encodeURIComponent(selectedPatient.id)}`;
+
+    if (!isPatientRole) {
+      if (queryPatientId) {
+        url += `?patientId=${encodeURIComponent(queryPatientId)}`;
+      } else if (queryMrn) {
+        url += `?mrn=${encodeURIComponent(queryMrn)}`;
+      } else if (selectedPatient?.id) {
+        url += `?patientId=${encodeURIComponent(selectedPatient.id)}`;
+      }
     }
 
     setSessionLoading(true);
@@ -205,7 +212,7 @@ function PatientHealthRecordsContent() {
       })
       .catch((err) => console.error("Error fetching patient context:", err))
       .finally(() => setSessionLoading(false));
-  }, [queryPatientId, queryMrn, selectedPatient?.id]);
+  }, [queryPatientId, queryMrn, selectedPatient?.id, currentUser?.role]);
 
   // ─── TanStack Query Hooks ───────────────────────────────────────────────────
   const {
@@ -806,8 +813,10 @@ function PatientHealthRecordsContent() {
 
 export default function PatientHealthRecordsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-500">Loading patient health records...</div>}>
-      <PatientHealthRecordsContent />
-    </Suspense>
+    <RoleGuard fallbackTitle="Patient Records Access Restricted">
+      <Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-500">Loading patient health records...</div>}>
+        <PatientHealthRecordsContent />
+      </Suspense>
+    </RoleGuard>
   );
 }

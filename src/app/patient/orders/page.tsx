@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import RoleGuard from "@/components/auth/RoleGuard";
 import {
   FlaskConical,
   CreditCard,
@@ -56,15 +57,17 @@ interface LabResultData {
 
 export default function PatientOrdersPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5]">
-          <Loader2 className="w-8 h-8 animate-spin text-[#005C4B]" />
-        </div>
-      }
-    >
-      <PatientOrdersContent />
-    </Suspense>
+    <RoleGuard fallbackTitle="Orders & Lab Tracker Access Restricted">
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5]">
+            <Loader2 className="w-8 h-8 animate-spin text-[#005C4B]" />
+          </div>
+        }
+      >
+        <PatientOrdersContent />
+      </Suspense>
+    </RoleGuard>
   );
 }
 

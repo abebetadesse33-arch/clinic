@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../context/ClinicContext";
+import RoleGuard from "../../components/auth/RoleGuard";
 import {
   Users,
   Search,

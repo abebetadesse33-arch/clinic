@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { immunizations, patients } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,14 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
 
-    if (!patientId) {
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
+    const effectivePatientId = (!("response" in auth) && auth.isPatient) ? auth.patient.id : patientId;
+
+    if (!effectivePatientId) {
       return NextResponse.json({ success: false, error: "patientId parameter is required" }, { status: 400 });
     }
 
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest) {
         createdAt: immunizations.createdAt,
       })
       .from(immunizations)
-      .where(eq(immunizations.patientId, patientId))
+      .where(eq(immunizations.patientId, effectivePatientId))
       .orderBy(desc(immunizations.dateGiven));
 
     const mapped = records.map((r) => ({
@@ -58,6 +66,17 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
+      return auth.response;
+    }
+    if (auth.user.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Patients cannot record immunizations." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { patientId, vaccineName, doseNumber, manufacturer, lotNumber, administeringProvider, status, nextDueDate, notes } = body;
 

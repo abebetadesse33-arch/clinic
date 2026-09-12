@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { vitals, auditLogs } from "@/db/schema";
 import { createVitalSchema } from "@/lib/validations/schemas";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 
@@ -14,6 +15,21 @@ export async function GET(req: NextRequest) {
     const patientId = searchParams.get("patientId");
     const encounterId = searchParams.get("encounterId");
     const limit = parseInt(searchParams.get("limit") || "50", 10);
+
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
+    if (!("response" in auth) && auth.isPatient) {
+      const data = await db
+        .select()
+        .from(vitals)
+        .where(eq(vitals.patientId, auth.patient.id))
+        .orderBy(desc(vitals.recordedAt))
+        .limit(limit);
+      return NextResponse.json({ success: true, data });
+    }
 
     if (patientId) {
       const data = await db
@@ -56,6 +72,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validated = createVitalSchema.parse(body);
+
+    const auth = await resolveAuthorizedPatient(req, validated.patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+    if (!("response" in auth) && auth.isPatient) {
+      validated.patientId = auth.patient.id;
+    }
 
     const [newVital] = await db
       .insert(vitals)

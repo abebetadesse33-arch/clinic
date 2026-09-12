@@ -6,7 +6,7 @@ import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUserId, getAuthenticatedSessionUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -15,6 +15,20 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
+
+    const auth = await resolveAuthorizedPatient(req, patientId);
+    if ("response" in auth && req.cookies.get("Nini_session")) {
+      return auth.response;
+    }
+
+    if (!("response" in auth) && auth.isPatient) {
+      const data = await db
+        .select()
+        .from(labResults)
+        .where(eq(labResults.patientId, auth.patient.id))
+        .orderBy(desc(labResults.performedAt));
+      return NextResponse.json({ success: true, data });
+    }
 
     if (patientId) {
       const data = await db
@@ -46,13 +60,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const validated = createLabResultSchema.parse(body);
-    const sessionUserId = await getAuthenticatedSessionUserId(req);
-    if (!sessionUserId) {
+    const sessionUser = await getAuthenticatedSessionUser(req);
+    if (!sessionUser || sessionUser.role === "patient") {
       return NextResponse.json(
-        { success: false, error: "Unauthorized: authenticated laboratory session required" },
-        { status: 401 }
+        { success: false, error: "Unauthorized: authenticated laboratory staff session required" },
+        { status: 403 }
       );
     }
+    const sessionUserId = sessionUser.id;
 
     const numVal = parseFloat(validated.value);
     let isAbnormal = validated.isAbnormal || false;

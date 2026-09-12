@@ -8,6 +8,7 @@ import {
   auditLogs,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -30,6 +31,16 @@ export async function GET(
       );
     }
 
+    const auth = await resolveAuthorizedPatient(_req);
+    if (!("response" in auth) && auth.isPatient) {
+      if (rxRes[0].patientId !== auth.patient.id) {
+        return NextResponse.json(
+          { success: false, error: "Access denied: Patients may only view their own prescriptions." },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json({ success: true, data: rxRes[0] });
   } catch (error: any) {
     console.error("Error fetching prescription:", error);
@@ -46,6 +57,17 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const userAuth = await requireAuthenticatedUser(req);
+    if ("response" in userAuth) {
+      return userAuth.response;
+    }
+    if (userAuth.user.role === "patient") {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Patients cannot modify or dispense prescriptions." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
     const { action, pharmacistId, batchId, notes } = body;
     const rxId = params.id;
