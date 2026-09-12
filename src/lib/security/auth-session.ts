@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { users, patients } from "@/db/schema";
+import { eq, and, or } from "drizzle-orm";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -152,3 +152,77 @@ export function isAuthorizedForRole(
 
   return allowedRoles.includes(userRole);
 }
+
+/**
+ * Zero-trust patient access resolver.
+ * Enforces that patient users can strictly and only access their own records.
+ * Clinical staff and administrators can view the designated patient's records.
+ */
+export async function resolveAuthorizedPatient(
+  req: NextRequest,
+  explicitPatientId?: string | null
+): Promise<
+  | { user: AuthenticatedUser; patient: any; isPatient: boolean }
+  | { response: NextResponse }
+> {
+  const user = await getAuthenticatedSessionUser(req);
+  if (!user) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "Unauthorized: A valid session is required to access medical records." },
+        { status: 401 }
+      ),
+    };
+  }
+
+  // 1. If caller is a patient, strictly resolve their own profile
+  if (user.role === "patient") {
+    const [ownPatient] = await db
+      .select()
+      .from(patients)
+      .where(or(eq(patients.userId, user.id), eq(patients.email, user.email)))
+      .limit(1);
+
+    if (!ownPatient) {
+      return {
+        response: NextResponse.json(
+          { success: false, error: "No patient profile found. Please complete registration." },
+          { status: 404 }
+        ),
+      };
+    }
+
+    // If caller specified an explicit patientId or mrn, it MUST match their own
+    if (
+      explicitPatientId &&
+      explicitPatientId !== ownPatient.id &&
+      explicitPatientId !== ownPatient.mrn
+    ) {
+      return {
+        response: NextResponse.json(
+          {
+            success: false,
+            error: "Access denied: Patients may only access their own medical records.",
+          },
+          { status: 403 }
+        ),
+      };
+    }
+
+    return { user, patient: ownPatient, isPatient: true };
+  }
+
+  // 2. Clinical staff or administrators
+  let targetPatient: any = null;
+  if (explicitPatientId) {
+    const [found] = await db
+      .select()
+      .from(patients)
+      .where(or(eq(patients.id, explicitPatientId), eq(patients.mrn, explicitPatientId)))
+      .limit(1);
+    targetPatient = found || null;
+  }
+
+  return { user, patient: targetPatient, isPatient: false };
+}
+

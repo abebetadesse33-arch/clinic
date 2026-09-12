@@ -1,33 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { patientMessages, patients, users } from "@/db/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { patientMessages, users } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
-async function getSessionUser(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const explicitPatientId = searchParams.get("patientId") || searchParams.get("id");
-  if (explicitPatientId) {
-    const [pat] = await db.select().from(patients).where(eq(patients.id, explicitPatientId)).limit(1);
-    if (pat) return { user: null, pat };
-  }
 
-  const sessionId = req.cookies.get("Nini_session")?.value;
-  if (!sessionId) return { user: null, pat: null };
-  const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-  if (!u) return { user: null, pat: null };
-  const [pat] = await db
-    .select()
-    .from(patients)
-    .where(or(eq(patients.userId, u.id), eq(patients.email, u.email)))
-    .limit(1);
-  return { user: u, pat: pat || null };
-}
-
-export async function GET(req: NextRequest) {
   try {
-    const { pat } = await getSessionUser(req);
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
+    const pat = auth.patient;
     if (!pat) {
       return NextResponse.json({ success: true, data: [] });
     }
@@ -69,8 +58,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const explicitPatientId = searchParams.get("patientId") || searchParams.get("id");
+
   try {
-    const { user, pat } = await getSessionUser(req);
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
+    const pat = auth.patient;
+    const user = auth.user;
     if (!pat || !user) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
     }
@@ -90,7 +88,7 @@ export async function POST(req: NextRequest) {
         organizationId: pat.tenantId,
         patientId: pat.id,
         senderId: user.id,
-        senderType: "patient",
+        senderType: user.role === "patient" ? "patient" : "clinician",
         recipientId: targetRecipientId,
         recipientType: "clinician",
         subject: subject || "Message to Care Team",
@@ -112,3 +110,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: err?.message || "Internal server error" }, { status: 500 });
   }
 }
+

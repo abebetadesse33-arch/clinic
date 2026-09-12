@@ -29,12 +29,12 @@ const DARK_THEMES: Theme[] = ["dark", "dark-emerald", "dark-violet", "dark-amber
 
 function applyThemeClass(t: Theme) {
   const root = document.documentElement;
-  root.classList.remove("dark", "contrast-mode");
+  root.classList.remove("dark", "contrast-mode", "hud-mode");
   root.removeAttribute("data-theme");
 
   if (t === "light") return;
 
-  root.classList.add("dark");
+  root.classList.add("dark", "hud-mode");
 
   if (t === "contrast") {
     root.classList.add("contrast-mode");

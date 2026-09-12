@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { patientConsents, patients, users } from "@/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { patientConsents } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -50,42 +51,18 @@ const CONSENT_DEFINITIONS = [
   },
 ];
 
-async function resolvePatient(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const explicitPatientId = searchParams.get("patientId");
-  const sessionId = req.cookies.get("Nini_session")?.value;
 
-  if (explicitPatientId) {
-    const [found] = await db
-      .select()
-      .from(patients)
-      .where(eq(patients.id, explicitPatientId))
-      .limit(1);
-    if (found) return found;
-  }
-
-  if (sessionId) {
-    const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-    if (u) {
-      const [found] = await db
-        .select()
-        .from(patients)
-        .where(or(eq(patients.userId, u.id), eq(patients.email, u.email)))
-        .limit(1);
-      if (found) return found;
-    }
-  }
-
-  // Fallback to first patient in database
-  const [fallback] = await db.select().from(patients).limit(1);
-  return fallback || null;
-}
-
-export async function GET(req: NextRequest) {
   try {
-    const patient = await resolvePatient(req);
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
+    }
+
+    const patient = auth.patient;
     if (!patient) {
-      // If no patient in database, return the template definitions
       const templateData = CONSENT_DEFINITIONS.map((def) => ({
         ...def,
         isGranted: def.defaultGranted,
@@ -150,10 +127,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "consentType is required" }, { status: 400 });
     }
 
-    const patient = reqPatientId
-      ? (await db.select().from(patients).where(eq(patients.id, reqPatientId)).limit(1))[0]
-      : await resolvePatient(request);
+    const auth = await resolveAuthorizedPatient(request, reqPatientId);
+    if ("response" in auth) {
+      return auth.response;
+    }
 
+    const patient = auth.patient;
     if (!patient) {
       return NextResponse.json({ success: false, error: "Patient record not found" }, { status: 404 });
     }
@@ -162,6 +141,7 @@ export async function POST(request: NextRequest) {
     if (!def) {
       return NextResponse.json({ success: false, error: "Invalid consent type" }, { status: 400 });
     }
+
 
     const userAgent = request.headers.get("user-agent") || undefined;
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;

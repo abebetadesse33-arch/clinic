@@ -1,42 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { labResults, medications, prescriptions, patients, users } from "@/db/schema";
-import { eq, or, desc } from "drizzle-orm";
+import { labResults, medications, prescriptions, users } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const explicitPatientId = searchParams.get("patientId");
-  const sessionId = req.cookies.get("Nini_session")?.value;
 
   try {
-    let pat: any = null;
-
-    // 1. If explicit patientId provided, lookup directly
-    if (explicitPatientId) {
-      const [found] = await db
-        .select()
-        .from(patients)
-        .where(eq(patients.id, explicitPatientId))
-        .limit(1);
-      pat = found;
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
     }
 
-    // 2. Otherwise lookup by authenticated session
-    if (!pat && sessionId) {
-      const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-      if (u) {
-        const [found] = await db
-          .select()
-          .from(patients)
-          .where(or(eq(patients.userId, u.id), eq(patients.email, u.email)))
-          .limit(1);
-        pat = found;
-      }
-    }
-
-    // 3. Strict resolution - do not fallback to arbitrary limit(1)
+    const pat = auth.patient;
     if (pat) {
       const [dbLabs, dbPrescriptions, dbMeds] = await Promise.all([
         db

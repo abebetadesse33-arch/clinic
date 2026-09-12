@@ -50,6 +50,13 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 function PatientDashboardContent() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "cases" | "records" | "appointments" | "referrals" | "messages" | "care_plan" | "invoices" | "questionnaires" | "consents"
@@ -101,10 +108,13 @@ function PatientDashboardContent() {
   const [activePatientId, setActivePatientId] = useState<string>("");
 
   const fetchDashboardData = (pId?: string, mrn?: string) => {
-    let meUrl = "/api/v1/patient/me";
-    const targetId = pId || activePatientId || queryPatientId || selectedPatient?.id;
-    const targetMrn = mrn || queryMrn;
+    // For /patient/me, only pass an explicit patientId if this is a staff/admin override.
+    // Patient-role users have their identity resolved server-side from the session cookie.
+    const isPatientRole = currentUser?.role === "patient";
+    const targetId = pId || (!isPatientRole ? (activePatientId || queryPatientId || selectedPatient?.id) : undefined);
+    const targetMrn = mrn || (!isPatientRole ? queryMrn : undefined);
 
+    let meUrl = "/api/v1/patient/me";
     if (targetId) {
       meUrl += `?patientId=${encodeURIComponent(targetId)}`;
     } else if (targetMrn) {
@@ -139,8 +149,14 @@ function PatientDashboardContent() {
   };
 
   useEffect(() => {
-    fetchDashboardData(queryPatientId || undefined, queryMrn || undefined);
-  }, [queryPatientId, queryMrn, selectedPatient?.id]);
+    const isPatientRole = currentUser?.role === "patient";
+    // Patients: always resolve from session — don't pass URL params to avoid spoofing
+    if (isPatientRole) {
+      fetchDashboardData();
+    } else {
+      fetchDashboardData(queryPatientId || undefined, queryMrn || undefined);
+    }
+  }, [queryPatientId, queryMrn, selectedPatient?.id, currentUser?.role]);
 
   const showNotification = (msg: string) => {
     setNotificationMsg(msg);
@@ -166,13 +182,17 @@ function PatientDashboardContent() {
     } catch { }
   };
 
+  // Derive first name: prefer loaded patient profile, then logged-in user's name
+  const patientFirstName = patient?.firstName ||
+    (currentUser?.fullName ? currentUser.fullName.trim().split(" ")[0] : "there");
+
   const pData = patient || {
-    firstName: currentUser?.fullName ? currentUser.fullName.split(" ")[0] : "Patient",
-    lastName: currentUser?.fullName ? currentUser.fullName.split(" ").slice(1).join(" ") : "Member",
-    mrn: patient?.mrn || "Pending MRN",
+    firstName: patientFirstName,
+    lastName: currentUser?.fullName ? currentUser.fullName.trim().split(" ").slice(1).join(" ") : "",
+    mrn: "Pending MRN",
     primaryDoctor: "Assigned Physician",
-    age: patient?.age || null,
-    bloodType: patient?.bloodType || "O+",
+    age: null,
+    bloodType: "O+",
   };
 
   return (
@@ -323,7 +343,7 @@ function PatientDashboardContent() {
                   </button>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-bold text-[#162E27] font-serif-heading">
-                  Good afternoon, {pData.firstName} 👋
+                  {getGreeting()}, {patientFirstName} 👋
                 </h1>
                 <p className="text-xs sm:text-sm text-[#687B74]">
                   Primary Care Provider: <strong className="text-[#162E27]">{pData.primaryDoctor || "NiniMed Clinical Care Team"}</strong> • Medical Network

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { patientRegistrationPasses, patients, servicePricingCatalog, systemPaymentSettings, users } from "@/db/schema";
-import { desc, eq, or } from "drizzle-orm";
+import { patientRegistrationPasses, servicePricingCatalog, systemPaymentSettings } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/patient/registration-status
 export async function GET(req: NextRequest) {
-  const sessionId = req.cookies.get("Nini_session")?.value;
-
   try {
     // 1. Fetch system pricing & global settings
     const [settingsList, regServiceList] = await Promise.all([
@@ -22,31 +21,14 @@ export async function GET(req: NextRequest) {
     const isGlobalFree = Boolean(settings.globalFreeMode) || Boolean(regService.isFree);
 
     const { searchParams } = new URL(req.url);
-    const explicitPatientId = searchParams.get("patientId");
-    const queryMrn = searchParams.get("mrn");
+    const explicitPatientId = searchParams.get("patientId") || searchParams.get("mrn");
 
-    // 2. Identify patient
-    let pat: any = null;
-    if (explicitPatientId) {
-      const [found] = await db.select().from(patients).where(eq(patients.id, explicitPatientId)).limit(1);
-      pat = found;
-    } else if (queryMrn) {
-      const [found] = await db.select().from(patients).where(eq(patients.mrn, queryMrn)).limit(1);
-      pat = found;
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
     }
 
-    if (!pat && sessionId) {
-      const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-      if (u) {
-        const [found] = await db
-          .select()
-          .from(patients)
-          .where(or(eq(patients.userId, u.id), eq(patients.email, u.email)))
-          .limit(1);
-        pat = found;
-      }
-    }
-
+    const pat = auth.patient;
     if (!pat) {
       return NextResponse.json({
         success: true,

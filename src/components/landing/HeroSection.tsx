@@ -4,19 +4,28 @@ import React from "react";
 import Link from "next/link";
 import { ArrowRight, Clock, MapPin, Users, Pill, Zap, ShieldCheck } from "lucide-react";
 
+import { HudRing } from "../hud/HudRing";
+
 export function HeroSection() {
   return (
     <>
       <section className="relative pt-2 sm:pt-4 pb-8 sm:pb-14 px-3 sm:px-6 max-w-7xl mx-auto" aria-labelledby="home-hero-title">
-        <div className="rounded-[28px] sm:rounded-[36px] border border-slate-200/90 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 shadow-xl shadow-slate-200/50 dark:shadow-black/40 p-5 sm:p-8 lg:p-12 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_35%)] pointer-events-none" />
+        <div className="rounded-[28px] sm:rounded-[36px] border border-slate-200/90 dark:border-cyan-500/20 bg-white/95 dark:bg-slate-900/85 dark:backdrop-blur-xl dark:shadow-[0_0_50px_rgba(0,0,0,0.6)] dark:glass dark:glass-refract p-5 sm:p-8 lg:p-12 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.08),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.08),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(0,240,255,0.12),transparent_50%),radial-gradient(circle_at_bottom_right,rgba(255,0,170,0.08),transparent_45%)] pointer-events-none" />
+          
+          {/* Subtle background HUD Orbital Ring in Dark Mode */}
+          <div className="hidden dark:block absolute -top-16 -right-16 opacity-35 pointer-events-none" aria-hidden="true">
+            <HudRing size="xl" variant="orbital" color="cyan" />
+          </div>
+
           <div className="relative z-10 text-center max-w-5xl mx-auto space-y-5 sm:space-y-6">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-300 text-xs font-bold shadow-xs">
+            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-sky-50 dark:bg-cyan-950/60 border border-sky-200 dark:border-cyan-500/40 text-sky-800 dark:text-cyan-300 text-xs font-bold shadow-xs">
               <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 dark:bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500 dark:bg-cyan-400"></span>
               </span>
               <span>24/7 Virtual Urgent Care Active · Same-Day Appointments Available</span>
+              <span className="hidden sm:inline-block font-ethiopic text-[0.7rem] text-amber-500/90 border-l border-amber-500/40 pl-2">ኒኒ ሜድ</span>
             </div>
 
             <h1 id="home-hero-title" className="text-[2.2rem] sm:text-5xl lg:text-6xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-[1.08] font-serif-heading">

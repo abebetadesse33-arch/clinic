@@ -1,0 +1,76 @@
+/**
+ * glassfx-overrides.css — NiniMed HUD Glassmorphism Theme Overrides
+ * Harmonizes SquareMediaGroup glassfx library with NiniMed design tokens.
+ */
+
+:root {
+  /* Override default glassfx variables with NiniMed neon palette */
+  --glass-tint: rgba(0, 240, 255, 0.06);
+  --glass-rim: rgba(0, 240, 255, 0.22);
+  --glass-bg: rgba(10, 20, 35, 0.72);
+  --glass-border: rgba(0, 240, 255, 0.15);
+  --glass-blur: 18px;
+  --glass-bloom: 0.6;
+  --glass-refract-scale: 8;
+  --glass-chromatic-r: #ff00aa;
+  --glass-chromatic-g: #00f0ff;
+  --glass-chromatic-b: #0080ff;
+}
+
+/* Specific component layer overrides */
+.glass {
+  --glass-tint: rgba(0, 240, 255, 0.06);
+  --glass-rim: rgba(0, 240, 255, 0.22);
+}
+
+.glass--medical {
+  --glass-tint: rgba(0, 240, 255, 0.08);
+  --glass-rim: rgba(0, 240, 255, 0.28);
+  border-radius: 14px;
+}
+
+.glass--ai {
+  --glass-tint: rgba(255, 0, 170, 0.06);
+  --glass-rim: rgba(255, 0, 170, 0.25);
+}
+
+.glass--warning {
+  --glass-tint: rgba(255, 176, 0, 0.06);
+  --glass-rim: rgba(255, 176, 0, 0.25);
+}
+
+.glass--critical {
+  --glass-tint: rgba(255, 45, 85, 0.08);
+  --glass-rim: rgba(255, 45, 85, 0.32);
+}
+
+/* Optical refraction container rule */
+.glass-refract {
+  filter: url(#glass-refract);
+}
+
+@supports not (filter: url(#glass-refract)) {
+  .glass-refract {
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+  }
+}
+
+/* Accessibility fallbacks */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-refract {
+    background: rgba(8, 16, 30, 0.95) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    filter: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .glass-refract {
+    filter: none !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+  }
+}

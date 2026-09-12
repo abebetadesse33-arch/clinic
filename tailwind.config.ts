@@ -24,6 +24,17 @@ const config: Config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
 
+        hud: {
+          bg: "#050810",
+          panel: "rgba(10, 20, 35, 0.72)",
+          cyan: "#00f0ff",
+          blue: "#0080ff",
+          amber: "#ffb000",
+          magenta: "#ff00aa",
+          green: "#00ff88",
+          red: "#ff2d55",
+        },
+
         // Professional clinical blue palette
         brand: {
           dark: "#12304A",
@@ -138,6 +149,9 @@ const config: Config = {
         "fade-in": "fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards",
         "slide-in": "slideIn 0.3s ease-out",
         "slide-up": "slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards",
+        "hud-pulse": "neonPulse 2s ease-in-out infinite",
+        "hud-flicker": "neonFlicker 1.8s ease-in-out infinite alternate",
+        "hud-boot": "hudBoot 0.9s ease-out forwards",
       },
       keyframes: {
         fadeIn: {
@@ -159,6 +173,21 @@ const config: Config = {
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
+        },
+        neonPulse: {
+          "0%, 100%": { boxShadow: "0 0 10px rgba(0, 240, 255, 0.4)" },
+          "50%": { boxShadow: "0 0 22px rgba(0, 240, 255, 0.9)" },
+        },
+        neonFlicker: {
+          "0%, 100%": { opacity: "1" },
+          "20%": { opacity: "0.7" },
+          "40%": { opacity: "1" },
+          "60%": { opacity: "0.8" },
+          "80%": { opacity: "1" },
+        },
+        hudBoot: {
+          "0%": { opacity: "0", transform: "scale(0.98)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
         },
       },
     },

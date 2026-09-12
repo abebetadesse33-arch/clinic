@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { patients, sharedMedicalRecords, users } from "@/db/schema";
+import { sharedMedicalRecords } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,37 +15,25 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      patientId,
+      patientId: requestedPatientId,
       durationHours = 24,
       accessScope = ["allergies", "medications", "lab_results", "conditions", "emergency_contacts"],
       passcode,
       doctorName,
     } = body;
 
-    let targetPatientId = patientId;
-
-    // If no patientId provided, lookup by session
-    if (!targetPatientId) {
-      const sessionId = req.cookies.get("Nini_session")?.value;
-      if (sessionId) {
-        const [p] = await db
-          .select({ id: patients.id })
-          .from(patients)
-          .where(eq(patients.userId, sessionId))
-          .limit(1);
-        if (p) targetPatientId = p.id;
-      }
+    // Resolve authorized patient — patients are strictly scoped to their own record
+    const auth = await resolveAuthorizedPatient(req, requestedPatientId || null);
+    if ("response" in auth) {
+      return auth.response;
     }
 
-    if (!targetPatientId) {
-      const [firstPat] = await db.select({ id: patients.id }).from(patients).limit(1);
-      if (firstPat) targetPatientId = firstPat.id;
-      else {
-        return NextResponse.json(
-          { success: false, error: "Patient profile not found." },
-          { status: 404 }
-        );
-      }
+    const pat = auth.patient;
+    if (!pat) {
+      return NextResponse.json(
+        { success: false, error: "Patient profile not found." },
+        { status: 404 }
+      );
     }
 
     const shareToken = `smr_${randomBytes(16).toString("hex")}`;
@@ -53,7 +42,7 @@ export async function POST(req: NextRequest) {
     const [record] = await db
       .insert(sharedMedicalRecords)
       .values({
-        patientId: targetPatientId,
+        patientId: pat.id,
         shareToken,
         accessScope,
         passcode: passcode ? String(passcode).trim() : null,
@@ -98,35 +87,27 @@ export async function POST(req: NextRequest) {
 
 /**
  * GET /api/v1/patient/share-record
- * Lists active and past medical share tokens for the patient.
+ * Lists active and past medical share tokens for the authenticated patient.
  */
 export async function GET(req: NextRequest) {
   try {
-    const sessionId = req.cookies.get("Nini_session")?.value;
-    let patientId: string | null = null;
+    const { searchParams } = new URL(req.url);
+    const explicitPatientId = searchParams.get("patientId") || searchParams.get("id");
 
-    if (sessionId) {
-      const [p] = await db
-        .select({ id: patients.id })
-        .from(patients)
-        .where(eq(patients.userId, sessionId))
-        .limit(1);
-      if (p) patientId = p.id;
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
     }
 
-    if (!patientId) {
-      const [firstPat] = await db.select({ id: patients.id }).from(patients).limit(1);
-      if (firstPat) patientId = firstPat.id;
-    }
-
-    if (!patientId) {
+    const pat = auth.patient;
+    if (!pat) {
       return NextResponse.json({ success: true, data: [] });
     }
 
     const shares = await db
       .select()
       .from(sharedMedicalRecords)
-      .where(eq(sharedMedicalRecords.patientId, patientId))
+      .where(eq(sharedMedicalRecords.patientId, pat.id))
       .orderBy(desc(sharedMedicalRecords.createdAt))
       .limit(20);
 

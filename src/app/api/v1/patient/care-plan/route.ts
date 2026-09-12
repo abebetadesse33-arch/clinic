@@ -1,40 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { carePlans, patients, users } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { carePlans } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const explicitPatientId = searchParams.get("patientId") || searchParams.get("id");
-  const sessionId = req.cookies.get("Nini_session")?.value;
 
   try {
-    let pat: any = null;
-
-    if (explicitPatientId) {
-      const [found] = await db.select().from(patients).where(eq(patients.id, explicitPatientId)).limit(1);
-      pat = found;
+    const auth = await resolveAuthorizedPatient(req, explicitPatientId);
+    if ("response" in auth) {
+      return auth.response;
     }
 
-    if (!pat && sessionId) {
-      const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-      if (u) {
-        const [found] = await db
-          .select()
-          .from(patients)
-          .where(or(eq(patients.userId, u.id), eq(patients.email, u.email)))
-          .limit(1);
-        pat = found;
-      }
-    }
-
-    if (!pat) {
-      const [anyPat] = await db.select().from(patients).limit(1);
-      pat = anyPat;
-    }
-
+    const pat = auth.patient;
     if (pat) {
       const [plan] = await db
         .select()
@@ -84,3 +66,4 @@ export async function GET(req: NextRequest) {
     });
   }
 }
+

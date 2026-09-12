@@ -35,7 +35,12 @@ export default function PatientContextSwitcher({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { patients, selectPatient, selectedPatient } = useClinic();
+  const { patients, selectPatient, selectedPatient, currentUser } = useClinic();
+
+  // Patients can only view their own records — never switch context
+  if (currentUser?.role === "patient") {
+    return null;
+  }
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
