@@ -451,6 +451,16 @@ export default function NavigationHeader() {
                           </div>
                         </Link>
                         <Link
+                          href="/clinical/encounters"
+                          className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#FAF8F5] dark:hover:bg-slate-700 text-[#33413C] dark:text-slate-200 flex items-center gap-2.5"
+                        >
+                          <Stethoscope className="w-4 h-4 text-teal-600" />
+                          <div>
+                            <span className="block font-bold text-xs">Clinical Encounter Workspace</span>
+                            <span className="block text-[10px] text-[#687B74] dark:text-slate-400">Exams, history, orders & follow-up</span>
+                          </div>
+                        </Link>
+                        <Link
                           href="/messages"
                           className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#FAF8F5] dark:hover:bg-slate-700 text-[#33413C] dark:text-slate-200 flex items-center gap-2.5"
                         >
