@@ -28,6 +28,29 @@ export interface AuthenticatedUser {
   isAdminGrantedBySuperAdmin: boolean;
 }
 
+export interface AuthSession {
+  userId: string;
+  organizationId: string;
+  roles: string[];
+  user: AuthenticatedUser;
+}
+
+/**
+ * Compatibility adapter for API modules using the older session shape.
+ * The identity still comes exclusively from the verified HTTP-only session.
+ */
+export async function getAuthSession(req: NextRequest): Promise<AuthSession | null> {
+  const user = await getAuthenticatedSessionUser(req);
+  if (!user) return null;
+
+  return {
+    userId: user.id,
+    organizationId: user.organizationId,
+    roles: [user.role, ...(user.role === "system_admin" || user.role === "tenant_admin" ? ["admin"] : [])],
+    user,
+  };
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -225,4 +248,3 @@ export async function resolveAuthorizedPatient(
 
   return { user, patient: targetPatient, isPatient: false };
 }
-

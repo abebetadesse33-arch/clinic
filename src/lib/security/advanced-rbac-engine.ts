@@ -81,7 +81,7 @@ export class AdvancedRBACEngine {
             if (rule.effect === "deny") {
               decision = "deny";
               break;
-            } else if (rule.effect === "allow" && decision !== "deny") {
+            } else if (rule.effect === "allow") {
               decision = "allow";
             }
           }

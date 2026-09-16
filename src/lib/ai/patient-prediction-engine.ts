@@ -4,7 +4,7 @@
  */
 
 import { db } from "@/db";
-import { patients, encounters, prescriptions, vitals, lab_results } from "@/db/schema";
+import { patients, encounters, prescriptions, vitals } from "@/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 
 export interface PatientRiskProfile {

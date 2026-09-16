@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/security/auth-session";
 import { rbacEngine } from "@/lib/security/advanced-rbac-engine";
-import { aiPredictionEngine } from "@/lib/ai/patient-prediction-engine";
+import { PatientAIPredictionEngine } from "@/lib/ai/patient-prediction-engine";
 import { queryCache } from "@/lib/performance/cache-manager";
 
 export const runtime = "nodejs";
@@ -56,7 +56,7 @@ export async function GET(
     }
 
     // Calculate risk profile
-    const riskProfile = await aiPredictionEngine.calculateRiskProfile(
+    const riskProfile = await PatientAIPredictionEngine.calculateRiskProfile(
       patientId,
       session.organizationId
     );
@@ -117,7 +117,7 @@ export async function POST(
     }
 
     // Generate insights
-    const insights = await aiPredictionEngine.generateInsights(
+    const insights = await PatientAIPredictionEngine.generateInsights(
       patientId,
       session.organizationId
     );

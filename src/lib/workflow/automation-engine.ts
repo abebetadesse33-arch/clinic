@@ -236,7 +236,7 @@ export class WorkflowAutomationEngine {
 
           if (
             this.evaluateConditions(
-              transition.condition,
+              [transition.condition],
               instance.data
             )
           ) {

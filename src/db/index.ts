@@ -13,6 +13,13 @@ if (typeof BigInt !== "undefined" && !(BigInt.prototype as any).toJSON) {
 const connectionString =
   process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/clinic_enterprise";
 
+if (/^mysql:\/\//i.test(connectionString)) {
+  throw new Error(
+    "[NiniMed DB] DATABASE_URL must use PostgreSQL (postgres:// or postgresql://). " +
+      "MySQL connection strings are not supported by the current Drizzle schema."
+  );
+}
+
 // Validate that we have a real connection string (not a Docker Compose service name)
 if (
   typeof window === "undefined" &&
