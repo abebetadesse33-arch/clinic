@@ -43,6 +43,26 @@ try {
     );
   }
 
+  // When set, confirm the live server is actually running the commit this
+  // pipeline just built — a plain 200 only proves *some* process answered,
+  // which is also true of a stale Passenger process nothing ever restarted.
+  const expectedShaFull = process.env.EXPECTED_BUILD_SHA;
+  if (expectedShaFull) {
+    const expectedSha = expectedShaFull.slice(0, 12);
+    let liveSha = "unknown";
+    try {
+      liveSha = (JSON.parse(body)?.buildSha as string) ?? "unknown";
+    } catch {}
+    if (liveSha !== expectedSha) {
+      throw new Error(
+        `Live server is running build "${liveSha}", expected "${expectedSha}". ` +
+          `The deployment step likely reported success without the running process ` +
+          `actually picking up the new code (check Plesk Git deployment log / Passenger restart).`
+      );
+    }
+    console.log(`Build verified live: ${liveSha}`);
+  }
+
   console.log(`Health check passed: HTTP ${response.status} ${body.slice(0, 300)}`);
 } catch (error) {
   console.error(

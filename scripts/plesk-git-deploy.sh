@@ -43,6 +43,11 @@ done
 
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
 
+# Stamp this build with the commit it was actually built from, so
+# /api/health can prove (or disprove) that this deploy took effect.
+export NEXT_PUBLIC_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+echo "Building commit: ${NEXT_PUBLIC_BUILD_SHA}"
+
 if command -v bun >/dev/null 2>&1; then
   echo "Using Bun runtime: $(bun --version)"
   echo "=== [2/4] Installing dependencies ==="

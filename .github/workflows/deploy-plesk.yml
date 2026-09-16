@@ -160,6 +160,7 @@ jobs:
           NODE_ENV: production
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
 
       # ────────────────────────────────────────────────────────────────────────
       # STEP 3: Assemble release package
@@ -558,6 +559,7 @@ jobs:
           RAW_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           HEALTHCHECK_INSECURE_TLS: "true"
           NODE_TLS_REJECT_UNAUTHORIZED: "0"
+          EXPECTED_BUILD_SHA: ${{ github.sha }}
         run: |
           set -Eeuo pipefail
 
@@ -565,6 +567,7 @@ jobs:
           APP_URL="${RAW_APP_URL%/}"
           export HEALTHCHECK_URL="${APP_URL}/api/health"
           echo "Health check target: ${HEALTHCHECK_URL}"
+          echo "Expecting build: ${EXPECTED_BUILD_SHA:0:12}"
 
           # Give Plesk time to pull the code, install deps, and restart Node.
           # Without this, early attempts hit a still-booting or still-deploying server.
@@ -591,4 +594,11 @@ jobs:
           echo "  • The app cannot reach its database from the Plesk host." >&2
           echo "  • plesk-release.sh did not run 'bun run db:migrate' after deployment." >&2
           echo "  → Check the Node.js application log and current/passenger-startup-error.log for the actual startup error." >&2
+          echo "" >&2
+          echo "If the failure says 'Live server is running build X, expected Y':" >&2
+          echo "  • The deploy method reported success (e.g. webhook returned 200) but the" >&2
+          echo "    Passenger process serving requests was never actually restarted onto the" >&2
+          echo "    new code. Open Plesk → Websites & Domains → <domain> → Git and check the" >&2
+          echo "    last deployment's log for a build/script failure, then confirm the Node.js" >&2
+          echo "    application's Application Root matches the directory Git deploys into." >&2
           exit 1
