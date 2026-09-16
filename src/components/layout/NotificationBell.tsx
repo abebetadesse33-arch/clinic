@@ -170,6 +170,10 @@ export default function NotificationBell() {
   }, []);
 
   const fetchNotifications = useCallback(async () => {
+    if (!userId || !role || role === "guest") {
+      return;
+    }
+
     try {
       const params = new URLSearchParams();
       if (userId) params.set("userId", userId);
