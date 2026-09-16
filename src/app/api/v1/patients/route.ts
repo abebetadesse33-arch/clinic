@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { patients, auditLogs, users } from "@/db/schema";
+import { patients, auditLogs } from "@/db/schema";
 import { createPatientSchema } from "@/lib/validations/schemas";
 import { desc, eq, ilike, or, and, count } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { getAuthenticatedSessionUser } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -13,15 +14,16 @@ export const dynamic = "force-dynamic";
 // GET /api/v1/patients
 export async function GET(req: NextRequest) {
   try {
-    const sessionId = req.cookies.get("Nini_session")?.value;
-    let currentUser: any = null;
+    const currentUser = await getAuthenticatedSessionUser(req);
 
-    if (sessionId) {
-      const [user] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
-      currentUser = user;
+    if (!currentUser) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: sign in to view patient records." },
+        { status: 401 }
+      );
     }
 
-    if (currentUser && currentUser.role === "patient") {
+    if (currentUser.role === "patient") {
       const [ownPatient] = await db
         .select()
         .from(patients)

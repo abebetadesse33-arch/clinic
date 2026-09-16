@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { invoices, invoiceItems, servicePricingCatalog, systemPaymentSettings, patients, users } from "@/db/schema";
 import { eq, or, inArray } from "drizzle-orm";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/v1/checkout/create-invoice
 export async function POST(req: NextRequest) {
-  const sessionId = req.cookies.get("Nini_session")?.value;
+  const sessionId = await getAuthenticatedSessionUserId(req);
 
   try {
     const body = await req.json();
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     // 1. Resolve Patient
     let targetPatientId = patientId;
     if (!targetPatientId && sessionId) {
-      const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
+      const [u] = await db.select({ id: users.id, email: users.email }).from(users).where(eq(users.id, sessionId)).limit(1);
       if (u) {
         const [p] = await db.select().from(patients).where(or(eq(patients.userId, u.id), eq(patients.email, u.email))).limit(1);
         if (p) targetPatientId = p.id;

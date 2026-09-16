@@ -2149,6 +2149,19 @@ export const sharedMedicalRecords = pgTable("shared_medical_records", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Server-side login sessions. The browser cookie holds a random token; only its
+// SHA-256 hash is stored here, so a database leak cannot be replayed as a session.
+export const authSessions = pgTable("auth_sessions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  tokenHash: text("token_hash").unique().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
 export const qrLoginSessions = pgTable("qr_login_sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
   sessionChallenge: text("session_challenge").unique().notNull(),

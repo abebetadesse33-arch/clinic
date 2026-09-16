@@ -1,5 +1,6 @@
 import postgres from "postgres";
 import { seedDemoAccounts } from "./demo-accounts";
+import { ensureAuthSchemaWithClient } from "./auth-schema";
 import { PHARMACY_MASTER_CATALOGUE } from "../lib/catalogue/pharmacy-master-catalogue";
 import { LABORATORY_PROTOCOLS_CATALOGUE } from "../lib/catalogue/laboratory-protocols-catalogue";
 
@@ -24,7 +25,17 @@ export async function ensureDatabaseInitialized(
             console.warn("Extension creation warning (non-fatal):", extErr);
         }
 
-        // 2. Execute ALL DDL statements with IF NOT EXISTS unconditionally
+        // 2. Authentication tables/columns first, statement by statement. The large
+        //    block below aborts as a whole on its first error, and login must not
+        //    depend on it having run to completion.
+        try {
+            await ensureAuthSchemaWithClient(client);
+        } catch (authErr) {
+            console.error("Auth schema synchronization failed:", authErr);
+            if (process.env.NINIMED_STRICT_DB === "true") throw authErr;
+        }
+
+        // 3. Execute ALL DDL statements with IF NOT EXISTS unconditionally
         await client.unsafe(`
       -- Core & Access
       CREATE TABLE IF NOT EXISTS organizations (

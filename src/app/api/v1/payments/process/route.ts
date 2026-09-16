@@ -87,9 +87,9 @@ export async function POST(req: NextRequest) {
     // Resolve real patient ID
     let resolvedPatientId = patientId;
     if (!resolvedPatientId) {
-      const sessionId = req.cookies.get("Nini_session")?.value;
-      if (sessionId) {
-        const [u] = await db.select().from(users).where(eq(users.id, sessionId)).limit(1);
+      const sessionUserId = await getAuthenticatedSessionUserId(req);
+      if (sessionUserId) {
+        const [u] = await db.select({ id: users.id, email: users.email }).from(users).where(eq(users.id, sessionUserId)).limit(1);
         if (u) {
           const [pat] = await db.select().from(patients).where(or(eq(patients.userId, u.id), eq(patients.email, u.email))).limit(1);
           resolvedPatientId = pat?.id;

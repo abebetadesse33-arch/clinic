@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { qrLoginSessions, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { qrLoginSessions } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sessionChallenge, userId: clientUserId } = body;
+    const { sessionChallenge } = body;
 
     if (!sessionChallenge) {
       return NextResponse.json(
@@ -21,25 +22,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Identify logged-in user
-    let authenticatedUserId: string | null = clientUserId || null;
-    if (!authenticatedUserId) {
-      const sessionId = req.cookies.get("Nini_session")?.value;
-      if (sessionId) authenticatedUserId = sessionId;
-    }
-
-    if (!authenticatedUserId) {
-      // Fallback to active user if available
-      const [u] = await db.select({ id: users.id }).from(users).where(eq(users.isActive, true)).limit(1);
-      if (u) authenticatedUserId = u.id;
-    }
-
-    if (!authenticatedUserId) {
+    // 1. The approving identity comes only from this device's verified session.
+    const auth = await requireAuthenticatedUser(req);
+    if ("response" in auth) {
       return NextResponse.json(
         { success: false, error: "You must be signed in on this device to authorize a QR login." },
         { status: 401 }
       );
     }
+    const user = auth.user;
 
     // 2. Fetch target QR session
     const [session] = await db
@@ -70,32 +61,24 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Authorize session
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, authenticatedUserId))
-      .limit(1);
-
     await db
       .update(qrLoginSessions)
       .set({
         status: "authorized",
-        authenticatedUserId: user ? user.id : authenticatedUserId,
+        authenticatedUserId: user.id,
         authorizedAt: new Date(),
       })
       .where(eq(qrLoginSessions.id, session.id));
 
     return NextResponse.json({
       success: true,
-      message: `Login authorized for ${user?.fullName || "your account"} on the requested device.`,
-      user: user
-        ? {
-            id: user.id,
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role,
-          }
-        : null,
+      message: `Login authorized for ${user.fullName} on the requested device.`,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error: any) {
     console.error("Error authorizing QR login:", error);

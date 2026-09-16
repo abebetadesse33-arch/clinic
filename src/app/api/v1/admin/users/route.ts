@@ -2,12 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, staffProfiles } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
-import { createHash } from "crypto";
 import { requireAdminUser } from "@/lib/security/auth-session";
-
-function sha256Hex(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
+import { hashPassword } from "@/lib/security/password";
 
 export async function GET(req: NextRequest) {
   try {
@@ -78,13 +74,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const passwordHash = await hashPassword(String(password));
+
     const createdUser = await db.transaction(async (tx) => {
       const [user] = await tx
         .insert(users)
         .values({
           organizationId: orgId,
           email: normalizedEmail,
-          passwordHash: sha256Hex(String(password)),
+          passwordHash,
           fullName: String(fullName).trim(),
           role: targetRole,
           department: department || null,

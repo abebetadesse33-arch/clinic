@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +14,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const sessionUserId = req.cookies.get("Nini_session")?.value;
-    if (!sessionUserId || sessionUserId.length !== 36) {
+    const sessionUserId = await getAuthenticatedSessionUserId(req);
+    if (!sessionUserId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 

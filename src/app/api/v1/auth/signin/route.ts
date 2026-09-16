@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
-import { createHash } from "crypto";
+import { hashPassword, verifyPassword } from "@/lib/security/password";
+import { createSession, ensureAuthSchema, setSessionCookie } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
-function sha256Hex(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
+const INVALID_CREDENTIALS = "Invalid email/ID/phone or password.";
 
 function getRoleRedirectPath(role: string): string {
   switch (role) {
@@ -41,39 +40,64 @@ function getRoleRedirectPath(role: string): string {
   }
 }
 
+/** Include the underlying error text outside production, or when explicitly enabled for Plesk debugging. */
+function includeErrorDetail(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.NINIMED_AUTH_DEBUG === "true";
+}
+
 export async function POST(req: NextRequest) {
+  let body: any;
   try {
-    const body = await req.json();
-    const { email, password } = body;
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ success: false, error: "Request body must be JSON." }, { status: 400 });
+  }
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { success: false, error: "Email and password are required" },
-        { status: 400 }
-      );
-    }
+  const identifier = String(body?.email ?? body?.identifier ?? "").trim();
+  const password = typeof body?.password === "string" ? body.password : "";
 
-    const identifier = String(email || body.identifier || "").trim();
-    const normalizedIdentifier = identifier.toLowerCase();
-    const cleanNationalId = identifier.toUpperCase();
+  if (!identifier || !password) {
+    return NextResponse.json(
+      { success: false, error: "Email (or National ID / phone) and password are required." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await ensureAuthSchema();
 
     const [dbUser] = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        passwordHash: users.passwordHash,
+        fullName: users.fullName,
+        role: users.role,
+        department: users.department,
+        licenseNumber: users.licenseNumber,
+        organizationId: users.organizationId,
+        isActive: users.isActive,
+        isAdminGrantedBySuperAdmin: users.isAdminGrantedBySuperAdmin,
+      })
       .from(users)
       .where(
         or(
-          eq(users.email, normalizedIdentifier),
-          eq(users.nationalId, cleanNationalId),
+          eq(users.email, identifier.toLowerCase()),
+          eq(users.nationalId, identifier.toUpperCase()),
           eq(users.phone, identifier)
         )
       )
       .limit(1);
 
-    if (!dbUser) {
-      return NextResponse.json(
-        { success: false, error: "No account found matching this Email, National ID, or Phone." },
-        { status: 401 }
-      );
+    // Same response for unknown user and wrong password: no account enumeration.
+    // An account with no password set cannot sign in with a password at all.
+    if (!dbUser || !dbUser.passwordHash) {
+      return NextResponse.json({ success: false, error: INVALID_CREDENTIALS }, { status: 401 });
+    }
+
+    const verification = await verifyPassword(password, dbUser.passwordHash);
+    if (!verification.ok) {
+      return NextResponse.json({ success: false, error: INVALID_CREDENTIALS }, { status: 401 });
     }
 
     if (!dbUser.isActive) {
@@ -81,16 +105,6 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Account is inactive. Please contact your system administrator." },
         { status: 403 }
       );
-    }
-
-    if (dbUser.passwordHash) {
-      const inputHash = sha256Hex(password);
-      if (inputHash !== dbUser.passwordHash && password !== dbUser.passwordHash) {
-        return NextResponse.json(
-          { success: false, error: "Invalid email or password." },
-          { status: 401 }
-        );
-      }
     }
 
     if (dbUser.role === "tenant_admin" && !dbUser.isAdminGrantedBySuperAdmin) {
@@ -103,28 +117,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const redirectTo = getRoleRedirectPath(dbUser.role);
-
-    try {
-      const { dispatchNotification } = await import("@/lib/notifications/notification-service");
-      const isClinical = ["physician", "nurse", "nurse_practitioner", "care_coordinator", "triage_staff"].includes(dbUser.role);
-      if (isClinical) {
-        await dispatchNotification({
-          category: "auth_shifts",
-          type: "clinician_signed_in",
-          title: `🟢 ${dbUser.fullName} Signed In`,
-          body: `${dbUser.fullName} (${dbUser.role.replace(/_/g, " ")}, ${dbUser.department || "General"}) has started their shift at ${new Date().toLocaleTimeString()}.`,
-          priority: "low",
-          targetRole: "system_admin",
-          senderUserId: dbUser.id,
-          actionUrl: "/admin",
-          actionText: "View Staff Directory",
-          relatedEntityType: "users",
-          relatedEntityId: dbUser.id,
-          metadata: { role: dbUser.role, department: dbUser.department },
-        });
+    // Transparently upgrade legacy SHA-256 hashes to scrypt.
+    if (verification.needsRehash) {
+      try {
+        await db
+          .update(users)
+          .set({ passwordHash: await hashPassword(password), updatedAt: new Date() })
+          .where(eq(users.id, dbUser.id));
+      } catch (err) {
+        console.warn("[Auth] Password hash upgrade failed (login continues):", err);
       }
-    } catch {}
+    }
+
+    const token = await createSession(dbUser.id, req);
+
+    // Shift notification for clinicians: best-effort, never blocks sign-in.
+    const isClinical = ["physician", "nurse", "nurse_practitioner", "care_coordinator", "triage_staff"].includes(dbUser.role);
+    if (isClinical) {
+      import("@/lib/notifications/notification-service")
+        .then(({ dispatchNotification }) =>
+          dispatchNotification({
+            category: "auth_shifts",
+            type: "clinician_signed_in",
+            title: `🟢 ${dbUser.fullName} Signed In`,
+            body: `${dbUser.fullName} (${dbUser.role.replace(/_/g, " ")}, ${dbUser.department || "General"}) has started their shift at ${new Date().toLocaleTimeString()}.`,
+            priority: "low",
+            targetRole: "system_admin",
+            senderUserId: dbUser.id,
+            actionUrl: "/admin",
+            actionText: "View Staff Directory",
+            relatedEntityType: "users",
+            relatedEntityId: dbUser.id,
+            metadata: { role: dbUser.role, department: dbUser.department },
+          })
+        )
+        .catch(() => {});
+    }
 
     const response = NextResponse.json({
       success: true,
@@ -138,24 +166,20 @@ export async function POST(req: NextRequest) {
         organizationId: dbUser.organizationId,
         isAdminGrantedBySuperAdmin: Boolean(dbUser.isAdminGrantedBySuperAdmin),
       },
-      redirectTo,
-      token: `token_${dbUser.id}_${Date.now()}`,
+      redirectTo: getRoleRedirectPath(dbUser.role),
       message: `Signed in successfully as ${dbUser.fullName}`,
     });
 
-    response.cookies.set("Nini_session", dbUser.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
+    setSessionCookie(response, token);
     return response;
   } catch (error: any) {
-    console.error("Authentication sign-in error:", error);
+    console.error("[Auth] Sign-in failed:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Internal server error during authentication" },
+      {
+        success: false,
+        error: "Sign-in is temporarily unavailable. Please try again shortly.",
+        ...(includeErrorDetail() ? { detail: error?.message || String(error) } : {}),
+      },
       { status: 500 }
     );
   }

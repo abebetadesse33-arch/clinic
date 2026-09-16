@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, organizations, patients, systemAuthSettings, clinicLocations } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { createHash, randomInt } from "crypto";
+import { randomInt } from "crypto";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { hashPassword } from "@/lib/security/password";
+import { createSession, ensureAuthSchema, setSessionCookie } from "@/lib/security/auth-session";
 
-function sha256Hex(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
+const MIN_PASSWORD_LENGTH = 8;
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +35,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH) {
+      return NextResponse.json(
+        { success: false, error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` },
+        { status: 400 }
+      );
+    }
+
+    await ensureAuthSchema();
+
+    const normalizedEmail = String(email).toLowerCase().trim();
     const normalizedPhone = phone ? phone.trim() : null;
     const cleanNationalId = nationalId ? nationalId.trim().toUpperCase() : null;
 
@@ -46,9 +55,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [settings] = await db.select().from(systemAuthSettings).limit(1);
-    const requireEmail = settings ? settings.requireEmailVerification : false;
-    const requireSms = settings ? settings.requireSmsVerification : false;
+    // Verification settings are optional; a missing table must not block registration.
+    let requireEmail = false;
+    let requireSms = false;
+    try {
+      const [settings] = await db.select().from(systemAuthSettings).limit(1);
+      requireEmail = Boolean(settings?.requireEmailVerification);
+      requireSms = Boolean(settings?.requireSmsVerification);
+    } catch (err) {
+      console.warn("[Signup] Could not read system_auth_settings; continuing without verification:", err);
+    }
 
     if ((requireEmail || requireSms) && !verificationToken) {
       return NextResponse.json(
@@ -107,13 +123,15 @@ export async function POST(req: NextRequest) {
     const firstName = nameParts[0] || fullName;
     const lastName = nameParts.slice(1).join(" ") || "Patient";
 
+    const passwordHash = await hashPassword(password);
+
     const { createdUser, createdPatient } = await db.transaction(async (tx) => {
       const [user] = await tx
         .insert(users)
         .values({
           organizationId: orgId,
           email: normalizedEmail,
-          passwordHash: sha256Hex(password),
+          passwordHash,
           fullName,
           role: "patient",
           nationalId: cleanNationalId,
@@ -213,25 +231,24 @@ export async function POST(req: NextRequest) {
         patientCard,
         loginPasscode,
         redirectUrl: "/patient/dashboard",
-        token: `token_${createdUser.id}_${Date.now()}`,
         message: "Welcome to NiniMed! Your patient account has been created and your Digital Patient Card is ready.",
       },
       { status: 201 }
     );
 
-    response.cookies.set("Nini_session", createdUser.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    setSessionCookie(response, await createSession(createdUser.id, req));
 
     return response;
   } catch (error: any) {
-    console.error("Error in registration:", error);
+    console.error("[Auth] Registration failed:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Failed to complete account registration." },
+      {
+        success: false,
+        error: "Failed to complete account registration.",
+        ...(process.env.NODE_ENV !== "production" || process.env.NINIMED_AUTH_DEBUG === "true"
+          ? { detail: error?.message || String(error) }
+          : {}),
+      },
       { status: 500 }
     );
   }

@@ -92,7 +92,22 @@ function dateOfBirth(age: number) {
   return `${birthYear}-01-15`;
 }
 
+/**
+ * Demo accounts share one well-known password and are re-written on every run,
+ * so they are only seeded outside production unless explicitly requested with
+ * NINIMED_SEED_DEMO_ACCOUNTS=true.
+ */
+export function shouldSeedDemoAccounts(): boolean {
+  if (process.env.NINIMED_SEED_DEMO_ACCOUNTS === "true") return true;
+  if (process.env.NINIMED_SEED_DEMO_ACCOUNTS === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
 export async function seedDemoAccounts(client: postgres.Sql) {
+  if (!shouldSeedDemoAccounts()) {
+    console.log("ℹ️ Skipping demo account seed (production). Set NINIMED_SEED_DEMO_ACCOUNTS=true to override.");
+    return;
+  }
   const passwordHash = await client`SELECT encode(digest(${DEMO_PASSWORD}, 'sha256'), 'hex') AS hash`;
   const hash = passwordHash[0].hash as string;
   const staffIds = new Map<string, string>();
@@ -149,4 +164,4 @@ export async function seedDemoAccounts(client: postgres.Sql) {
   }
 
   console.log(`✅ Demo account seed synchronized: ${STAFF.length} staff and ${PATIENTS.length} patient records.`);
-}
+}

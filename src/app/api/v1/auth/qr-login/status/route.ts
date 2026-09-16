@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { qrLoginSessions, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { createSession, setSessionCookie } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -74,23 +75,41 @@ export async function GET(req: NextRequest) {
     if (session.status === "authorized" && session.authenticatedUserId) {
       // Fetch authenticated user
       const [user] = await db
-        .select()
+        .select({
+          id: users.id,
+          fullName: users.fullName,
+          email: users.email,
+          role: users.role,
+          licenseNumber: users.licenseNumber,
+          department: users.department,
+          organizationId: users.organizationId,
+          isActive: users.isActive,
+        })
         .from(users)
         .where(eq(users.id, session.authenticatedUserId))
         .limit(1);
 
-      if (!user) {
+      if (!user || !user.isActive) {
         return NextResponse.json(
           { success: false, error: "Authenticated user not found." },
           { status: 404 }
         );
       }
 
-      // Mark session as consumed
-      await db
+      // Mark session as consumed. The conditional update guarantees a challenge
+      // can only ever be exchanged for a session once, even under concurrent polls.
+      const consumed = await db
         .update(qrLoginSessions)
         .set({ status: "consumed" })
-        .where(eq(qrLoginSessions.id, session.id));
+        .where(and(eq(qrLoginSessions.id, session.id), eq(qrLoginSessions.status, "authorized")))
+        .returning({ id: qrLoginSessions.id });
+
+      if (consumed.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "This QR login challenge has already been used." },
+          { status: 409 }
+        );
+      }
 
       const redirectTo = getRoleRedirectPath(user.role);
 
@@ -111,14 +130,8 @@ export async function GET(req: NextRequest) {
         message: `Welcome, ${user.fullName}! Login authorized via QR scan.`,
       });
 
-      // Set auth session cookie for this device
-      response.cookies.set("Nini_session", user.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      });
+      // Issue a real server-side session for this device
+      setSessionCookie(response, await createSession(user.id, req));
 
       return response;
     }

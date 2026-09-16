@@ -4,6 +4,7 @@ import { tasks, auditLogs, users, patients } from "@/db/schema";
 import { createTaskSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -73,8 +74,7 @@ export async function POST(req: NextRequest) {
       routine: "routine",
     };
 
-    const sessionId = req.cookies.get("Nini_session")?.value;
-    let assignedByUserId = sessionId;
+    let assignedByUserId: string | undefined = (await getAuthenticatedSessionUserId(req)) ?? undefined;
     if (!assignedByUserId) {
       const [firstUser] = await db.select({ id: users.id }).from(users).limit(1);
       assignedByUserId = firstUser?.id;

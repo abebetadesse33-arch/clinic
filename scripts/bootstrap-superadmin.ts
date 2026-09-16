@@ -1,5 +1,6 @@
 import postgres from "postgres";
-import { createHash } from "node:crypto";
+import { hashPassword } from "../src/lib/security/password";
+import { ensureAuthSchemaWithClient } from "../src/db/auth-schema";
 
 const databaseUrl = process.env.DATABASE_URL;
 const email = (process.env.SUPERADMIN_EMAIL || "").trim().toLowerCase();
@@ -18,10 +19,12 @@ if (password.length < 12) {
   throw new Error("SUPERADMIN_PASSWORD must be at least 12 characters.");
 }
 
-const passwordHash = createHash("sha256").update(password, "utf8").digest("hex");
+const passwordHash = await hashPassword(password);
 const sql = postgres(databaseUrl, { connect_timeout: 10 });
 
 try {
+  await ensureAuthSchemaWithClient(sql);
+
   const [organization] = await sql`
     SELECT id FROM organizations
     ORDER BY created_at ASC
@@ -64,6 +67,9 @@ try {
       updated_at = CURRENT_TIMESTAMP
     RETURNING id, email, role, is_active
   `;
+
+  // A password reset invalidates any sessions that may exist for this account.
+  await sql`DELETE FROM auth_sessions WHERE user_id = ${user.id}`;
 
   console.log(`Super administrator enabled: ${user.email} (${user.role})`);
 } finally {

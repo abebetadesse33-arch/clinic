@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomBytes } from "crypto";
+import { and, eq, gt, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { users, patients } from "@/db/schema";
-import { eq, and, or } from "drizzle-orm";
+import { users, patients, authSessions } from "@/db/schema";
+import { AUTH_SCHEMA_STATEMENTS } from "@/db/auth-schema";
 
 /**
- * ═══════════════════════════════════════════════════════════════════
- * SECURE SERVER SESSION HELPER (Zero-Trust Session Resolver)
- * ═══════════════════════════════════════════════════════════════════
- * Extracts and verifies the authenticated user ID directly from the
- * secure server-side session cookie ("Nini_session").
+ * Server-side session management.
  *
- * Prevents "Session State Leak" and "Untrusted Client Payload" attacks
- * where malicious or stale client bodies spoof doctorId, collectedBy,
- * or triggeredByUserId.
- * ═══════════════════════════════════════════════════════════════════
+ * The browser receives an opaque random token in the HTTP-only "Nini_session"
+ * cookie. Only the SHA-256 hash of that token is stored in `auth_sessions`,
+ * together with the owning user and an expiry. Identity is always resolved
+ * from that table; nothing in a request body or query string is trusted.
  */
+
+export const SESSION_COOKIE_NAME = "Nini_session";
+export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const LAST_SEEN_REFRESH_MS = 10 * 60 * 1000;
+const AUTH_SCHEMA_RETRY_MS = 60 * 1000;
 
 export interface AuthenticatedUser {
   id: string;
@@ -35,6 +38,116 @@ export interface AuthSession {
   user: AuthenticatedUser;
 }
 
+// ─── Schema self-heal ────────────────────────────────────────────────────────
+
+let authSchemaReady: Promise<void> | null = null;
+
+/**
+ * Makes sure the tables/columns the auth flow needs exist. Idempotent and
+ * memoised per process, so the cost is one round of DDL per server start.
+ * Kept independent of the large boot-time schema block, which can partially
+ * fail and silently leave `users` without newer columns.
+ */
+export function ensureAuthSchema(): Promise<void> {
+  if (!authSchemaReady) {
+    authSchemaReady = (async () => {
+      for (const statement of AUTH_SCHEMA_STATEMENTS) {
+        await db.execute(sql.raw(statement));
+      }
+    })().catch((err) => {
+      // Never block sign-in on this step: if the schema is already correct the
+      // following queries succeed anyway, and if it is not they report the real
+      // error. Retry the DDL after a short backoff.
+      console.error("[AuthSession] Auth schema check failed (continuing):", err?.message || err);
+      const retry: any = setTimeout(() => {
+        authSchemaReady = null;
+      }, AUTH_SCHEMA_RETRY_MS);
+      retry.unref?.();
+    });
+  }
+  return authSchemaReady;
+}
+
+// ─── Token helpers ───────────────────────────────────────────────────────────
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+function requestMeta(req: NextRequest) {
+  const forwarded = req.headers.get("x-forwarded-for");
+  return {
+    ipAddress: (forwarded ? forwarded.split(",")[0] : req.headers.get("x-real-ip") || "").trim() || null,
+    userAgent: (req.headers.get("user-agent") || "").slice(0, 512) || null,
+  };
+}
+
+// ─── Session lifecycle ───────────────────────────────────────────────────────
+
+/**
+ * Creates a new server-side session for the user and returns the raw token
+ * that must be placed in the cookie. The token itself is never stored.
+ */
+export async function createSession(userId: string, req: NextRequest): Promise<string> {
+  await ensureAuthSchema();
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000);
+  const meta = requestMeta(req);
+
+  await db.insert(authSessions).values({
+    userId,
+    tokenHash: hashToken(token),
+    expiresAt,
+    ipAddress: meta.ipAddress,
+    userAgent: meta.userAgent,
+  });
+
+  // Opportunistic cleanup of this user's expired sessions.
+  db.delete(authSessions)
+    .where(and(eq(authSessions.userId, userId), lt(authSessions.expiresAt, new Date())))
+    .catch(() => {});
+
+  return token;
+}
+
+/** Deletes the session referenced by the request cookie, if any. */
+export async function revokeSession(req: NextRequest): Promise<void> {
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token) return;
+  try {
+    await db.delete(authSessions).where(eq(authSessions.tokenHash, hashToken(token)));
+  } catch (err) {
+    console.error("[AuthSession] Failed to revoke session:", err);
+  }
+}
+
+/** Deletes every session belonging to a user (password change, deactivation). */
+export async function revokeAllSessionsForUser(userId: string): Promise<void> {
+  await db.delete(authSessions).where(eq(authSessions.userId, userId));
+}
+
+export function setSessionCookie(response: NextResponse, token: string): void {
+  response.cookies.set(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production" && process.env.NINIMED_INSECURE_COOKIE !== "true",
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_TTL_SECONDS,
+  });
+}
+
+export function clearSessionCookie(response: NextResponse): void {
+  response.cookies.set(SESSION_COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production" && process.env.NINIMED_INSECURE_COOKIE !== "true",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+// ─── Identity resolution ─────────────────────────────────────────────────────
+
 /**
  * Compatibility adapter for API modules using the older session shape.
  * The identity still comes exclusively from the verified HTTP-only session.
@@ -51,47 +164,32 @@ export async function getAuthSession(req: NextRequest): Promise<AuthSession | nu
   };
 }
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
- * Returns the verified user ID from the HTTP-only server cookie "Nini_session".
- * Returns null if the session is missing, malformed, or references an inactive/nonexistent user.
+ * Returns the verified user ID for the session cookie, or null when the
+ * session is missing, unknown, expired, or belongs to an inactive user.
  */
 export async function getAuthenticatedSessionUserId(req: NextRequest): Promise<string | null> {
-  const sessionId = req.cookies.get("Nini_session")?.value;
-
-  if (!sessionId || !UUID_REGEX.test(sessionId)) {
-    return null;
-  }
-
-  try {
-    const [user] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.id, sessionId), eq(users.isActive, true)))
-      .limit(1);
-
-    return user?.id || null;
-  } catch (err) {
-    console.error("[AuthSession] Error verifying session user ID:", err);
-    return null;
-  }
+  const user = await getAuthenticatedSessionUser(req);
+  return user?.id ?? null;
 }
 
 /**
- * Returns the full verified User record from the HTTP-only server cookie "Nini_session".
- * Returns null if unauthenticated.
+ * Returns the full verified user record for the session cookie, or null when
+ * unauthenticated.
  */
 export async function getAuthenticatedSessionUser(req: NextRequest): Promise<AuthenticatedUser | null> {
-  const sessionId = req.cookies.get("Nini_session")?.value;
-
-  if (!sessionId || !UUID_REGEX.test(sessionId)) {
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (!token || token.length < 32 || token.length > 128) {
     return null;
   }
 
   try {
-    const [user] = await db
+    await ensureAuthSchema();
+    const now = new Date();
+    const [row] = await db
       .select({
+        sessionId: authSessions.id,
+        lastSeenAt: authSessions.lastSeenAt,
         id: users.id,
         fullName: users.fullName,
         email: users.email,
@@ -102,13 +200,30 @@ export async function getAuthenticatedSessionUser(req: NextRequest): Promise<Aut
         isActive: users.isActive,
         isAdminGrantedBySuperAdmin: users.isAdminGrantedBySuperAdmin,
       })
-      .from(users)
-      .where(and(eq(users.id, sessionId), eq(users.isActive, true)))
+      .from(authSessions)
+      .innerJoin(users, eq(users.id, authSessions.userId))
+      .where(
+        and(
+          eq(authSessions.tokenHash, hashToken(token)),
+          gt(authSessions.expiresAt, now),
+          eq(users.isActive, true)
+        )
+      )
       .limit(1);
 
-    return (user as AuthenticatedUser) || null;
+    if (!row) return null;
+
+    if (now.getTime() - new Date(row.lastSeenAt).getTime() > LAST_SEEN_REFRESH_MS) {
+      db.update(authSessions)
+        .set({ lastSeenAt: now })
+        .where(eq(authSessions.id, row.sessionId))
+        .catch(() => {});
+    }
+
+    const { sessionId: _sessionId, lastSeenAt: _lastSeenAt, ...user } = row;
+    return user;
   } catch (err) {
-    console.error("[AuthSession] Error retrieving session user:", err);
+    console.error("[AuthSession] Error resolving session:", err);
     return null;
   }
 }
