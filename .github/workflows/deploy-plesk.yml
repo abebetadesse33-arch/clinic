@@ -107,6 +107,12 @@ jobs:
             echo "❌ DATABASE_URL points to localhost. Set it to the PostgreSQL host reachable from Plesk, not the GitHub runner." >&2
             exit 1
           fi
+          if [[ "${PLESK_DEPLOY_PATH}" =~ /httdocs/?$ ]]; then
+            echo "❌ PLESK_DEPLOY_PATH ends in 'httdocs', which is not a valid Plesk document-root name." >&2
+            echo "   Correct the GitHub secret to the actual application path, usually '/httpdocs' or the Node.js application root." >&2
+            echo "   Also correct the deployment path in Plesk > Domains > Git if it contains the same typo." >&2
+            exit 1
+          fi
           echo "✅ Deployment secrets validated."
 
       # ────────────────────────────────────────────────────────────────────────

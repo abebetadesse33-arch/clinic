@@ -26,6 +26,13 @@ The workflow deploys releases to:
 
 Before the first deployment, update `DEPLOY_PATH` in `.github/workflows/deploy-plesk.yml` to match the actual system-user path. The SSH user must own or be able to write to that directory.
 
+Use the exact directory shown by Plesk. The standard web-root name is
+`httpdocs` (with `http`, not `httdocs`). If Plesk's Git deployment log says
+`Failed to change directory` for a path ending in `httdocs`, correct the
+repository deployment path in **Domains > Git** and update the
+`PLESK_DEPLOY_PATH` GitHub Actions secret. Do not create a guessed directory;
+the path must be the Node.js application's configured application root.
+
 ## 2. Production environment variables
 
 Set these in Plesk under the Node.js application's environment variables. Do not commit `.env`, `.env.production`, API keys, database passwords, or private keys.
@@ -204,4 +211,3 @@ If you cannot or do not want to open SSH port 22 on your server, use Plesk's bui
 - **Assets return 404:** verify `.next/static` and `public` exist under `current`.
 - **Notifications do not update live:** verify the browser can keep an SSE connection to `/api/v1/notifications/stream` and disable proxy buffering in Nginx for that path.
 - **Application restart:** Phusion Passenger reloads automatically whenever `tmp/restart.txt` is updated (handled by `scripts/plesk-release.sh` and `scripts/plesk-git-deploy.sh`).
-
