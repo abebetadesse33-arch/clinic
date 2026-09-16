@@ -39,8 +39,8 @@ fi
 if [ -f ".next/standalone/server.js" ]; then
   echo "Syncing standalone server files..."
   mkdir -p .next/standalone/.next
-  cp -rn .next/static .next/standalone/.next/ 2>/dev/null || true
-  cp -rn public .next/standalone/ 2>/dev/null || true
+  cp -Rf .next/static .next/standalone/.next/static 2>/dev/null || true
+  cp -Rf public .next/standalone/public 2>/dev/null || true
 
   # Passenger starts from the Plesk application root. Keep Next's generated
   # server in its own module context and package the prelude beside the wrapper.

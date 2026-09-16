@@ -163,17 +163,23 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf release deploy.tar.gz
-          mkdir -p release/.next/standalone release/tmp
+          mkdir -p release/.next/standalone/.next release/tmp
 
-          # Keep Next's generated server in its own module context. The
-          # Passenger wrapper below loads this exact nested entrypoint.
+          # 1. Copy full standalone server build
           cp -R .next/standalone/. release/.next/standalone/
-          cp -R .next/static       release/.next/static
-          cp -R public             release/public
+
+          # 2. Copy static & public files into standalone context (required by Next.js standalone runner)
+          mkdir -p release/.next/standalone/.next
+          cp -Rf .next/static release/.next/standalone/.next/static
+          cp -Rf public release/.next/standalone/public 2>/dev/null || true
+
+          # 3. Copy static & public files to release root (for direct web server asset serving)
+          mkdir -p release/.next
+          cp -Rf .next/static release/.next/static
+          cp -Rf public release/public 2>/dev/null || true
           touch release/tmp/restart.txt
 
-          # Keep Next's generated server in its own module context and package
-          # the auto-dotenv prelude beside a stable Passenger wrapper.
+          # Package the auto-dotenv prelude beside a stable Passenger entrypoint.
           if [ -f scripts/server-prelude.js ]; then
             cp -f scripts/server-prelude.js release/plesk-prelude.js
             cat > release/server.js <<'NODE_ENTRYPOINT'
