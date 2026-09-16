@@ -6,29 +6,30 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
-// 1. Phusion Passenger Port & Socket Interception
-// Next.js standalone server.js runs `parseInt(process.env.PORT, 10) || 3000`.
-// Under Phusion Passenger, process.env.PORT is non-numeric ('passenger' or a unix socket path).
-// `parseInt` converts it to NaN, causing Next.js to listen on TCP 3000 instead of Passenger's socket.
-// Intercept http.Server.prototype.listen so when Next attempts to listen on 3000, it forwards to Passenger's socket target.
-const passengerPort = process.env.PORT;
-const isPassenger =
-  process.env.PASSENGER_APP_ENV ||
-  process.env.PHUSION_PASSENGER ||
-  (passengerPort && (passengerPort === 'passenger' || isNaN(Number(passengerPort))));
+// 1. Phusion Passenger / Plesk Port & Socket Interception
+// Plesk / Passenger sets process.env.PORT to a numeric port, 'passenger', or a Unix socket path.
+// Next.js standalone server.js hardcodes port 3000 if PORT is non-numeric, or uses process.env.PORT.
+// Intercept http.Server.prototype.listen to guarantee the server binds to process.env.PORT on 127.0.0.1.
+if (!process.env.HOSTNAME || process.env.HOSTNAME === '0.0.0.0') {
+  process.env.HOSTNAME = '127.0.0.1';
+}
 
-if (isPassenger && passengerPort) {
+const targetPort = process.env.PORT;
+if (targetPort) {
   const originalListen = http.Server.prototype.listen;
   http.Server.prototype.listen = function (...args) {
-    if (typeof args[0] === 'number' || args[0] === 3000) {
-      const callback = args.find((arg) => typeof arg === 'function');
-      console.log(`[Passenger Prelude] Intercepted server.listen(${args[0]}), delegating to Phusion Passenger socket: ${passengerPort}`);
-      if (callback) {
-        return originalListen.call(this, passengerPort, callback);
-      }
-      return originalListen.call(this, passengerPort);
+    const callback = args.find((arg) => typeof arg === 'function');
+    const isSocketPath = isNaN(Number(targetPort));
+    const listenTarget = isSocketPath ? targetPort : Number(targetPort);
+
+    console.log(`[Passenger Prelude] Delegating server.listen to target port/socket: ${targetPort}`);
+    if (isSocketPath) {
+      if (callback) return originalListen.call(this, listenTarget, callback);
+      return originalListen.call(this, listenTarget);
+    } else {
+      if (callback) return originalListen.call(this, listenTarget, '127.0.0.1', callback);
+      return originalListen.call(this, listenTarget, '127.0.0.1');
     }
-    return originalListen.apply(this, args);
   };
 }
 
