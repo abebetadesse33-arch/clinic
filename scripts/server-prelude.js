@@ -4,8 +4,31 @@
 (function initializePassengerPrelude() {
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
-// Auto-load .env from application root or parent directory if present
+// 1. Phusion Passenger Port & Socket Interception
+// Next.js standalone server.js runs `parseInt(process.env.PORT, 10) || 3000`.
+// Under Phusion Passenger, process.env.PORT is non-numeric ('passenger' or a unix socket path).
+// `parseInt` converts it to NaN, causing Next.js to listen on TCP 3000 instead of Passenger's socket.
+// Intercept http.Server.prototype.listen so when Next attempts to listen on 3000, it forwards to Passenger's socket target.
+const passengerPort = process.env.PORT;
+const isPassenger =
+  process.env.PASSENGER_APP_ENV ||
+  process.env.PHUSION_PASSENGER ||
+  (passengerPort && (passengerPort === 'passenger' || isNaN(Number(passengerPort))));
+
+if (isPassenger && passengerPort) {
+  const originalListen = http.Server.prototype.listen;
+  http.Server.prototype.listen = function (...args) {
+    if (typeof args[0] === 'number' || args[0] === 3000) {
+      console.log(`[Passenger Prelude] Intercepted server.listen(${args[0]}), delegating to Phusion Passenger socket: ${passengerPort}`);
+      return originalListen.call(this, passengerPort);
+    }
+    return originalListen.apply(this, args);
+  };
+}
+
+// 2. Auto-load .env from application root or parent directory if present
 const possibleEnvPaths = [
   path.join(__dirname, '.env'),
   path.join(__dirname, '..', '.env'),
@@ -36,14 +59,15 @@ for (const p of possibleEnvPaths) {
   }
 }
 
-// Ensure startup crashes are written to passenger-startup-error.log for instant debugging
+// 3. Ensure startup crashes are written to passenger-startup-error.log for instant debugging
 const errorLog = path.join(__dirname, 'passenger-startup-error.log');
 try {
   fs.appendFileSync(
     errorLog,
-    `[${new Date().toISOString()}] Starting NiniMed Passenger entrypoint from ${__dirname}\n`
+    `[${new Date().toISOString()}] Starting NiniMed Passenger entrypoint from ${__dirname} (PORT=${process.env.PORT || 'default'})\n`
   );
 } catch (e) {}
+
 process.on('uncaughtException', (err) => {
   try {
     fs.appendFileSync(

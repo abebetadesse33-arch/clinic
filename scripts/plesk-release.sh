@@ -31,7 +31,8 @@ ln -sfn "${deploy_path}/current/.next" "${deploy_path}/.next"
 ln -sfn "${deploy_path}/current/public" "${deploy_path}/public"
 ln -sfn "${deploy_path}/current/node_modules" "${deploy_path}/node_modules"
 
-# Ensure server.js and app.js are available at root if Plesk Application Root is set to document root
+# Ensure server.js, app.js and plesk-prelude.js are available at root if Plesk Application Root is set to document root
+cp -f "${release_dir}/plesk-prelude.js" "${deploy_path}/plesk-prelude.js" 2>/dev/null || true
 cp -f "${release_dir}/server.js" "${deploy_path}/server.js" 2>/dev/null || true
 cp -f "${release_dir}/server.js" "${deploy_path}/app.js" 2>/dev/null || true
 cp -f "${release_dir}/server.js" "${release_dir}/app.js" 2>/dev/null || true
