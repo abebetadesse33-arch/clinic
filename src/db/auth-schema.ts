@@ -27,9 +27,17 @@ export const AUTH_SCHEMA_STATEMENTS: readonly string[] = [
   `CREATE INDEX IF NOT EXISTS auth_sessions_expires_at_idx ON auth_sessions(expires_at)`,
 ];
 
-/** Run the auth DDL with a raw postgres-js client (used by migrations/seeding). */
-export async function ensureAuthSchemaWithClient(client: postgres.Sql): Promise<void> {
+/**
+ * Run the auth DDL with a raw postgres-js client (used by migrations/seeding).
+ * Returns false without doing anything when the `users` table does not exist
+ * yet (fresh database): the main schema block creates it, and this is called
+ * again afterwards.
+ */
+export async function ensureAuthSchemaWithClient(client: postgres.Sql): Promise<boolean> {
+  const [{ exists }] = await client`SELECT to_regclass('public.users') IS NOT NULL AS exists`;
+  if (!exists) return false;
   for (const statement of AUTH_SCHEMA_STATEMENTS) {
     await client.unsafe(statement);
   }
+  return true;
 }

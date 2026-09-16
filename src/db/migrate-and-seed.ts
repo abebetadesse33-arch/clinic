@@ -27,13 +27,17 @@ export async function ensureDatabaseInitialized(
 
         // 2. Authentication tables/columns first, statement by statement. The large
         //    block below aborts as a whole on its first error, and login must not
-        //    depend on it having run to completion.
-        try {
-            await ensureAuthSchemaWithClient(client);
-        } catch (authErr) {
-            console.error("Auth schema synchronization failed:", authErr);
-            if (process.env.NINIMED_STRICT_DB === "true") throw authErr;
-        }
+        //    depend on it having run to completion. On a fresh database `users`
+        //    does not exist yet; the pass is repeated after the block for that case.
+        const syncAuthSchema = async () => {
+            try {
+                await ensureAuthSchemaWithClient(client);
+            } catch (authErr) {
+                console.error("Auth schema synchronization failed:", authErr);
+                if (process.env.NINIMED_STRICT_DB === "true") throw authErr;
+            }
+        };
+        await syncAuthSchema();
 
         // 3. Execute ALL DDL statements with IF NOT EXISTS unconditionally
         await client.unsafe(`
@@ -3405,6 +3409,9 @@ export async function ensureDatabaseInitialized(
 
         console.log("✅ PostgreSQL schema verification complete (all 50+ tables, pricing, 376 pharmacy items and 79 lab protocols confirmed).");
 
+        // 4. Auth schema again, now that `users` is guaranteed to exist.
+        await syncAuthSchema();
+
         if (!shouldSeed) {
             console.log("ℹ️ Seed data disabled for this database operation.");
             return;
@@ -3414,7 +3421,7 @@ export async function ensureDatabaseInitialized(
             await client.unsafe(dynamicSeedAndSchemaSql.slice(0, schemaBoundary));
         };
 
-        // 3. Check if Seed Data exists before inserting
+        // 5. Check if Seed Data exists before inserting
         const [orgCheck] = await client`
       SELECT count(*) as count FROM organizations;
     `;
