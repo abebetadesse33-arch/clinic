@@ -3463,26 +3463,6 @@ export async function ensureDatabaseInitialized(
           is_admin_granted_by_super_admin = TRUE,
           is_active = TRUE;
 
-      -- Seed Abebe Tadesse Super Admin User (password: Ninielda@&1)
-      INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_admin_granted_by_super_admin, is_active)
-      VALUES (
-          '5c254614-7cb0-4e72-a7cb-7bbe0a98c42d',
-          '00000000-0000-0000-0000-000000000001',
-          'abebetadesse1@gmail.com',
-          encode(digest('Ninielda@&1', 'sha256'), 'hex'),
-          'Abebe Tadesse',
-          'system_admin',
-          'System Administration',
-          TRUE,
-          TRUE
-      )
-      ON CONFLICT (email) DO UPDATE SET
-          role = 'system_admin',
-          full_name = 'Abebe Tadesse',
-          password_hash = encode(digest('Ninielda@&1', 'sha256'), 'hex'),
-          is_admin_granted_by_super_admin = TRUE,
-          is_active = TRUE;
-
       INSERT INTO suppliers (id, tenant_id, name, contact_person, email, phone, address, lead_time_days)
       VALUES (
           'aa111111-1111-1111-1111-111111111101',
@@ -3755,4 +3735,3 @@ export async function syncComprehensiveCatalogues(client: postgres.Sql) {
         console.warn("Catalog synchronization notice:", err?.message || err);
     }
 }
-

@@ -60,6 +60,21 @@ In particular, do not copy the Docker defaults (`localhost`, `Nini_postgres_db`,
 or `postgres`) into production. The deployment migration will fail fast when
 `DATABASE_URL` is missing or unreachable.
 
+To enable the requested administrator account after the database is
+reachable, run the bootstrap command on the Plesk host with credentials
+provided only through the process environment:
+
+```bash
+SUPERADMIN_EMAIL=abebetadesse1@gmail.com \
+SUPERADMIN_PASSWORD='(set this in the Plesk environment, do not commit it)' \
+bun run admin:bootstrap
+```
+
+The command creates or updates that account as `system_admin`, activates it,
+and stores only the SHA-256 password hash used by the existing sign-in flow.
+Change the password after the first successful login and remove the temporary
+`SUPERADMIN_PASSWORD` environment variable.
+
 Optional integrations used by this repository:
 
 ```text

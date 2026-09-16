@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "ci": "bash scripts/ci.sh",
     "db:migrate": "bun scripts/db-migrate.ts",
+    "admin:bootstrap": "bun scripts/bootstrap-superadmin.ts",
     "db:seed": "bun scripts/db-seed.ts",
     "db:migrate:deploy": "bun scripts/db-migrate.ts",
     "healthcheck": "bun scripts/healthcheck.ts",
