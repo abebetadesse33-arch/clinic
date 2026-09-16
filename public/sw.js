@@ -1,5 +1,5 @@
-// NiniMed Mobile Service Worker v1.0.0
-const CACHE_NAME = "ninimed-mobile-v1-1";
+// NiniMed Mobile Service Worker v1.0.1
+const CACHE_NAME = "ninimed-mobile-v1-2";
 const OFFLINE_URL = "/offline.html";
 
 const PRECACHE_ASSETS = [

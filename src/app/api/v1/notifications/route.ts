@@ -11,6 +11,13 @@ const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(request: NextRequest) {
   try {
+    if (!request.cookies.get("Nini_session")?.value) {
+      return NextResponse.json({
+        success: true,
+        data: { notifications: [], total: 0, unreadCount: 0 },
+      });
+    }
+
     const auth = await requireAuthenticatedUser(request);
     if ("response" in auth) {
       return auth.response;

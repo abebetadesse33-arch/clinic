@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const sessionId = req.cookies.get("Nini_session")?.value;
 
   if (!sessionId) {
-    return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
+    return NextResponse.json({ success: false, authenticated: false, user: null });
   }
 
   try {
