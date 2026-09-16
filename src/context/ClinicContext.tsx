@@ -346,6 +346,11 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
 
   // Real Database Synchronizer on Mount & Patient Change
   const refreshData = useCallback(async () => {
+    if (!authenticatedSessionId) {
+      setIsLoadingDb(false);
+      return;
+    }
+
     try {
       setIsLoadingDb(true);
 
@@ -530,9 +535,13 @@ export function ClinicProvider({ children }: { children: React.ReactNode }) {
         setAuthResolved(true);
       });
 
-    // 2. Synchronize real-time clinical database state
-    refreshData();
   }, [refreshData]);
+
+  useEffect(() => {
+    if (authResolved && authenticatedSessionId) {
+      refreshData();
+    }
+  }, [authResolved, authenticatedSessionId, refreshData]);
 
   const selectPatient = (id: string) => {
     setSelectedPatientId(id);

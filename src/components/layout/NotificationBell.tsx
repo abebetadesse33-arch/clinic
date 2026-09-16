@@ -197,7 +197,7 @@ export default function NotificationBell() {
 
   // SSE real-time stream
   useEffect(() => {
-    if (!userId && !role) return;
+    if (!userId || !role || role === "guest") return;
     disposedRef.current = false;
 
     const connect = () => {
