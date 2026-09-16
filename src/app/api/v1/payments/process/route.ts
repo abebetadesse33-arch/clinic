@@ -6,6 +6,7 @@ import { PaymentGateService } from "@/lib/services/payment-gate-service";
 import { eq, or } from "drizzle-orm";
 import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -56,9 +57,7 @@ export async function POST(req: NextRequest) {
     if (!finalInvoiceId && patientId) {
       const invNumber = `INV-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
       try {
-        const [newInv] = await db
-          .insert(invoices)
-          .values({
+        const [newInv] = await insertReturning(db, invoices, {
             tenantId: DEFAULT_TENANT_ID,
             patientId,
             encounterId: encounterId || null,
@@ -78,8 +77,7 @@ export async function POST(req: NextRequest) {
             currency,
             status: paymentStatus === "completed" ? "paid" : "issued",
             dueDate: new Date().toISOString().split("T")[0],
-          })
-          .returning();
+          });
         finalInvoiceId = newInv?.id;
       } catch { }
     }
@@ -105,9 +103,7 @@ export async function POST(req: NextRequest) {
     let newPayment = null;
     try {
       if (finalInvoiceId && resolvedPatientId) {
-        const [p] = await db
-          .insert(payments)
-          .values({
+        const [p] = await insertReturning(db, payments, {
             tenantId: DEFAULT_TENANT_ID,
             invoiceId: finalInvoiceId,
             patientId: resolvedPatientId,
@@ -119,8 +115,7 @@ export async function POST(req: NextRequest) {
             receiptNumber,
             status: paymentStatus,
             paidAt: new Date(),
-          })
-          .returning();
+          });
         newPayment = p;
       }
     } catch {

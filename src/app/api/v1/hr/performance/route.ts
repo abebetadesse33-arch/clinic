@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { staffPerformanceReviews, staffProfiles, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -84,9 +85,7 @@ export async function POST(req: NextRequest) {
     // We'll use a flat 10,000 ETB average for bonus calc if no base salary provided
     const bonusRecommendationEtb = (10000 * bonusMultiplier).toFixed(2);
 
-    const [review] = await db
-      .insert(staffPerformanceReviews)
-      .values({
+    const [review] = await insertReturning(db, staffPerformanceReviews, {
         staffId, tenantId, reviewPeriodStart, reviewPeriodEnd,
         reviewType: reviewType || "quarterly",
         csatScore: csatScore?.toString() || null,
@@ -103,8 +102,7 @@ export async function POST(req: NextRequest) {
         status: "submitted",
         comments: comments || null,
         reviewedBy,
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, data: review }, { status: 201 });
   } catch (error: any) {

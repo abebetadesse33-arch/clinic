@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { SQL, and, eq } from "drizzle-orm";
-import { PgColumn } from "drizzle-orm/pg-core";
+import { MySqlColumn } from "drizzle-orm/mysql-core";
 import { db } from "@/db";
 import { auditLogs } from "@/db/schema";
 
@@ -8,7 +8,7 @@ import { auditLogs } from "@/db/schema";
  * Enforces strict multi-tenant scoping on Drizzle queries.
  * Prevents cross-tenant data leaks and unauthorized inter-facility access.
  */
-export function withTenant(tenantColumn: PgColumn, tenantId: string, condition?: SQL): SQL {
+export function withTenant(tenantColumn: MySqlColumn, tenantId: string, condition?: SQL): SQL {
   const tenantCondition = eq(tenantColumn, tenantId);
   return condition ? and(tenantCondition, condition)! : tenantCondition;
 }

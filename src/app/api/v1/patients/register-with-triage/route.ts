@@ -6,6 +6,7 @@ import { TriageService } from "@/lib/services/triage-service";
 import { ProviderMatchingService } from "@/lib/services/provider-matching-service";
 import { CaseWorkflowService } from "@/lib/services/case-workflow-service";
 import { QueueService } from "@/lib/services/queue-service";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -83,9 +84,7 @@ export async function POST(req: NextRequest) {
         ? `${emergencyContact}${emergencyPhone ? ` (${emergencyPhone})` : ""}`
         : null;
 
-      const [newPatient] = await db
-        .insert(patients)
-        .values({
+      const [newPatient] = await insertReturning(db, patients, {
           tenantId: DEFAULT_TENANT_ID,
           mrn,
           firstName: firstName.trim(),
@@ -97,8 +96,7 @@ export async function POST(req: NextRequest) {
           allergies: Array.isArray(knownAllergies) ? knownAllergies : [knownAllergies].filter(Boolean),
           emergencyContact: emergencyStr,
           triagePriority: triageResult.urgencyLevel === "emergency" ? "critical" : triageResult.urgencyLevel === "urgent" ? "urgent" : "routine",
-        })
-        .returning();
+        });
       patientRecord = newPatient;
     }
 

@@ -5,6 +5,7 @@ import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { createTamperEvidentAuditLog } from "@/lib/security/tenant-guard";
+import { updateReturning } from "@/lib/db/returning";
 
 const ppidCollectionSchema = z.object({
   scannedWristbandMrn: z.string().min(2, "Scanned patient MRN barcode required"),
@@ -110,17 +111,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       // 4. TRANSITION TO SPECIMEN_RECEIVED
-      const [updated] = await tx
-        .update(clinicalOrders)
-        .set({
+      const [updated] = await updateReturning(tx, clinicalOrders, {
           status: "specimen_received",
           specimenBarcode: validated.scannedTubeBarcode,
           collectedBy: sessionUserId,
           collectedAt: new Date(),
           updatedAt: new Date(),
-        })
-        .where(eq(clinicalOrders.id, params.id))
-        .returning();
+        }, eq(clinicalOrders.id, params.id));
 
       await createTamperEvidentAuditLog({
         tenantId: orderWithPatient.tenantId,

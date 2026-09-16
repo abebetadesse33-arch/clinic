@@ -4,6 +4,7 @@ import { clinicalFiles, patients, users } from "@/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { logPatientActivity } from "@/lib/audit/activity-logger";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -223,9 +224,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [file] = await db
-      .insert(clinicalFiles)
-      .values({
+    const [file] = await insertReturning(db, clinicalFiles, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: effectivePatientId,
         uploadedByUserId: effectiveUploaderId,
@@ -239,8 +238,7 @@ export async function POST(req: NextRequest) {
         verificationStatus: "verified",
         isConfidential: isConfidential ?? false,
         archived: false,
-      })
-      .returning();
+      });
 
     // Log in patient activity timeline
     await logPatientActivity({

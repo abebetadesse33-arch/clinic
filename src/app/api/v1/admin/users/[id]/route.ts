@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireAdminUser } from "@/lib/security/auth-session";
+import { updateReturning } from "@/lib/db/returning";
 
 type Params = { params: { id: string } };
 
@@ -55,18 +56,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (licenseNumber !== undefined) updatePayload.licenseNumber = licenseNumber;
     if (phone !== undefined) updatePayload.phone = phone;
 
-    const [updated] = await db
-      .update(users)
-      .set(updatePayload)
-      .where(and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)))
-      .returning({
-        id: users.id,
-        fullName: users.fullName,
-        email: users.email,
-        role: users.role,
-        isActive: users.isActive,
-        department: users.department,
-      });
+    const [updated] = await updateReturning(db, users, updatePayload, and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)));
 
     if (!updated) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
 
@@ -83,11 +73,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if ("response" in auth) return auth.response;
 
     // Soft delete — set isActive=false rather than hard delete (HIPAA compliance)
-    const [updated] = await db
-      .update(users)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)))
-      .returning({ id: users.id, email: users.email });
+    const [updated] = await updateReturning(db, users, { isActive: false, updatedAt: new Date() }, and(eq(users.id, params.id), eq(users.organizationId, auth.user.organizationId)));
 
     if (!updated) return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     return NextResponse.json({ success: true, message: "User deactivated (HIPAA-compliant soft delete)", data: updated });

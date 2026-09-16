@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { landingSections } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -50,17 +51,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "sectionKey is required" }, { status: 400 });
     }
 
-    const [created] = await db
-      .insert(landingSections)
-      .values({
+    const [created] = await insertReturning(db, landingSections, {
         sectionKey,
         title: title || null,
         subtitle: subtitle || null,
         content: content || {},
         order: typeof order === "number" ? order : 0,
         isActive: isActive !== false,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("landing-sections", "created", created);
 
@@ -80,14 +78,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Section ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(landingSections)
-      .set({
+    const [updated] = await updateReturning(db, landingSections, {
         ...updates,
         updatedAt: new Date(),
-      })
-      .where(eq(landingSections.id, id))
-      .returning();
+      }, eq(landingSections.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Section not found" }, { status: 404 });

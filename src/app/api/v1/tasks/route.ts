@@ -5,6 +5,7 @@ import { createTaskSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -93,9 +94,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [newTask] = await db
-      .insert(tasks)
-      .values({
+    const [newTask] = await insertReturning(db, tasks, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: targetPatientId,
         encounterId: validated.encounterId,
@@ -106,8 +105,7 @@ export async function POST(req: NextRequest) {
         priority: priorityMap[validated.priority] || "routine",
         dueDate: validated.dueDate ? validated.dueDate.toString().substring(0, 10) : undefined,
         status: "pending",
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

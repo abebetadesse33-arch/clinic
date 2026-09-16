@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { providerProfiles, notifications, users, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -16,15 +17,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "userId is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(providerProfiles)
-      .set({
+    const [updated] = await updateReturning(db, providerProfiles, {
         approvalStatus: "pending_hr",
         submittedAt: new Date(),
         updatedAt: new Date(),
-      })
-      .where(eq(providerProfiles.userId, userId))
-      .returning();
+      }, eq(providerProfiles.userId, userId));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Provider profile not found" }, { status: 404 });

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { externalProviders } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,7 @@ export async function GET() {
       .orderBy(desc(externalProviders.createdAt));
 
     if (rows.length === 0) {
-      rows = await db.insert(externalProviders).values(INITIAL_EXTERNAL_PROVIDERS).returning();
+      rows = await insertReturning(db, externalProviders, INITIAL_EXTERNAL_PROVIDERS);
     }
 
     return NextResponse.json({
@@ -94,9 +95,7 @@ export async function POST(request: Request) {
 
     const validTransport = ["fhir", "email", "fax"].includes(preferredTransport) ? preferredTransport : "email";
 
-    const [newProvider] = await db
-      .insert(externalProviders)
-      .values({
+    const [newProvider] = await insertReturning(db, externalProviders, {
         organizationId: DEFAULT_ORGANIZATION_ID,
         name: name.trim(),
         specialty: specialty.trim(),
@@ -109,8 +108,7 @@ export async function POST(request: Request) {
         fhirEndpoint: fhirEndpoint?.trim() || null,
         preferredTransport: validTransport as "fhir" | "email" | "fax",
         isActive: true,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,
@@ -146,9 +144,7 @@ export async function PATCH(request: Request) {
       ? preferredTransport
       : existing.preferredTransport;
 
-    const [updated] = await db
-      .update(externalProviders)
-      .set({
+    const [updated] = await updateReturning(db, externalProviders, {
         name: name !== undefined ? name.trim() : existing.name,
         specialty: specialty !== undefined ? specialty.trim() : existing.specialty,
         facilityName: facilityName !== undefined ? (facilityName ? facilityName.trim() : null) : existing.facilityName,
@@ -160,9 +156,7 @@ export async function PATCH(request: Request) {
         fhirEndpoint: fhirEndpoint !== undefined ? (fhirEndpoint ? fhirEndpoint.trim() : null) : existing.fhirEndpoint,
         preferredTransport: validTransport as "fhir" | "email" | "fax",
         isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
-      })
-      .where(eq(externalProviders.id, id))
-      .returning();
+      }, eq(externalProviders.id, id));
 
     return NextResponse.json({
       success: true,

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { tabConfigurations } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "pageKey, tabKey, and label are required" }, { status: 400 });
     }
 
-    const [created] = await db
-      .insert(tabConfigurations)
-      .values({
+    const [created] = await insertReturning(db, tabConfigurations, {
         pageKey,
         tabKey,
         label,
@@ -61,8 +60,7 @@ export async function POST(request: NextRequest) {
         order: typeof order === "number" ? order : 0,
         isActive: isActive !== false,
         requiredPermission: requiredPermission || null,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("tabs", "created", created);
 
@@ -82,11 +80,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Tab ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(tabConfigurations)
-      .set(updates)
-      .where(eq(tabConfigurations.id, id))
-      .returning();
+    const [updated] = await updateReturning(db, tabConfigurations, updates, eq(tabConfigurations.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Tab not found" }, { status: 404 });

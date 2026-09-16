@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 import crypto from "crypto";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface CreatePlanDTO {
   tenantId: string;
@@ -40,9 +41,7 @@ export class SubscriptionService {
    * 1. PLAN MANAGEMENT
    */
   static async createPlan(data: CreatePlanDTO) {
-    const [plan] = await db
-      .insert(subscriptionPlans)
-      .values({
+    const [plan] = await insertReturning(db, subscriptionPlans, {
         tenantId: data.tenantId,
         name: data.name,
         slug: data.slug,
@@ -57,8 +56,7 @@ export class SubscriptionService {
         trialPeriodDays: data.trialPeriodDays || 0,
         isActive: true,
         version: 1,
-      })
-      .returning();
+      });
     return plan;
   }
 
@@ -81,14 +79,11 @@ export class SubscriptionService {
     paymentMethod?: "telebirr" | "chapa" | "bank_transfer";
   }) {
     // 1. Create or retrieve Family Group
-    const [familyGroup] = await db
-      .insert(familyGroups)
-      .values({
+    const [familyGroup] = await insertReturning(db, familyGroups, {
         tenantId: params.tenantId,
         primaryPatientId: params.primaryPatientId,
         name: params.familyName,
-      })
-      .returning();
+      });
 
     // 2. Add Primary Patient to Family Members
     await db.insert(familyMembers).values({
@@ -118,9 +113,7 @@ export class SubscriptionService {
     }
 
     // 4. Create Active Subscription
-    const [sub] = await db
-      .insert(subscriptions)
-      .values({
+    const [sub] = await insertReturning(db, subscriptions, {
         tenantId: params.tenantId,
         planId: plan.id,
         subscriberType: "family",
@@ -130,14 +123,11 @@ export class SubscriptionService {
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
         cancelAtPeriodEnd: false,
-      })
-      .returning();
+      });
 
     // 5. Generate Initial Subscription Invoice
     const invoiceNumber = `INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const [invoice] = await db
-      .insert(subscriptionInvoices)
-      .values({
+    const [invoice] = await insertReturning(db, subscriptionInvoices, {
         tenantId: params.tenantId,
         subscriptionId: sub.id,
         invoiceNumber,
@@ -152,8 +142,7 @@ export class SubscriptionService {
         status: "open",
         paymentMethod: params.paymentMethod || "telebirr",
         dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days grace
-      })
-      .returning();
+      });
 
     return { familyGroup, subscription: sub, invoice };
   }
@@ -185,15 +174,12 @@ export class SubscriptionService {
       }
     }
 
-    const [member] = await db
-      .insert(familyMembers)
-      .values({
+    const [member] = await insertReturning(db, familyMembers, {
         familyGroupId: params.familyGroupId,
         patientId: params.patientId,
         relationship: params.relationship,
         isActive: true,
-      })
-      .returning();
+      });
 
     return member;
   }
@@ -215,9 +201,7 @@ export class SubscriptionService {
     adminUserId: string;
   }) {
     // 1. Create Company
-    const [company] = await db
-      .insert(companies)
-      .values({
+    const [company] = await insertReturning(db, companies, {
         tenantId: params.tenantId,
         name: params.name,
         tinNumber: params.tinNumber,
@@ -227,8 +211,7 @@ export class SubscriptionService {
         phone: params.phone,
         billingAddress: params.billingAddress,
         preferredPaymentMethod: "bank_transfer",
-      })
-      .returning();
+      });
 
     // 2. Link HR Admin User
     await db.insert(companyAdmins).values({
@@ -260,9 +243,7 @@ export class SubscriptionService {
     const totalAmount = basePrice + extraSeats * additionalMemberPrice;
 
     // 4. Create Subscription
-    const [sub] = await db
-      .insert(subscriptions)
-      .values({
+    const [sub] = await insertReturning(db, subscriptions, {
         tenantId: params.tenantId,
         planId: plan.id,
         subscriberType: "company",
@@ -271,14 +252,11 @@ export class SubscriptionService {
         status: "active",
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
-      })
-      .returning();
+      });
 
     // 5. Generate Pro-Forma Invoice for Corporate Client
     const invoiceNumber = `CORP-INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const [invoice] = await db
-      .insert(subscriptionInvoices)
-      .values({
+    const [invoice] = await insertReturning(db, subscriptionInvoices, {
         tenantId: params.tenantId,
         subscriptionId: sub.id,
         invoiceNumber,
@@ -293,8 +271,7 @@ export class SubscriptionService {
         status: "open",
         paymentMethod: "bank_transfer",
         dueDate: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000), // 15 days for corporate
-      })
-      .returning();
+      });
 
     return { company, subscription: sub, invoice };
   }
@@ -309,9 +286,7 @@ export class SubscriptionService {
     const token = crypto.randomBytes(24).toString("hex");
     const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days valid
 
-    const [invitation] = await db
-      .insert(companyEmployeeInvitations)
-      .values({
+    const [invitation] = await insertReturning(db, companyEmployeeInvitations, {
         companyId: params.companyId,
         email: params.email,
         phone: params.phone,
@@ -320,8 +295,7 @@ export class SubscriptionService {
         token,
         expiresAt,
         status: "pending",
-      })
-      .returning();
+      });
 
     return invitation;
   }
@@ -358,17 +332,14 @@ export class SubscriptionService {
     if (!companySub) throw new Error("Company does not have an active subscription");
 
     // Add to subscription members
-    const [member] = await db
-      .insert(subscriptionMembers)
-      .values({
+    const [member] = await insertReturning(db, subscriptionMembers, {
         subscriptionId: companySub.id,
         patientId: params.patientId,
         role: "employee",
         department: invitation.department,
         employeeIdNumber: invitation.employeeIdNumber,
         isActive: true,
-      })
-      .returning();
+      });
 
     // Mark invitation accepted
     await db

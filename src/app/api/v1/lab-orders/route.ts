@@ -7,6 +7,7 @@ import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUserId, getAuthenticatedSessionUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -282,9 +283,7 @@ export async function POST(req: NextRequest) {
 
     // 6. PERSIST LAB ORDER
     const paymentCleared = calculatedPrice === "0.00";
-    const [newOrder] = await db
-      .insert(labOrders)
-      .values({
+    const [newOrder] = await insertReturning(db, labOrders, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         encounterId: validated.encounterId || null,
@@ -296,8 +295,7 @@ export async function POST(req: NextRequest) {
         price: calculatedPrice,
         currency: calculatedCurrency,
         paymentStatus: paymentCleared ? "free" : "unpaid",
-      })
-      .returning();
+      });
 
     // Log TAT checkpoint
     await db.insert(labTurnaround).values({

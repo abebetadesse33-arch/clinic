@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { clinicalRounds, patients, users, organizations } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -109,9 +110,7 @@ export async function POST(req: NextRequest) {
       resolvedClinicianId = firstUser?.id;
     }
 
-    const [newRound] = await db
-      .insert(clinicalRounds)
-      .values({
+    const [newRound] = await insertReturning(db, clinicalRounds, {
         tenantId: resolvedTenantId,
         patientId,
         encounterId: encounterId || null,
@@ -126,8 +125,7 @@ export async function POST(req: NextRequest) {
         criticalAlerts,
         isEscalated: Boolean(isEscalated),
         nextRoundScheduledAt: nextRoundScheduledAt ? new Date(nextRoundScheduledAt) : null,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,
@@ -160,11 +158,7 @@ export async function PATCH(req: NextRequest) {
       updateData.acuityScore = "critical";
     }
 
-    const [updated] = await db
-      .update(clinicalRounds)
-      .set(updateData)
-      .where(eq(clinicalRounds.id, roundId))
-      .returning();
+    const [updated] = await updateReturning(db, clinicalRounds, updateData, eq(clinicalRounds.id, roundId));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

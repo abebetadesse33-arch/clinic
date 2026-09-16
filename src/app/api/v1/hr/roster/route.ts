@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { dutyRosters, staffShifts, staffProfiles, users } from "@/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -62,17 +63,14 @@ export async function POST(req: NextRequest) {
       const { tenantId, department, shiftName, shiftTemplate, startTime, endTime,
         requiredDoctors, requiredNurses, requiredSupportStaff, createdBy } = body;
 
-      const [roster] = await db
-        .insert(dutyRosters)
-        .values({
+      const [roster] = await insertReturning(db, dutyRosters, {
           tenantId, department, shiftName, shiftTemplate: shiftTemplate || "morning",
           startTime, endTime,
           requiredDoctors: requiredDoctors || 1,
           requiredNurses: requiredNurses || 2,
           requiredSupportStaff: requiredSupportStaff || 1,
           createdBy,
-        })
-        .returning();
+        });
       return NextResponse.json({ success: true, data: roster }, { status: 201 });
     }
 
@@ -113,9 +111,7 @@ export async function POST(req: NextRequest) {
             ward_rounds: { start: "08:00", end: "12:00" },
           };
           const times = timeMap[shiftTemplate] || { start: "08:00", end: "16:00" };
-          const [newRoster] = await db
-            .insert(dutyRosters)
-            .values({
+          const [newRoster] = await insertReturning(db, dutyRosters, {
               tenantId: "00000000-0000-0000-0000-000000000001",
               department,
               shiftName: `${department} ${shiftTemplate.replace(/_/g, " ")}`,
@@ -126,34 +122,26 @@ export async function POST(req: NextRequest) {
               requiredNurses: 2,
               requiredSupportStaff: 1,
               createdBy: "11111111-1111-1111-1111-111111111101",
-            })
-            .returning();
+            });
           rosterId = newRoster.id;
         }
       }
 
-      const [shift] = await db
-        .insert(staffShifts)
-        .values({
+      const [shift] = await insertReturning(db, staffShifts, {
           rosterId,
           staffId,
           shiftDate,
           status: "scheduled",
           swapStatus: "none",
           notes: notes || null,
-        })
-        .returning();
+        });
 
       return NextResponse.json({ success: true, data: shift, message: "Shift assigned successfully." }, { status: 201 });
     }
 
     if (action === "request_swap") {
       const { shiftId, swapRequestedWithStaffId } = body;
-      const [updated] = await db
-        .update(staffShifts)
-        .set({ swapStatus: "requested", swapRequestedWithStaffId })
-        .where(eq(staffShifts.id, shiftId))
-        .returning();
+      const [updated] = await updateReturning(db, staffShifts, { swapStatus: "requested", swapRequestedWithStaffId }, eq(staffShifts.id, shiftId));
       return NextResponse.json({ success: true, data: updated });
     }
 
@@ -174,15 +162,11 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: "shiftId and swapDecision required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(staffShifts)
-      .set({
+    const [updated] = await updateReturning(db, staffShifts, {
         swapStatus: swapDecision === "approve" ? "approved" : "rejected",
         swapApprovedBy: approvedBy || null,
         swapApprovedAt: swapDecision === "approve" ? new Date() : null,
-      })
-      .where(eq(staffShifts.id, shiftId))
-      .returning();
+      }, eq(staffShifts.id, shiftId));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

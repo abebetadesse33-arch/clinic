@@ -5,6 +5,7 @@ import {
   payments, journalEntries, journalEntryLines, chartOfAccounts,
 } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -93,9 +94,7 @@ export async function POST(req: NextRequest) {
     // Create or update invoice
     const [inv] = invoiceId
       ? await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1)
-      : await db
-          .insert(invoices)
-          .values({
+      : await insertReturning(db, invoices, {
             patientId,
             tenantId,
             invoiceNumber: `INV-POS-${Date.now()}`,
@@ -108,8 +107,7 @@ export async function POST(req: NextRequest) {
             status: "paid",
             currency: "ETB",
             dueDate: new Date().toISOString().split("T")[0],
-          })
-          .returning();
+          });
 
     // Record payment — use correct payments schema columns
     const payMethod: "cash" | "telebirr" | "chapa" | "bank_transfer" | "insurance_copay" | "paypal" =
@@ -117,9 +115,7 @@ export async function POST(req: NextRequest) {
       paymentBreakdown.telebirr > 0 ? "telebirr" :
       paymentBreakdown.cbe_birr > 0 ? "bank_transfer" : "cash";
 
-    const [pmt] = await db
-      .insert(payments)
-      .values({
+    const [pmt] = await insertReturning(db, payments, {
         invoiceId: inv.id,
         patientId,
         tenantId,
@@ -130,8 +126,7 @@ export async function POST(req: NextRequest) {
         transactionReference: JSON.stringify(paymentBreakdown),
         status: "completed",
         collectedBy: processedBy || null,
-      })
-      .returning();
+      });
 
     // Auto-generate double-entry journal entry
     const entryNumber = `JE-POS-${Date.now()}`;
@@ -149,9 +144,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (cashAccount.length > 0 && revenueAccount.length > 0) {
-      const [je] = await db
-        .insert(journalEntries)
-        .values({
+      const [je] = await insertReturning(db, journalEntries, {
           tenantId,
           entryNumber,
           entryDate: new Date().toISOString().split("T")[0],
@@ -163,8 +156,7 @@ export async function POST(req: NextRequest) {
           status: "posted",
           postedBy: processedBy || null,
           postedAt: new Date(),
-        })
-        .returning();
+        });
 
       await db.insert(journalEntryLines).values([
         {

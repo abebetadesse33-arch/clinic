@@ -7,6 +7,7 @@ import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUser } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const MAIN_FACILITY_ID = "11111111-0000-0000-0000-000000000001";
 
@@ -396,9 +397,7 @@ export async function POST(req: NextRequest) {
         throw new Error("This appointment time is no longer available. Please choose another time.");
       }
 
-      const [newAppt] = await tx
-        .insert(appointments)
-        .values({
+      const [newAppt] = await insertReturning(tx, appointments, {
           tenantId: sessionUser.organizationId,
           patientId: resolvedPatientId,
           clinicianId: assignedClinicianId,
@@ -412,8 +411,7 @@ export async function POST(req: NextRequest) {
           status: "scheduled",
           reason: validated.reason,
           notes: validated.notes,
-        })
-        .returning();
+        });
 
       let createdEncounterId: string | null = null;
       let createdSessionId: string | null = null;
@@ -421,9 +419,7 @@ export async function POST(req: NextRequest) {
       let joinUrls: { clinician: string; patient: string } | null = null;
 
       if (validated.appointmentType === "telehealth") {
-        const [encounter] = await tx
-          .insert(encounters)
-          .values({
+        const [encounter] = await insertReturning(tx, encounters, {
             tenantId: sessionUser.organizationId,
             patientId: resolvedPatientId,
             clinicianId: assignedClinicianId,
@@ -431,23 +427,19 @@ export async function POST(req: NextRequest) {
             status: "planned",
             admissionStatus: "outpatient",
             chiefComplaint: validated.reason,
-          })
-          .returning();
+          });
 
         createdEncounterId = encounter.id;
         roomId = `room-${sessionUser.organizationId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-        const [session] = await tx
-          .insert(telemedicineSessions)
-          .values({
+        const [session] = await insertReturning(tx, telemedicineSessions, {
             tenantId: sessionUser.organizationId,
             encounterId: encounter.id,
             patientId: resolvedPatientId,
             doctorId: assignedClinicianId,
             roomId,
             status: "scheduled",
-          })
-          .returning();
+          });
 
         createdSessionId = session.id;
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { formConfigurations, formFields } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -70,17 +71,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "formKey and title are required" }, { status: 400 });
     }
 
-    const [form] = await db
-      .insert(formConfigurations)
-      .values({
+    const [form] = await insertReturning(db, formConfigurations, {
         formKey,
         title,
         description: description || null,
         submitLabel: submitLabel || "Submit",
         actionEndpoint: actionEndpoint || null,
         isActive: isActive !== false,
-      })
-      .returning();
+      });
 
     let createdFields: any[] = [];
     if (Array.isArray(fields) && fields.length > 0) {
@@ -98,7 +96,7 @@ export async function POST(request: NextRequest) {
         isActive: f.isActive !== false,
       }));
 
-      createdFields = await db.insert(formFields).values(fieldValues).returning();
+      createdFields = await insertReturning(db, formFields, fieldValues);
     }
 
     const result = { ...form, fields: createdFields };
@@ -120,14 +118,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Form ID is required" }, { status: 400 });
     }
 
-    const [updatedForm] = await db
-      .update(formConfigurations)
-      .set({
+    const [updatedForm] = await updateReturning(db, formConfigurations, {
         ...updates,
         updatedAt: new Date(),
-      })
-      .where(eq(formConfigurations.id, id))
-      .returning();
+      }, eq(formConfigurations.id, id));
 
     if (!updatedForm) {
       return NextResponse.json({ success: false, error: "Form not found" }, { status: 404 });

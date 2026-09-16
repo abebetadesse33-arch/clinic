@@ -8,6 +8,7 @@ import {
   subscriptionUsage,
 } from "@/db/schema";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface EntitlementCheckRequest {
   patientId: string;
@@ -283,7 +284,7 @@ export async function recordSubscriptionUsage(params: {
   periodStart: Date;
   periodEnd: Date;
 }) {
-  return await db.insert(subscriptionUsage).values({
+  return await insertReturning(db, subscriptionUsage, {
     tenantId: params.tenantId,
     subscriptionId: params.subscriptionId,
     patientId: params.patientId,
@@ -295,5 +296,5 @@ export async function recordSubscriptionUsage(params: {
     patientCopayAmount: (params.patientCopayAmount || 0).toString(),
     billingPeriodStart: params.periodStart,
     billingPeriodEnd: params.periodEnd,
-  }).returning();
+  });
 }

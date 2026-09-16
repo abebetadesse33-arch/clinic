@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { clinicalOrders, invoices, invoiceItems, auditLogs } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_ORDER_PRICING: Record<string, { fee: string; currency: string }> = {
   laboratory: { fee: "450.00", currency: "ETB" },
@@ -39,31 +40,27 @@ export async function captureOrderCharge(params: {
     .limit(1);
 
   if (!invoice) {
-    const [newInvoice] = await database
-      .insert(invoices)
-      .values({
-        organizationId: order.tenantId,
+    const [newInvoice] = await insertReturning(database, invoices, {
+        tenantId: order.tenantId,
         patientId: order.patientId,
         invoiceNumber: `INV-${Date.now().toString(36).toUpperCase()}`,
         status: "draft",
+        subtotal: pricing.fee,
         totalAmount: pricing.fee,
         currency: pricing.currency,
-      })
-      .returning();
+      });
     invoice = newInvoice;
   }
 
   // Insert line item into invoice
-  const [lineItem] = await database
-    .insert(invoiceItems)
-    .values({
+  const [lineItem] = await insertReturning(database, invoiceItems, {
       invoiceId: invoice.id,
+      serviceCode: `ORDER_${order.orderType.toUpperCase()}`,
       description: `[${order.orderType.toUpperCase()}] ${order.clinicalIndication}`,
       quantity: 1,
       unitPrice: pricing.fee,
       totalPrice: pricing.fee,
-    })
-    .returning();
+    });
 
   // Audit log the charge capture
   await database.insert(auditLogs).values({

@@ -5,6 +5,7 @@ import { familyGroups } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { updateReturning } from "@/lib/db/returning";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -30,18 +31,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     if (markAsPaid || paymentMethod === "telebirr" || paymentMethod === "chapa") {
       const txId = paymentReference || `TXN-${paymentMethod?.toUpperCase() || "PAY"}-${Date.now()}`;
 
-      const [updatedInvoice] = await db
-        .update(subscriptionInvoices)
-        .set({
+      const [updatedInvoice] = await updateReturning(db, subscriptionInvoices, {
           status: "paid",
           paymentMethod: paymentMethod || invoice.paymentMethod || "telebirr",
           paymentReference: txId,
           gatewayTransactionId: txId,
           paidAt: now,
           updatedAt: now,
-        })
-        .where(eq(subscriptionInvoices.id, params.id))
-        .returning();
+        }, eq(subscriptionInvoices.id, params.id));
 
       // Ensure subscription is active
       await db
@@ -88,15 +85,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     // For manual bank transfer submission
     if (paymentMethod === "bank_transfer") {
-      const [updatedInvoice] = await db
-        .update(subscriptionInvoices)
-        .set({
+      const [updatedInvoice] = await updateReturning(db, subscriptionInvoices, {
           paymentMethod: "bank_transfer",
           paymentReference: paymentReference || "PENDING_FINANCE_REVIEW",
           updatedAt: now,
-        })
-        .where(eq(subscriptionInvoices.id, params.id))
-        .returning();
+        }, eq(subscriptionInvoices.id, params.id));
 
       const [subscription] = await db
         .select({ patientId: subscriptions.patientId, familyGroupId: subscriptions.familyGroupId })

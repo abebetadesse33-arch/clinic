@@ -12,7 +12,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/clinic_enterprise
+      - DATABASE_URL=mysql://root:root@mysql:3306/clinic_enterprise
       - REDIS_URL=redis://redis:6379
       - GEMINI_API_KEY_1=${GEMINI_API_KEY_1:-}
       - GEMINI_API_KEY_2=${GEMINI_API_KEY_2:-}
@@ -23,7 +23,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - NEXT_PUBLIC_TELEGRAM_BOT_USERNAME=${NEXT_PUBLIC_TELEGRAM_BOT_USERNAME:-Ninimedbot}
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -31,23 +31,21 @@ services:
       - Nini_network
 
   # ==========================================
-  # 2. POSTGRESQL 16 (WITH PGVECTOR FOR RAG)
+  # 2. MYSQL 8
   # ==========================================
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: Nini_postgres_db
+  mysql:
+    image: mysql:8.0
+    container_name: Nini_mysql_db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "3306:3306"
     environment:
-      - POSTGRES_DB=clinic_enterprise
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=clinic_enterprise
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - mysqldata:/var/lib/mysql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d clinic_enterprise" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -81,7 +79,7 @@ networks:
     driver: bridge
 
 volumes:
-  pgdata:
+  mysqldata:
     driver: local
   redisdata:
     driver: local

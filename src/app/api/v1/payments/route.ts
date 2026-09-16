@@ -13,6 +13,7 @@ import {
 import { createPaymentSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -66,9 +67,7 @@ export async function POST(req: NextRequest) {
     const paymentNumber = `PAY-${Date.now()}`;
     const receiptNumber = `RCPT-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const [newPayment] = await db
-      .insert(payments)
-      .values({
+    const [newPayment] = await insertReturning(db, payments, {
         tenantId: DEFAULT_TENANT_ID,
         invoiceId: validated.invoiceId,
         patientId: validated.patientId,
@@ -80,8 +79,7 @@ export async function POST(req: NextRequest) {
         receiptNumber,
         status: "completed",
         paidAt: new Date(),
-      })
-      .returning();
+      });
 
     // Update invoice paid amount and status
     const invRes = await db
@@ -109,28 +107,20 @@ export async function POST(req: NextRequest) {
       // If invoice was paid and corresponds to a prescription:
       if (newStatus === "paid") {
         // 1. Update matching prescriptions
-        const matchedRxs = await db
-          .update(prescriptions)
-          .set({
+        const matchedRxs = await updateReturning(db, prescriptions, {
             paymentStatus: "paid",
             status: "payment_cleared",
             paidAt: new Date(),
             transactionRef: newPayment.transactionReference,
-          })
-          .where(eq(prescriptions.invoiceId, validated.invoiceId))
-          .returning();
+          }, eq(prescriptions.invoiceId, validated.invoiceId));
 
         for (const rx of matchedRxs) {
           // 2. Advance queue item to payment_verified
-          const [updatedQueueItem] = await db
-            .update(pharmacyDispensingQueue)
-            .set({
+          const [updatedQueueItem] = await updateReturning(db, pharmacyDispensingQueue, {
               status: "payment_verified",
               paymentVerifiedAt: new Date(),
               updatedAt: new Date(),
-            })
-            .where(eq(pharmacyDispensingQueue.prescriptionId, rx.id))
-            .returning();
+            }, eq(pharmacyDispensingQueue.prescriptionId, rx.id));
 
           // 3. Fetch patient info
           const [patient] = await db

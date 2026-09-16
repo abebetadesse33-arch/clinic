@@ -16,6 +16,7 @@ import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 import { EncounterTabService } from "@/lib/services/encounter-tab-service";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -89,16 +90,12 @@ export async function POST(req: NextRequest) {
       `TXN-${paymentMethod.toUpperCase()}-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
     const paidAt = new Date();
 
-    const [updatedInvoice] = await db
-      .update(invoices)
-      .set({
+    const [updatedInvoice] = await updateReturning(db, invoices, {
         status: "paid",
         paymentMethod,
         transactionRef,
         paidAt,
-      })
-      .where(eq(invoices.id, invoice.id))
-      .returning();
+      }, eq(invoices.id, invoice.id));
 
     // 4B. Charge active Encounter Tab if encounter linked or payment is encounter_tab
     if (invoice.encounterId) {
@@ -116,34 +113,26 @@ export async function POST(req: NextRequest) {
     // 5. Update linked Lab Orders → payment_cleared
     const updatedLabOrders = [];
     if (hasLab) {
-      const labList = await db
-        .update(labOrders)
-        .set({
+      const labList = await updateReturning(db, labOrders, {
           paymentStatus: "paid",
           status: "payment_cleared",
           transactionRef,
           paidAt,
           invoiceId: invoice.id,
-        })
-        .where(eq(labOrders.invoiceId, invoice.id))
-        .returning();
+        }, eq(labOrders.invoiceId, invoice.id));
       updatedLabOrders.push(...labList);
     }
 
     // 6. Update linked Prescriptions → payment_cleared
     const updatedPrescriptions = [];
     if (hasPharmacy) {
-      const rxList = await db
-        .update(prescriptions)
-        .set({
+      const rxList = await updateReturning(db, prescriptions, {
           paymentStatus: "paid",
           status: "payment_cleared",
           transactionRef,
           paidAt,
           invoiceId: invoice.id,
-        })
-        .where(eq(prescriptions.invoiceId, invoice.id))
-        .returning();
+        }, eq(prescriptions.invoiceId, invoice.id));
       updatedPrescriptions.push(...rxList);
     }
 

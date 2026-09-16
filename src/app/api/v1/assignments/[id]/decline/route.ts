@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientAssignments, cases } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { RealtimeBroadcaster } from "@/lib/services/realtime-broadcaster";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +16,11 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const { reason = "Provider unavailable / workload limit reached" } = body;
 
-    const [assignment] = await db
-      .update(patientAssignments)
-      .set({
+    const [assignment] = await updateReturning(db, patientAssignments, {
         status: "declined",
         notes: reason,
         updatedAt: new Date(),
-      })
-      .where(eq(patientAssignments.id, id))
-      .returning();
+      }, eq(patientAssignments.id, id));
 
     if (!assignment) {
       return NextResponse.json(

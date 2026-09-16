@@ -6,6 +6,7 @@ import {
   posTransactions, posCashierShifts,
 } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     // ─── Create or update Invoice ───────────────────────────────────────────────
     const invoiceNumber = generateInvoiceNumber();
-    const [invoice] = await db.insert(invoices).values({
+    const [invoice] = await insertReturning(db, invoices, {
       tenantId: TENANT_ID,
       patientId,
       invoiceNumber,
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
       paymentMethod,
       transactionRef: transactionRef ?? null,
       paidAt: new Date(),
-    }).returning();
+    });
 
     // ─── Record Payment ─────────────────────────────────────────────────────────
     const paymentNumber = generatePaymentNumber();
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
       date: new Date().toISOString(),
     });
 
-    const [posTx] = await db.insert(posTransactions).values({
+    const [posTx] = await insertReturning(db, posTransactions, {
       tenantId: TENANT_ID,
       shiftId: shiftId ?? null,
       invoiceId: invoice.id,
@@ -180,7 +181,7 @@ export async function POST(req: NextRequest) {
       changeReturned: changeReturned.toFixed(2),
       transactionRef: transactionRef ?? null,
       qrCodePayload: qrPayload,
-    }).returning();
+    });
 
     return NextResponse.json({
       success: true,

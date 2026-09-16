@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { configAuditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -128,9 +129,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Valid admin user is required for audit trail" }, { status: 400 });
     }
 
-    const [inserted] = await db
-      .insert(configAuditLogs)
-      .values({
+    const [inserted] = await insertReturning(db, configAuditLogs, {
         organizationId: DEFAULT_ORGANIZATION_ID,
         adminId: validAdminId,
         adminName: resolvedAdminName,
@@ -140,8 +139,7 @@ export async function POST(request: Request) {
         oldValue: oldValue || null,
         newValue: newValue || null,
         reason: reason || null,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

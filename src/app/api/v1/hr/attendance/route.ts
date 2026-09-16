@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { staffAttendance, staffProfiles, users } from "@/db/schema";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -77,9 +78,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Already clocked in today." }, { status: 409 });
       }
 
-      const [record] = await db
-        .insert(staffAttendance)
-        .values({
+      const [record] = await insertReturning(db, staffAttendance, {
           staffId,
           shiftId: shiftId || null,
           attendanceDate: today,
@@ -87,8 +86,7 @@ export async function POST(req: NextRequest) {
           verificationMethod: verificationMethod || "pin",
           status: "present",
           recordedBy: recordedBy || null,
-        })
-        .returning();
+        });
 
       return NextResponse.json({ success: true, data: record, message: "Clock-in recorded." }, { status: 201 });
     }
@@ -116,16 +114,12 @@ export async function POST(req: NextRequest) {
       const isNightShift = hour >= 18 || hour < 6;
       const overtimeMultiplier = overtimeHours > 0 ? (isNightShift ? "1.75" : "1.50") : "1.00";
 
-      const [updated] = await db
-        .update(staffAttendance)
-        .set({
+      const [updated] = await updateReturning(db, staffAttendance, {
           clockOut,
           regularHours: regularHours.toFixed(2),
           overtimeHours: overtimeHours.toFixed(2),
           overtimeMultiplier,
-        })
-        .where(eq(staffAttendance.id, existing.id))
-        .returning();
+        }, eq(staffAttendance.id, existing.id));
 
       return NextResponse.json({ success: true, data: updated, message: `Clock-out recorded. ${regularHours.toFixed(1)}h regular, ${overtimeHours.toFixed(1)}h overtime.` });
     }
@@ -142,9 +136,7 @@ export async function POST(req: NextRequest) {
 
       let record;
       if (existing) {
-        const [updated] = await db
-          .update(staffAttendance)
-          .set({
+        const [updated] = await updateReturning(db, staffAttendance, {
             clockIn: clockIn ? new Date(clockIn) : existing.clockIn,
             clockOut: clockOut ? new Date(clockOut) : existing.clockOut,
             regularHours: regularHours.toString(),
@@ -152,14 +144,10 @@ export async function POST(req: NextRequest) {
             status,
             verificationMethod,
             deviationNotes: deviationNotes ?? existing.deviationNotes,
-          })
-          .where(eq(staffAttendance.id, existing.id))
-          .returning();
+          }, eq(staffAttendance.id, existing.id));
         record = updated;
       } else {
-        const [inserted] = await db
-          .insert(staffAttendance)
-          .values({
+        const [inserted] = await insertReturning(db, staffAttendance, {
             staffId,
             attendanceDate,
             clockIn: clockIn ? new Date(clockIn) : new Date(),
@@ -170,8 +158,7 @@ export async function POST(req: NextRequest) {
             verificationMethod,
             deviationNotes: deviationNotes || null,
             recordedBy: recordedBy || null,
-          })
-          .returning();
+          });
         record = inserted;
       }
 

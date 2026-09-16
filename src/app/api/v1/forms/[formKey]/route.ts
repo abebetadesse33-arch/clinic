@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { formConfigurations, formFields, formSubmissions } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -80,15 +81,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 });
     }
 
-    const [submission] = await db
-      .insert(formSubmissions)
-      .values({
+    const [submission] = await insertReturning(db, formSubmissions, {
         formKey,
         submittedByUserId: auth.user.id,
         data: body,
         status: "submitted",
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

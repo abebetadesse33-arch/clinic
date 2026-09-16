@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { modelFeedback, aiModels } from "@/db/schema";
 import { eq, desc, sql, count } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface RecordFeedbackParams {
   tenantId: string;
@@ -24,9 +25,7 @@ export interface ModelPerformanceMetrics {
 }
 
 export async function recordClinicianFeedback(params: RecordFeedbackParams) {
-  const [feedback] = await db
-    .insert(modelFeedback)
-    .values({
+  const [feedback] = await insertReturning(db, modelFeedback, {
       tenantId: params.tenantId,
       clinicianId: params.clinicianId,
       modelId: params.modelId || null,
@@ -36,8 +35,7 @@ export async function recordClinicianFeedback(params: RecordFeedbackParams) {
       originalOutput: params.originalOutput || {},
       clinicianModification: params.clinicianModification || {},
       notes: params.notes || null,
-    })
-    .returning();
+    });
 
   return feedback;
 }

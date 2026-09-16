@@ -4,6 +4,7 @@ import { users, staffProfiles } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { requireAdminUser } from "@/lib/security/auth-session";
 import { hashPassword } from "@/lib/security/password";
+import { insertReturning } from "@/lib/db/returning";
 
 export async function GET(req: NextRequest) {
   try {
@@ -77,9 +78,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hashPassword(String(password));
 
     const createdUser = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({
+      const [user] = await insertReturning(tx, users, {
           organizationId: orgId,
           email: normalizedEmail,
           passwordHash,
@@ -90,12 +89,6 @@ export async function POST(req: NextRequest) {
           phone: phone || null,
           isAdminGrantedBySuperAdmin: targetRole === "tenant_admin" || targetRole === "system_admin",
           isActive: true,
-        })
-        .returning({
-          id: users.id,
-          fullName: users.fullName,
-          email: users.email,
-          role: users.role,
         });
 
       if (targetRole !== "patient") {

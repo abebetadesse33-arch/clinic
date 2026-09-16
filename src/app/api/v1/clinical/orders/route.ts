@@ -4,6 +4,7 @@ import { referrals, patients, users, notifications } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { logPatientActivity } from "@/lib/audit/activity-logger";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -153,9 +154,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Insert into referrals table awaiting ward approval
-    const [newReferral] = await db
-      .insert(referrals)
-      .values({
+    const [newReferral] = await insertReturning(db, referrals, {
         organizationId: DEFAULT_TENANT_ID,
         patientId,
         type: "internal",
@@ -186,8 +185,7 @@ export async function POST(request: NextRequest) {
             : `On-Duty ${resolvedWard} Clinical Pool (First Available)`,
           orderTimestamp: new Date().toISOString(),
         } as any,
-      })
-      .returning();
+      });
 
     const orderNumber = `ORD-${newReferral.id.slice(0, 8).toUpperCase()}`;
 

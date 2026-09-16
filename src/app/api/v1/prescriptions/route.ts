@@ -18,6 +18,7 @@ import crypto from "crypto";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUserId, getAuthenticatedSessionUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -143,17 +144,14 @@ export async function POST(req: NextRequest) {
 
     // 3. Create Invoice
     const invoiceNum = `INV-PHARM-${Date.now().toString().slice(-6)}`;
-    const [inv] = await db
-      .insert(invoices)
-      .values({
+    const [inv] = await insertReturning(db, invoices, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         invoiceNumber: invoiceNum,
         totalAmount: totalPriceStr,
         subtotal: totalPriceStr,
         status: "issued",
-      })
-      .returning();
+      });
 
     // 4. Create Invoice Item
     await db.insert(invoiceItems).values({
@@ -166,9 +164,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 5. Insert Prescription
-    const [newRx] = await db
-      .insert(prescriptions)
-      .values({
+    const [newRx] = await insertReturning(db, prescriptions, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         doctorId: docId,
@@ -195,13 +191,10 @@ export async function POST(req: NextRequest) {
         bedNumber: body.bedNumber || null,
         patientNotifiedAt: new Date(),
         doctorNotifiedAt: new Date(),
-      })
-      .returning();
+      });
 
     // 6. Enqueue in Pharmacy Dispensing Queue
-    const [queueItem] = await db
-      .insert(pharmacyDispensingQueue)
-      .values({
+    const [queueItem] = await insertReturning(db, pharmacyDispensingQueue, {
         tenantId: DEFAULT_TENANT_ID,
         prescriptionId: newRx.id,
         patientId: validated.patientId,
@@ -216,8 +209,7 @@ export async function POST(req: NextRequest) {
         quantity: quantityNum,
         totalPrice: totalPriceStr,
         currency: "ETB",
-      })
-      .returning();
+      });
 
     // 7. Auto-notify Patient
     if (patient?.userId) {

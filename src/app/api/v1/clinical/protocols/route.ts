@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { clinicalCatalogProtocols } from "@/db/schema";
 import { CLINICAL_ORDER_SETS } from "@/lib/services/clinical-order-sets";
 import { LABORATORY_PROTOCOLS_CATALOGUE } from "@/lib/catalogue/laboratory-protocols-catalogue";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [created] = await db.insert(clinicalCatalogProtocols).values({
+    const [created] = await insertReturning(db, clinicalCatalogProtocols, {
       tenantId,
       kind,
       departmentId,
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
       metadata,
       createdBy: actorId || null,
       updatedBy: actorId || null,
-    }).returning();
+    });
     return NextResponse.json({ success: true, data: { ...created, defaultIndication: created.indication } }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -130,7 +131,7 @@ export async function PATCH(request: NextRequest) {
   if (!body.id) return NextResponse.json({ success: false, error: "id is required." }, { status: 400 });
 
   try {
-    const [updated] = await db.update(clinicalCatalogProtocols).set({
+    const [updated] = await updateReturning(db, clinicalCatalogProtocols, {
       ...(body.name !== undefined ? { name: String(body.name).trim() } : {}),
       ...(body.departmentId !== undefined ? { departmentId: body.departmentId } : {}),
       ...(body.indication !== undefined ? { indication: String(body.indication).trim() } : {}),
@@ -139,7 +140,7 @@ export async function PATCH(request: NextRequest) {
       ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
       updatedBy: body.actorId || null,
       updatedAt: new Date(),
-    }).where(and(eq(clinicalCatalogProtocols.id, body.id), eq(clinicalCatalogProtocols.tenantId, body.tenantId || DEFAULT_TENANT_ID))).returning();
+    }, and(eq(clinicalCatalogProtocols.id, body.id), eq(clinicalCatalogProtocols.tenantId, body.tenantId || DEFAULT_TENANT_ID)));
     if (!updated) return NextResponse.json({ success: false, error: "Catalog entry not found." }, { status: 404 });
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

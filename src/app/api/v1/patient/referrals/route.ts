@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { referrals } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -76,9 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [newRef] = await db
-      .insert(referrals)
-      .values({
+    const [newRef] = await insertReturning(db, referrals, {
         organizationId: pat.tenantId,
         patientId: pat.id,
         type: "self",
@@ -90,8 +89,7 @@ export async function POST(req: NextRequest) {
         status: "pending_review",
         clinicalReason: reason,
         notes: attachedNotes || null,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

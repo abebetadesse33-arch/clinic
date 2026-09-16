@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { clinicLocations, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -86,9 +87,7 @@ export async function PUT(
         .where(eq(clinicLocations.isMain, true));
     }
 
-    const [updated] = await db
-      .update(clinicLocations)
-      .set({
+    const [updated] = await updateReturning(db, clinicLocations, {
         name: name !== undefined ? name : existing.name,
         branchType: branchType !== undefined ? branchType : existing.branchType,
         neighborhood: neighborhood !== undefined ? neighborhood : existing.neighborhood,
@@ -108,9 +107,7 @@ export async function PUT(
         googleMapsUrl,
         osmUrl,
         updatedAt: new Date(),
-      })
-      .where(eq(clinicLocations.id, id))
-      .returning();
+      }, eq(clinicLocations.id, id));
 
     // Log admin audit
     try {
@@ -146,11 +143,7 @@ export async function DELETE(
   try {
     const { id } = params;
 
-    const [deleted] = await db
-      .update(clinicLocations)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(clinicLocations.id, id))
-      .returning();
+    const [deleted] = await updateReturning(db, clinicLocations, { isActive: false, updatedAt: new Date() }, eq(clinicLocations.id, id));
 
     if (!deleted) {
       return NextResponse.json(

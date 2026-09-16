@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { referrals, patients, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -90,9 +91,7 @@ export async function PUT(
         : {}),
     };
 
-    const [updated] = await db
-      .update(referrals)
-      .set({
+    const [updated] = await updateReturning(db, referrals, {
         status: status || undefined,
         responseNotes: responseNotes || undefined,
         scheduledAppointmentId: scheduledDate || undefined,
@@ -100,9 +99,7 @@ export async function PUT(
         updatedAt: now,
         ...(status === "accepted" || status === "approved" ? { acceptedAt: now } : {}),
         ...(status === "completed" ? { completedAt: now } : {}),
-      })
-      .where(eq(referrals.id, id))
-      .returning();
+      }, eq(referrals.id, id));
 
     return NextResponse.json({
       success: true,

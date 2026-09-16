@@ -4,6 +4,7 @@ import {
   payrollRuns, payrollItems, staffProfiles, staffAttendance, users,
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -71,16 +72,13 @@ export async function POST(req: NextRequest) {
       }
 
       // Create payroll run (draft)
-      const [run] = await db
-        .insert(payrollRuns)
-        .values({
+      const [run] = await insertReturning(db, payrollRuns, {
           tenantId, periodMonth, periodYear,
           status: "draft",
           staffCount: allStaff.length,
           processedBy: processedBy || null,
           processedAt: new Date(),
-        })
-        .returning();
+        });
 
       let totalGross = 0, totalNet = 0, totalTax = 0, totalPensionEmp = 0, totalPensionEmpr = 0;
       let totalOnCall = 0, totalOT = 0;
@@ -139,9 +137,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Update run totals and set to calculated
-      const [updatedRun] = await db
-        .update(payrollRuns)
-        .set({
+      const [updatedRun] = await updateReturning(db, payrollRuns, {
           totalGrossEtb: totalGross.toFixed(2),
           totalNetEtb: totalNet.toFixed(2),
           totalPayeTaxEtb: totalTax.toFixed(2),
@@ -150,30 +146,20 @@ export async function POST(req: NextRequest) {
           totalOnCallAllowanceEtb: totalOnCall.toFixed(2),
           totalOvertimePaidEtb: totalOT.toFixed(2),
           status: "calculated",
-        })
-        .where(eq(payrollRuns.id, run.id))
-        .returning();
+        }, eq(payrollRuns.id, run.id));
 
       return NextResponse.json({ success: true, data: { run: updatedRun, itemCount: items.length } }, { status: 201 });
     }
 
     if (action === "approve") {
       const { runId, approvedBy } = body;
-      const [updated] = await db
-        .update(payrollRuns)
-        .set({ status: "approved", approvedBy, approvedAt: new Date() })
-        .where(eq(payrollRuns.id, runId))
-        .returning();
+      const [updated] = await updateReturning(db, payrollRuns, { status: "approved", approvedBy, approvedAt: new Date() }, eq(payrollRuns.id, runId));
       return NextResponse.json({ success: true, data: updated });
     }
 
     if (action === "disburse") {
       const { runId } = body;
-      const [updated] = await db
-        .update(payrollRuns)
-        .set({ status: "disbursed", disbursedAt: new Date() })
-        .where(eq(payrollRuns.id, runId))
-        .returning();
+      const [updated] = await updateReturning(db, payrollRuns, { status: "disbursed", disbursedAt: new Date() }, eq(payrollRuns.id, runId));
       return NextResponse.json({ success: true, data: updated });
     }
 

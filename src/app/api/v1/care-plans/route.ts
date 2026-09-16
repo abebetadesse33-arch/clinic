@@ -4,6 +4,7 @@ import { carePlans, auditLogs } from "@/db/schema";
 import { createCarePlanSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -44,9 +45,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createCarePlanSchema.parse(body);
 
-    const [newPlan] = await db
-      .insert(carePlans)
-      .values({
+    const [newPlan] = await insertReturning(db, carePlans, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         createdBy: "11111111-1111-1111-1111-111111111101",
@@ -54,8 +53,7 @@ export async function POST(req: NextRequest) {
         goals: validated.goals || [],
         interventions: validated.interventions || [],
         status: "active",
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

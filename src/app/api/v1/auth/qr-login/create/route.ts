@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { qrLoginSessions } from "@/db/schema";
 import { randomBytes } from "crypto";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -17,16 +18,13 @@ export async function POST(req: NextRequest) {
     const ipAddress = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
     const deviceInfo = req.headers.get("user-agent") || "Secondary Web Browser / Clinic Terminal";
 
-    const [session] = await db
-      .insert(qrLoginSessions)
-      .values({
+    const [session] = await insertReturning(db, qrLoginSessions, {
         sessionChallenge,
         status: "pending",
         deviceInfo,
         ipAddress,
         expiresAt,
-      })
-      .returning();
+      });
 
     // Construct QR code payload with challenge token
     const qrPayload = JSON.stringify({

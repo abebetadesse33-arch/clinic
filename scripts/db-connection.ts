@@ -1,4 +1,4 @@
-import postgres, { type Sql } from "postgres";
+import mysql, { type Pool } from "mysql2/promise";
 
 const RETRIES = 8;
 const RETRY_DELAY_MS = 3000;
@@ -26,11 +26,11 @@ function errorDetails(error: unknown): string[] {
   return [String(error)];
 }
 
-export async function connectToDatabase(connectionString: string, operation: string): Promise<Sql> {
+export async function connectToDatabase(connectionString: string, operation: string): Promise<Pool> {
 
-  if (/^mysql:\/\//i.test(connectionString)) {
+  if (/^postgres(ql)?:\/\//i.test(connectionString)) {
     throw new Error(
-      `[${operation}] DATABASE_URL must use PostgreSQL (postgresql://). MySQL is not supported by NiniMed PostgreSQL schema.`
+      `[${operation}] DATABASE_URL must use MySQL (mysql://). PostgreSQL is not supported by NiniMed's MySQL schema.`
     );
   }
 
@@ -44,18 +44,18 @@ export async function connectToDatabase(connectionString: string, operation: str
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
-    const sql = postgres(connectionString, {
-      max: 1,
-      connect_timeout: 10,
-      idle_timeout: 30,
+    const pool = mysql.createPool({
+      uri: connectionString,
+      connectionLimit: 1,
+      connectTimeout: 10_000,
     });
 
     try {
-      await sql`select 1`;
-      return sql;
+      await pool.query("SELECT 1");
+      return pool;
     } catch (error) {
       lastError = error;
-      await sql.end({ timeout: 1 }).catch(() => undefined);
+      await pool.end().catch(() => undefined);
       if (attempt < RETRIES) {
         console.warn(`${operation}: database unavailable; retrying (${attempt}/${RETRIES})...`);
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
@@ -64,5 +64,5 @@ export async function connectToDatabase(connectionString: string, operation: str
   }
 
   const details = [...new Set(errorDetails(lastError))].join(" | ");
-  throw new Error(`${operation}: unable to connect to PostgreSQL after ${RETRIES} attempts. ${details}`);
+  throw new Error(`${operation}: unable to connect to MySQL after ${RETRIES} attempts. ${details}`);
 }

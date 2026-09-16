@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { actionConfigurations } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -76,9 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "pageKey, actionKey, and label are required" }, { status: 400 });
     }
 
-    const [created] = await db
-      .insert(actionConfigurations)
-      .values({
+    const [created] = await insertReturning(db, actionConfigurations, {
         pageKey,
         actionKey,
         label,
@@ -91,8 +90,7 @@ export async function POST(request: NextRequest) {
         requiredPermission: requiredPermission || null,
         order: typeof order === "number" ? order : 0,
         isActive: isActive !== false,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("actions", "created", created);
 
@@ -112,11 +110,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Action ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(actionConfigurations)
-      .set(updates)
-      .where(eq(actionConfigurations.id, id))
-      .returning();
+    const [updated] = await updateReturning(db, actionConfigurations, updates, eq(actionConfigurations.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Action config not found" }, { status: 404 });

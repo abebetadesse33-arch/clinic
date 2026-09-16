@@ -4,6 +4,7 @@ import { invoices, auditLogs } from "@/db/schema";
 import { createInvoiceSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -56,9 +57,7 @@ export async function POST(req: NextRequest) {
 
     const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const [newInvoice] = await db
-      .insert(invoices)
-      .values({
+    const [newInvoice] = await insertReturning(db, invoices, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         encounterId: validated.encounterId,
@@ -72,8 +71,7 @@ export async function POST(req: NextRequest) {
         currency: validated.currency || "ETB",
         status: "issued",
         dueDate: validated.dueDate,
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

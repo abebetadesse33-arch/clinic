@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { labQcRuns, auditLogs } from "@/db/schema";
 import { createLabQcRunSchema } from "@/lib/validations/schemas";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -15,9 +16,7 @@ export async function POST(req: NextRequest) {
     const zScore = (validated.measuredValue - validated.expectedMean) / validated.standardDeviation;
     const passed = Math.abs(zScore) <= 2.0;
 
-    const [newRun] = await db
-      .insert(labQcRuns)
-      .values({
+    const [newRun] = await insertReturning(db, labQcRuns, {
         tenantId: DEFAULT_TENANT_ID,
         instrumentId: validated.instrumentId,
         analyte: validated.analyte,
@@ -31,8 +30,7 @@ export async function POST(req: NextRequest) {
         zScore: zScore.toFixed(2),
         performedBy: "11111111-1111-1111-1111-111111111108",
         notes: validated.notes || (passed ? "QC In Control (Westgard 1:2s passed)" : "QC Out of Control: Lockout Warning"),
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

@@ -158,8 +158,7 @@ export async function POST(req: NextRequest) {
             isNotificationsEnabled: true,
             linkedAt: new Date(),
           })
-          .onConflictDoUpdate({
-            target: telegramIntegrations.userId,
+          .onDuplicateKeyUpdate({
             set: {
               telegramChatId: String(chatId),
               telegramUsername: message.from?.username || null,

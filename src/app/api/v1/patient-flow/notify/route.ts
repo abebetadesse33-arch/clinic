@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { patientWayfindingNotifications, patients, organizations } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -40,9 +41,7 @@ export async function POST(req: NextRequest) {
     // Compose Wayfinding Message Content
     const message = customMessage || `🎟️ Ticket #${ticketNumber}: Please proceed to ${targetLocation} (${floorLevel}). ${directionGuidance ? `🧭 Wayfinding: ${directionGuidance}. ` : ""}Estimated wait: ~${estimatedWaitMinutes} minutes.`;
 
-    const [notification] = await db
-      .insert(patientWayfindingNotifications)
-      .values({
+    const [notification] = await insertReturning(db, patientWayfindingNotifications, {
         tenantId: resolvedTenantId,
         patientId,
         encounterId: encounterId || null,
@@ -55,8 +54,7 @@ export async function POST(req: NextRequest) {
         recipientPhone: recipientPhone || null,
         messageContent: message,
         deliveryStatus: "sent",
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

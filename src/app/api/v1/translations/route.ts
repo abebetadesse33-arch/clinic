@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { translations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -77,15 +78,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "key, language, and value are required" }, { status: 400 });
     }
 
-    const [created] = await db
-      .insert(translations)
-      .values({
+    const [created] = await insertReturning(db, translations, {
         key,
         language,
         value,
         isActive: isActive !== false,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("translations", "created", created);
 
@@ -105,14 +103,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Translation ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(translations)
-      .set({
+    const [updated] = await updateReturning(db, translations, {
         ...updates,
         updatedAt: new Date(),
-      })
-      .where(eq(translations.id, id))
-      .returning();
+      }, eq(translations.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Translation not found" }, { status: 404 });

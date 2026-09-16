@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { posCashierShifts, posTransactions, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -101,14 +102,14 @@ export async function POST(req: NextRequest) {
       }
 
       const float = parseFloat(openingFloat ?? "1000");
-      const [shift] = await db.insert(posCashierShifts).values({
+      const [shift] = await insertReturning(db, posCashierShifts, {
         tenantId: TENANT_ID,
         cashierId,
         terminalId: terminalId ?? "POS-TERM-01",
         openingFloat: float.toFixed(2),
         expectedCash: float.toFixed(2),
         status: "open",
-      }).returning();
+      });
       return NextResponse.json({ success: true, data: shift });
     }
 
@@ -123,16 +124,13 @@ export async function POST(req: NextRequest) {
       const expected = parseFloat(shift.expectedCash?.toString() ?? "0");
       const variance = actual - expected;
 
-      const [closed] = await db.update(posCashierShifts)
-        .set({
+      const [closed] = await updateReturning(db, posCashierShifts, {
           status: "closed",
           closedAt: new Date(),
           actualCash: actual.toFixed(2),
           cashVariance: variance.toFixed(2),
           notes: notes ?? null,
-        })
-        .where(eq(posCashierShifts.id, shiftId))
-        .returning();
+        }, eq(posCashierShifts.id, shiftId));
       return NextResponse.json({ success: true, data: closed });
     }
 

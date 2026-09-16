@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { BillingAutomationService } from "@/lib/services/billing-automation-service";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -120,23 +121,17 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       });
 
       // Update subscription plan
-      const [updatedSub] = await db
-        .update(subscriptions)
-        .set({
+      const [updatedSub] = await updateReturning(db, subscriptions, {
           planId: newPlan.id,
           seatCount: newSeatCount || newPlan.maxMembers || sub.subscription.seatCount,
           updatedAt: new Date(),
-        })
-        .where(eq(subscriptions.id, params.id))
-        .returning();
+        }, eq(subscriptions.id, params.id));
 
       // If differential is payable, create adjustment invoice
       let adjustmentInvoice = null;
       if (proration.netPayableDifferential > 0) {
         const invNum = `ADJ-INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-        [adjustmentInvoice] = await db
-          .insert(subscriptionInvoices)
-          .values({
+        [adjustmentInvoice] = await insertReturning(db, subscriptionInvoices, {
             tenantId: sub.subscription.tenantId,
             subscriptionId: sub.subscription.id,
             invoiceNumber: invNum,
@@ -150,8 +145,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
             currency: newPlan.currency,
             status: "open",
             dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          })
-          .returning();
+          });
       }
 
       return NextResponse.json({
@@ -165,11 +159,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     if (newSeatCount && newSeatCount !== sub.subscription.seatCount) {
-      const [updatedSub] = await db
-        .update(subscriptions)
-        .set({ seatCount: Number(newSeatCount), updatedAt: new Date() })
-        .where(eq(subscriptions.id, params.id))
-        .returning();
+      const [updatedSub] = await updateReturning(db, subscriptions, { seatCount: Number(newSeatCount), updatedAt: new Date() }, eq(subscriptions.id, params.id));
 
       return NextResponse.json({ success: true, data: { subscription: updatedSub } });
     }
@@ -195,25 +185,17 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     if (cancelImmediately) {
-      const [updated] = await db
-        .update(subscriptions)
-        .set({
+      const [updated] = await updateReturning(db, subscriptions, {
           status: "cancelled",
           cancelledAt: new Date(),
           updatedAt: new Date(),
-        })
-        .where(eq(subscriptions.id, params.id))
-        .returning();
+        }, eq(subscriptions.id, params.id));
       return NextResponse.json({ success: true, data: updated, message: "Subscription cancelled immediately" });
     } else {
-      const [updated] = await db
-        .update(subscriptions)
-        .set({
+      const [updated] = await updateReturning(db, subscriptions, {
           cancelAtPeriodEnd: true,
           updatedAt: new Date(),
-        })
-        .where(eq(subscriptions.id, params.id))
-        .returning();
+        }, eq(subscriptions.id, params.id));
       return NextResponse.json({
         success: true,
         data: updated,

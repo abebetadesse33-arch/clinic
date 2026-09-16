@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { invoices, invoiceItems, servicePricingCatalog, systemPaymentSettings, patients, users } from "@/db/schema";
 import { eq, or, inArray } from "drizzle-orm";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -110,9 +111,7 @@ export async function POST(req: NextRequest) {
     const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
 
     // 5. Create Invoice Record
-    const [newInvoice] = await db
-      .insert(invoices)
-      .values({
+    const [newInvoice] = await insertReturning(db, invoices, {
         tenantId: "00000000-0000-0000-0000-000000000001",
         patientId: targetPatientId,
         invoiceNumber,
@@ -123,8 +122,7 @@ export async function POST(req: NextRequest) {
         status: totalAmount === 0 ? "paid" : "unpaid",
         paidAt: totalAmount === 0 ? new Date() : null,
         paymentMethod: totalAmount === 0 ? "free_tier" : null,
-      })
-      .returning();
+      });
 
     // 6. Insert Line Items
     if (computedItems.length > 0) {

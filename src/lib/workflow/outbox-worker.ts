@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { orderOutboxEvents } from "@/db/schema";
 import { eq, and, lte } from "drizzle-orm";
 import { dispatchOrderResultNotification } from "@/lib/workflow/care-team-resolver";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface QueueOutboxParams {
   tenantId: string;
@@ -18,9 +19,7 @@ export async function queueOrderOutboxEvent(params: QueueOutboxParams, tx?: any)
   const database = tx || db;
   const key = params.idempotencyKey || `evt-${params.orderId}-${params.eventType}-${Date.now()}`;
 
-  const [record] = await database
-    .insert(orderOutboxEvents)
-    .values({
+  const [record] = await insertReturning(database, orderOutboxEvents, {
       tenantId: params.tenantId,
       orderId: params.orderId,
       eventType: params.eventType,
@@ -28,9 +27,7 @@ export async function queueOrderOutboxEvent(params: QueueOutboxParams, tx?: any)
       status: "pending",
       idempotencyKey: key,
       retryCount: 0,
-    })
-    .onConflictDoNothing({ target: orderOutboxEvents.idempotencyKey })
-    .returning();
+    });
 
   return record;
 }

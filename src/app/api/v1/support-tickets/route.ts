@@ -4,6 +4,7 @@ import { supportTickets, supportTicketComments, auditLogs } from "@/db/schema";
 import { createSupportTicketSchema } from "@/lib/validations/schemas";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -37,9 +38,7 @@ export async function POST(req: NextRequest) {
 
     const ticketNumber = `TICK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const [newTicket] = await db
-      .insert(supportTickets)
-      .values({
+    const [newTicket] = await insertReturning(db, supportTickets, {
         tenantId: DEFAULT_TENANT_ID,
         ticketNumber,
         category: validated.category,
@@ -49,8 +48,7 @@ export async function POST(req: NextRequest) {
         description: validated.description,
         patientId: validated.patientId,
         reporterUserId: "11111111-1111-1111-1111-111111111101",
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

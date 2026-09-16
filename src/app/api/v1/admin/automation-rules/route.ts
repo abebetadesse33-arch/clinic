@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { automationRules } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,7 @@ export async function GET() {
       .orderBy(desc(automationRules.priority), desc(automationRules.createdAt));
 
     if (rows.length === 0) {
-      rows = await db.insert(automationRules).values(INITIAL_RULES).returning();
+      rows = await insertReturning(db, automationRules, INITIAL_RULES);
     }
 
     return NextResponse.json({
@@ -132,9 +133,7 @@ export async function POST(request: Request) {
 
     const cleanTriggerType = VALID_TRIGGER_TYPES.includes(triggerType) ? triggerType : "lab_value";
 
-    const [newRule] = await db
-      .insert(automationRules)
-      .values({
+    const [newRule] = await insertReturning(db, automationRules, {
         organizationId: DEFAULT_ORGANIZATION_ID,
         name: name.trim(),
         description: description?.trim() || null,
@@ -144,8 +143,7 @@ export async function POST(request: Request) {
         priority: priority ? Number(priority) : 1,
         isActive: true,
         escalationTimeoutMinutes: escalationTimeoutMinutes ? Number(escalationTimeoutMinutes) : 1440,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,
@@ -182,9 +180,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: "Rule not found" }, { status: 404 });
     }
 
-    const [updated] = await db
-      .update(automationRules)
-      .set({
+    const [updated] = await updateReturning(db, automationRules, {
         name: name !== undefined ? name : existing.name,
         description: description !== undefined ? description : existing.description,
         condition: condition !== undefined ? condition : existing.condition,
@@ -193,9 +189,7 @@ export async function PUT(request: Request) {
         priority: priority !== undefined ? Number(priority) : existing.priority,
         escalationTimeoutMinutes: escalationTimeoutMinutes !== undefined ? Number(escalationTimeoutMinutes) : existing.escalationTimeoutMinutes,
         updatedAt: new Date(),
-      })
-      .where(eq(automationRules.id, id))
-      .returning();
+      }, eq(automationRules.id, id));
 
     return NextResponse.json({
       success: true,

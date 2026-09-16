@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { telemedicineSessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 // ─── GET /api/v1/telemedicine/sessions ───────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -61,9 +62,7 @@ export async function POST(req: NextRequest) {
 
     const roomId = `room-${tenantId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-    const [session] = await db
-      .insert(telemedicineSessions)
-      .values({
+    const [session] = await insertReturning(db, telemedicineSessions, {
         tenantId,
         encounterId,
         patientId,
@@ -71,8 +70,7 @@ export async function POST(req: NextRequest) {
         roomId,
         status: "scheduled",
         startedAt: scheduledAt ? new Date(scheduledAt) : null,
-      })
-      .returning();
+      });
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const clinicianUrl = `${baseUrl}/telemedicine/${session.roomId}?role=clinician&sessionId=${session.id}`;

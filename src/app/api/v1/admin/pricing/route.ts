@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { servicePricingCatalog, systemPaymentSettings, auditLogs } from "@/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -47,28 +48,21 @@ export async function PATCH(req: NextRequest) {
 
     let updated: any;
     if (existingSettings) {
-      const [res] = await db
-        .update(systemPaymentSettings)
-        .set({
+      const [res] = await updateReturning(db, systemPaymentSettings, {
           globalFreeMode: typeof globalFreeMode === "boolean" ? globalFreeMode : existingSettings.globalFreeMode,
           registrationValidityDays: registrationValidityDays || existingSettings.registrationValidityDays,
           gracePeriodDays: gracePeriodDays || existingSettings.gracePeriodDays,
           allowCashReconciliation: typeof allowCashReconciliation === "boolean" ? allowCashReconciliation : existingSettings.allowCashReconciliation,
           updatedAt: new Date(),
-        })
-        .where(eq(systemPaymentSettings.id, existingSettings.id))
-        .returning();
+        }, eq(systemPaymentSettings.id, existingSettings.id));
       updated = res;
     } else {
-      const [res] = await db
-        .insert(systemPaymentSettings)
-        .values({
+      const [res] = await insertReturning(db, systemPaymentSettings, {
           globalFreeMode: Boolean(globalFreeMode),
           registrationValidityDays: registrationValidityDays || 90,
           gracePeriodDays: gracePeriodDays || 7,
           allowCashReconciliation: allowCashReconciliation ?? true,
-        })
-        .returning();
+        });
       updated = res;
     }
 
@@ -111,9 +105,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [created] = await db
-      .insert(servicePricingCatalog)
-      .values({
+    const [created] = await insertReturning(db, servicePricingCatalog, {
         serviceCode: serviceCode.toUpperCase().trim(),
         category,
         name,
@@ -123,8 +115,7 @@ export async function POST(req: NextRequest) {
         isFree: Boolean(isFree),
         isActive: true,
         validityDays: validityDays ? Number(validityDays) : null,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

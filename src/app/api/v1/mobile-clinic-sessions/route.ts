@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { mobileClinicSessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 // ─── GET /api/v1/mobile-clinic-sessions ──────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -53,9 +54,7 @@ export async function POST(req: NextRequest) {
 
     const dateVal = scheduledDate || sessionDate || new Date().toISOString().split("T")[0];
 
-    const [session] = await db
-      .insert(mobileClinicSessions)
-      .values({
+    const [session] = await insertReturning(db, mobileClinicSessions, {
         tenantId,
         name: name || sessionName || `Mobile Clinic – ${locationName}`,
         locationName,
@@ -65,8 +64,7 @@ export async function POST(req: NextRequest) {
         status: "in_progress",
         services: services || ["consultation", "point_of_care_lab", "pharmacy_dispensation"],
         assignedStaff: assignedStaff || [],
-      })
-      .returning();
+      });
 
     return NextResponse.json({ session });
   } catch (error) {

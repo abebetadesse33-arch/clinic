@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientQuestionnaires } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -71,9 +72,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [newQ] = await db
-      .insert(patientQuestionnaires)
-      .values({
+    const [newQ] = await insertReturning(db, patientQuestionnaires, {
         organizationId: pat.tenantId,
         patientId: pat.id,
         questionnaireType,
@@ -81,8 +80,7 @@ export async function POST(req: NextRequest) {
         responses,
         totalScore: totalScore || 0,
         riskCategory: riskCategory || "Completed",
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

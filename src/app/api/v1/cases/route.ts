@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cases, users, notifications, patients, telemedicineSessions, encounters } from "@/db/schema";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { eq, desc, and, or, inArray } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -111,9 +112,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Insert into PostgreSQL cases table
-    const [insertedCase] = await db
-      .insert(cases)
-      .values({
+    const [insertedCase] = await insertReturning(db, cases, {
         caseId,
         caseNumber: caseId,
         tenantId: DEFAULT_TENANT_ID,
@@ -134,8 +133,7 @@ export async function POST(request: NextRequest) {
         filesAttached: attached,
         timeline: initialTimeline,
         submittedAt: now,
-      })
-      .returning();
+      });
 
     // ── Provision real telemedicine session for urgent / video requests ──────
     let urgentJoinUrls: { patient: string; clinician: string } | null = null;
@@ -156,9 +154,7 @@ export async function POST(request: NextRequest) {
         if (!resolvedClinicianGuid) throw new Error("No valid clinician found");
         if (!resolvedPatientGuid) throw new Error("No valid patient found");
 
-        const [encounter] = await db
-          .insert(encounters)
-          .values({
+        const [encounter] = await insertReturning(db, encounters, {
             tenantId: DEFAULT_TENANT_ID,
             patientId: resolvedPatientGuid,
             clinicianId: resolvedClinicianGuid,
@@ -166,21 +162,17 @@ export async function POST(request: NextRequest) {
             status: "planned",
             admissionStatus: "outpatient",
             chiefComplaint: resolvedComplaint.chiefComplaint,
-          })
-          .returning();
+          });
 
         const urgentRoomId = `urgent-${DEFAULT_TENANT_ID.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-        const [urgentSession] = await db
-          .insert(telemedicineSessions)
-          .values({
+        const [urgentSession] = await insertReturning(db, telemedicineSessions, {
             tenantId: DEFAULT_TENANT_ID,
             encounterId: encounter.id,
             patientId: resolvedPatientGuid,
             doctorId: resolvedClinicianGuid,
             roomId: urgentRoomId,
             status: "scheduled",
-          })
-          .returning();
+          });
 
         urgentSessionId = urgentSession.id;
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

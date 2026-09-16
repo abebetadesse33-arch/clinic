@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { stateSlas, stateSlaViolations } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { DEFAULT_STATE_SLAS } from "@/lib/services/central-state-machine";
+import { insertReturning } from "@/lib/db/returning";
 
 export async function GET(req: NextRequest) {
   try {
@@ -41,17 +42,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [sla] = await db
-      .insert(stateSlas)
-      .values({
+    const [sla] = await insertReturning(db, stateSlas, {
         tenantId,
         workflow,
         state,
         maxDurationSeconds,
         escalationAction: escalationAction || "notify_supervisor",
         escalationTargetRole: escalationTargetRole || "doctor",
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, sla });
   } catch (error: any) {

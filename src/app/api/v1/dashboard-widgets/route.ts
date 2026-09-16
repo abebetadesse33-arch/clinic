@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { dashboardWidgets } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +51,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "role and widgetName are required" }, { status: 400 });
     }
 
-    const [created] = await db
-      .insert(dashboardWidgets)
-      .values({
+    const [created] = await insertReturning(db, dashboardWidgets, {
         role,
         widgetName,
         widgetType: widgetType || "stats",
@@ -62,8 +61,7 @@ export async function POST(request: NextRequest) {
         position: typeof position === "number" ? position : 0,
         gridSpan: typeof gridSpan === "number" ? gridSpan : 1,
         isActive: isActive !== false,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("dashboard-widgets", "created", created);
 
@@ -83,14 +81,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Widget ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(dashboardWidgets)
-      .set({
+    const [updated] = await updateReturning(db, dashboardWidgets, {
         ...updates,
         updatedAt: new Date(),
-      })
-      .where(eq(dashboardWidgets.id, id))
-      .returning();
+      }, eq(dashboardWidgets.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Widget not found" }, { status: 404 });

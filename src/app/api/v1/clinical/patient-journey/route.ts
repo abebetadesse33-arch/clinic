@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { patientJourneyEvents, patients, users, organizations } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -130,9 +131,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert new journey event
-    const [newEvent] = await db
-      .insert(patientJourneyEvents)
-      .values({
+    const [newEvent] = await insertReturning(db, patientJourneyEvents, {
         tenantId: resolvedTenantId,
         patientId,
         encounterId: encounterId || null,
@@ -142,8 +141,7 @@ export async function POST(req: NextRequest) {
         attendingStaffId: attendingStaffId || null,
         stageStatus: "in_progress",
         notes: notes || null,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

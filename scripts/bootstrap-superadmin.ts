@@ -1,4 +1,5 @@
-import postgres from "postgres";
+import mysql from "mysql2/promise";
+import { randomUUID } from "crypto";
 import { hashPassword } from "../src/lib/security/password";
 import { ensureAuthSchemaWithClient } from "../src/db/auth-schema";
 
@@ -20,56 +21,45 @@ if (password.length < 12) {
 }
 
 const passwordHash = await hashPassword(password);
-const sql = postgres(databaseUrl, { connect_timeout: 10 });
+const sql = mysql.createPool({ uri: databaseUrl, connectionLimit: 1, connectTimeout: 10_000 });
 
 try {
   await ensureAuthSchemaWithClient(sql);
 
-  const [organization] = await sql`
-    SELECT id FROM organizations
-    ORDER BY created_at ASC
-    LIMIT 1
-  `;
+  const [[organization]] = await sql.query<any[]>(
+    `SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1`
+  );
 
   if (!organization) {
     throw new Error("No organization exists. Run database migrations first.");
   }
 
-  const [user] = await sql`
-    INSERT INTO users (
-      organization_id,
-      email,
-      password_hash,
-      full_name,
-      role,
-      department,
-      is_admin_granted_by_super_admin,
-      is_active
+  const candidateId = randomUUID();
+  await sql.query(
+    `INSERT INTO users (
+      id, organization_id, email, password_hash, full_name, role, department,
+      is_admin_granted_by_super_admin, is_active, created_at, updated_at
     )
-    VALUES (
-      ${organization.id},
-      ${email},
-      ${passwordHash},
-      ${fullName},
-      'system_admin',
-      'Enterprise IT & Clinical Governance',
-      TRUE,
-      TRUE
-    )
-    ON CONFLICT (email) DO UPDATE SET
-      organization_id = EXCLUDED.organization_id,
-      password_hash = EXCLUDED.password_hash,
-      full_name = EXCLUDED.full_name,
+    VALUES (?, ?, ?, ?, ?, 'system_admin', 'Enterprise IT & Clinical Governance', TRUE, TRUE, NOW(), NOW())
+    ON DUPLICATE KEY UPDATE
+      organization_id = VALUES(organization_id),
+      password_hash = VALUES(password_hash),
+      full_name = VALUES(full_name),
       role = 'system_admin',
-      department = EXCLUDED.department,
+      department = VALUES(department),
       is_admin_granted_by_super_admin = TRUE,
       is_active = TRUE,
-      updated_at = CURRENT_TIMESTAMP
-    RETURNING id, email, role, is_active
-  `;
+      updated_at = NOW()`,
+    [candidateId, organization.id, email, passwordHash, fullName]
+  );
+
+  const [[user]] = await sql.query<any[]>(
+    `SELECT id, email, role, is_active FROM users WHERE email = ?`,
+    [email]
+  );
 
   // A password reset invalidates any sessions that may exist for this account.
-  await sql`DELETE FROM auth_sessions WHERE user_id = ${user.id}`;
+  await sql.query(`DELETE FROM auth_sessions WHERE user_id = ?`, [user.id]);
 
   console.log(`Super administrator enabled: ${user.email} (${user.role})`);
 } finally {

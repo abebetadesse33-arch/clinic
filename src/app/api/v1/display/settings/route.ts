@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { waitingRoomDisplays } from "@/db/schema";
 import { WaitingRoomService, DEFAULT_DISPLAY_SETTINGS } from "@/lib/services/waiting-room-service";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -54,11 +55,7 @@ export async function PUT(req: NextRequest) {
     if (location) updatePayload.location = location;
     if (settings) updatePayload.settings = settings;
 
-    const [updated] = await db
-      .update(waitingRoomDisplays)
-      .set(updatePayload)
-      .where(eq(waitingRoomDisplays.id, targetId))
-      .returning();
+    const [updated] = await updateReturning(db, waitingRoomDisplays, updatePayload, eq(waitingRoomDisplays.id, targetId));
 
     if (updated) {
       WaitingRoomService.broadcast({

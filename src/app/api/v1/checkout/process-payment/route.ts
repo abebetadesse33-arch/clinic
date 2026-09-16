@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { invoices, invoiceItems, patientRegistrationPasses, auditLogs, patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -51,16 +52,12 @@ export async function POST(req: NextRequest) {
     const paidAt = new Date();
 
     // 3. Update Invoice Status to Paid
-    const [updatedInvoice] = await db
-      .update(invoices)
-      .set({
+    const [updatedInvoice] = await updateReturning(db, invoices, {
         status: "paid",
         paymentMethod,
         transactionRef,
         paidAt,
-      })
-      .where(eq(invoices.id, invoice.id))
-      .returning();
+      }, eq(invoices.id, invoice.id));
 
     // 4. Check for 3-Month Registration & Activate Membership
     const hasRegistration = items.some(
@@ -72,16 +69,13 @@ export async function POST(req: NextRequest) {
       const startsAt = new Date();
       const expiresAt = new Date(startsAt.getTime() + 90 * 24 * 60 * 60 * 1000); // 90 days
 
-      const [newReg] = await db
-        .insert(patientRegistrationPasses)
-        .values({
+      const [newReg] = await insertReturning(db, patientRegistrationPasses, {
           patientId: invoice.patientId,
           invoiceId: invoice.id,
           startsAt,
           expiresAt,
           status: "active",
-        })
-        .returning();
+        });
 
       registrationRecord = newReg;
     }

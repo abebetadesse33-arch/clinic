@@ -4,6 +4,7 @@ import { appointments, auditLogs, patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuthenticatedUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { updateReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -103,11 +104,7 @@ export async function PATCH(
         : `Cancellation Reason: ${cancelReason}`;
     }
 
-    const [updated] = await db
-      .update(appointments)
-      .set(updateFields)
-      .where(eq(appointments.id, params.id))
-      .returning();
+    const [updated] = await updateReturning(db, appointments, updateFields, eq(appointments.id, params.id));
 
     if (!updated) {
       return NextResponse.json(
@@ -219,11 +216,7 @@ export async function DELETE(
       return auth.response;
     }
 
-    const [deleted] = await db
-      .update(appointments)
-      .set({ status: "cancelled", updatedAt: new Date() })
-      .where(eq(appointments.id, params.id))
-      .returning();
+    const [deleted] = await updateReturning(db, appointments, { status: "cancelled", updatedAt: new Date() }, eq(appointments.id, params.id));
 
     if (!deleted) {
       return NextResponse.json(

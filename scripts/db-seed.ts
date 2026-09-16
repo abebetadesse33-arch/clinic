@@ -13,12 +13,12 @@ async function main() {
 
   const sql = await connectToDatabase(connectionString, "Seed");
   try {
-    await sql`select pg_advisory_lock(hashtext('ninimed-schema-migration'))`;
+    await sql.query("SELECT GET_LOCK('ninimed-schema-migration', 30)");
     process.env.NINIMED_STRICT_DB = "true";
     await ensureDatabaseInitialized(sql, { seed: true });
     console.log("Database seed completed successfully.");
   } finally {
-    await sql`select pg_advisory_unlock(hashtext('ninimed-schema-migration'))`;
+    await sql.query("SELECT RELEASE_LOCK('ninimed-schema-migration')").catch(() => undefined);
     await sql.end();
   }
 }

@@ -8,6 +8,7 @@ import {
   encounters,
 } from "@/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -164,9 +165,7 @@ export async function POST(req: NextRequest) {
     let encounterId: string | null = null;
     if (createEncounter && resolvedStaffId) {
       try {
-        const [newEncounter] = await db
-          .insert(encounters)
-          .values({
+        const [newEncounter] = await insertReturning(db, encounters, {
             tenantId: firstOrg.id,
             patientId,
             clinicianId: resolvedStaffId,
@@ -174,8 +173,7 @@ export async function POST(req: NextRequest) {
             status: "in_progress",
             admissionStatus: "outpatient",
             chiefComplaint: chiefComplaint || "Walk-in triage",
-          } as any)
-          .returning({ id: encounters.id });
+          } as any);
         encounterId = newEncounter?.id ?? null;
       } catch (encErr) {
         // encounter creation is best-effort
@@ -206,9 +204,7 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(" | ");
 
-    const [newEvent] = await db
-      .insert(patientJourneyEvents)
-      .values({
+    const [newEvent] = await insertReturning(db, patientJourneyEvents, {
         tenantId: firstOrg.id,
         patientId,
         encounterId,
@@ -218,8 +214,7 @@ export async function POST(req: NextRequest) {
         attendingStaffId: resolvedStaffId,
         stageStatus: "in_progress",
         notes: triageNotes,
-      })
-      .returning();
+      });
 
     return NextResponse.json(
       {

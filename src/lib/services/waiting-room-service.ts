@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { eq, and, inArray, desc, asc, sql } from "drizzle-orm";
 import { EventEmitter } from "events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 // Global Waiting Room Display Event Bus for SSE broadcasting
 class WaitingRoomEventBus extends EventEmitter {}
@@ -87,17 +88,14 @@ export class WaitingRoomService {
 
     // Auto-create initial default display
     const token = `disp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const [created] = await db
-      .insert(waitingRoomDisplays)
-      .values({
+    const [created] = await insertReturning(db, waitingRoomDisplays, {
         tenantId: orgId,
         name: "Main Waiting Room Screen",
         location: "Ground Floor Lobby",
         displayToken: token,
         isActive: true,
         settings: DEFAULT_DISPLAY_SETTINGS,
-      })
-      .returning();
+      });
 
     return created;
   }
@@ -369,14 +367,10 @@ export class WaitingRoomService {
    * Update display heartbeat timestamp
    */
   static async updateHeartbeat(displayToken: string) {
-    const [updated] = await db
-      .update(waitingRoomDisplays)
-      .set({
+    const [updated] = await updateReturning(db, waitingRoomDisplays, {
         lastHeartbeatAt: new Date(),
         updatedAt: new Date(),
-      })
-      .where(eq(waitingRoomDisplays.displayToken, displayToken))
-      .returning();
+      }, eq(waitingRoomDisplays.displayToken, displayToken));
 
     return updated;
   }

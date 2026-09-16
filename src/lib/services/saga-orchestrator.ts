@@ -8,6 +8,7 @@ import {
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { CentralStateMachineService } from "./central-state-machine";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export interface SagaStepResult {
   stepName: string;
@@ -33,24 +34,19 @@ export class SagaOrchestrator {
     const steps: SagaStepResult[] = [];
 
     // Initialize Saga Transaction Record
-    const [saga] = await db
-      .insert(sagaTransactions)
-      .values({
+    const [saga] = await insertReturning(db, sagaTransactions, {
         tenantId: input.tenantId,
         encounterId: input.encounterId,
         sagaType: "lab_order_payment_saga",
         status: "in_progress",
         steps: [],
-      })
-      .returning();
+      });
 
     try {
       // Step 1: Create Lab Order in database
       const createdOrders = [];
       for (const test of input.testNames) {
-        const [lo] = await db
-          .insert(labOrders)
-          .values({
+        const [lo] = await insertReturning(db, labOrders, {
             tenantId: input.tenantId,
             patientId: input.patientId,
             doctorId: input.doctorId,
@@ -58,8 +54,7 @@ export class SagaOrchestrator {
             clinicalReason: "Saga automated admission lab order",
             priority: "urgent",
             status: "ordered",
-          })
-          .returning();
+          });
         createdOrders.push(lo);
       }
 
@@ -152,16 +147,13 @@ export class SagaOrchestrator {
   }) {
     const steps: SagaStepResult[] = [];
 
-    const [saga] = await db
-      .insert(sagaTransactions)
-      .values({
+    const [saga] = await insertReturning(db, sagaTransactions, {
         tenantId: input.tenantId,
         encounterId: input.encounterId,
         sagaType: "pharmacy_payment_dispense_saga",
         status: "in_progress",
         steps: [],
-      })
-      .returning();
+      });
 
     try {
       // Step 1: Create Prescriptions (status: draft)
@@ -169,9 +161,7 @@ export class SagaOrchestrator {
       let totalCost = 0;
       for (const med of input.medications) {
         totalCost += med.cost;
-        const [rx] = await db
-          .insert(prescriptions)
-          .values({
+        const [rx] = await insertReturning(db, prescriptions, {
             tenantId: input.tenantId,
             patientId: input.patientId,
             doctorId: input.doctorId,
@@ -182,8 +172,7 @@ export class SagaOrchestrator {
             durationDays: 7,
             quantity: 7,
             status: "draft",
-          })
-          .returning();
+          });
         createdRx.push(rx);
       }
 
@@ -287,16 +276,12 @@ export class SagaOrchestrator {
     }
 
     // Update Saga status to compensated
-    const [updatedSaga] = await db
-      .update(sagaTransactions)
-      .set({
+    const [updatedSaga] = await updateReturning(db, sagaTransactions, {
         status: "compensated",
         errorDetails: reason,
         steps,
         updatedAt: new Date(),
-      })
-      .where(eq(sagaTransactions.id, sagaId))
-      .returning();
+      }, eq(sagaTransactions.id, sagaId));
 
     // Log Audit
     await db.insert(auditLogs).values({

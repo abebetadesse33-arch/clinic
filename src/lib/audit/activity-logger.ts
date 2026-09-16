@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { patientActivities } from "@/db/schema";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface LogActivityParams {
   tenantId?: string;
@@ -35,9 +36,7 @@ const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
  */
 export async function logPatientActivity(params: LogActivityParams) {
   try {
-    const [inserted] = await db
-      .insert(patientActivities)
-      .values({
+    const [inserted] = await insertReturning(db, patientActivities, {
         tenantId: params.tenantId || DEFAULT_TENANT_ID,
         patientId: params.patientId,
         actorUserId: params.actorUserId || null,
@@ -48,8 +47,7 @@ export async function logPatientActivity(params: LogActivityParams) {
         description: params.description || null,
         severity: params.severity || "info",
         metadata: params.metadata || {},
-      })
-      .returning();
+      });
 
     return inserted;
   } catch (error) {

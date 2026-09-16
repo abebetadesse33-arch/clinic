@@ -3,6 +3,7 @@ import { queueEntries, cases, patients, users } from "@/db/schema";
 import { eq, and, asc, desc, inArray, sql } from "drizzle-orm";
 import { RealtimeBroadcaster } from "./realtime-broadcaster";
 import { WaitingRoomService } from "./waiting-room-service";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export interface EnqueueParams {
   tenantId?: string;
@@ -57,9 +58,7 @@ export class QueueService {
     const department = params.department || "General Clinic";
     const servicePoint = params.servicePoint || "Waiting Area";
 
-    const [entry] = await db
-      .insert(queueEntries)
-      .values({
+    const [entry] = await insertReturning(db, queueEntries, {
         tenantId,
         caseId: params.caseId || null,
         patientId: params.patientId,
@@ -73,8 +72,7 @@ export class QueueService {
         department,
         estimatedWaitMinutes,
         metadata: params.metadata || {},
-      })
-      .returning();
+      });
 
     // 2. Broadcast queue addition to staff
     await RealtimeBroadcaster.broadcast({
@@ -243,11 +241,7 @@ export class QueueService {
     if (options?.calledByUserId) updatePayload.calledByUserId = options.calledByUserId;
     if (options?.providerId) updatePayload.providerId = options.providerId;
 
-    const [updated] = await db
-      .update(queueEntries)
-      .set(updatePayload)
-      .where(eq(queueEntries.id, queueId))
-      .returning();
+    const [updated] = await updateReturning(db, queueEntries, updatePayload, eq(queueEntries.id, queueId));
 
     if (updated) {
       // Fetch patient and caller details
@@ -368,11 +362,7 @@ export class QueueService {
     if (status === "in_service") updateData.startedAt = new Date();
     if (status === "completed") updateData.completedAt = new Date();
 
-    const [updated] = await db
-      .update(queueEntries)
-      .set(updateData)
-      .where(eq(queueEntries.id, queueId))
-      .returning();
+    const [updated] = await updateReturning(db, queueEntries, updateData, eq(queueEntries.id, queueId));
 
     if (updated) {
       WaitingRoomService.broadcast({

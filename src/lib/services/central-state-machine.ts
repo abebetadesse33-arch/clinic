@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { EncounterTabService } from "./encounter-tab-service";
+import { insertReturning } from "@/lib/db/returning";
 
 // ─── Workflow & State Constants ──────────────────────────────────────────────
 
@@ -502,9 +503,7 @@ export class CentralStateMachineService {
     }
 
     // 4. Append Immutable Event Record to Store
-    const [loggedEvent] = await db
-      .insert(encounterEvents)
-      .values({
+    const [loggedEvent] = await insertReturning(db, encounterEvents, {
         tenantId: input.tenantId,
         encounterId: input.encounterId,
         eventName: input.eventName,
@@ -512,8 +511,7 @@ export class CentralStateMachineService {
         actorId: input.actorId || null,
         actorRole: input.actorRole || "system",
         correlationId: input.correlationId || `corr-${Date.now()}`,
-      })
-      .returning();
+      });
 
     // 5. Close Previous State (if active)
     if (currentStateRecord) {

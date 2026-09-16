@@ -4,6 +4,7 @@ import { sharedMedicalRecords } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +40,7 @@ export async function POST(req: NextRequest) {
     const shareToken = `smr_${randomBytes(16).toString("hex")}`;
     const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
 
-    const [record] = await db
-      .insert(sharedMedicalRecords)
-      .values({
+    const [record] = await insertReturning(db, sharedMedicalRecords, {
         patientId: pat.id,
         shareToken,
         accessScope,
@@ -49,8 +48,7 @@ export async function POST(req: NextRequest) {
         doctorName: doctorName ? String(doctorName).trim() : null,
         status: "active",
         expiresAt,
-      })
-      .returning();
+      });
 
     // Construct full share URL
     const origin = req.nextUrl.origin || "https://app.ninimed.org";

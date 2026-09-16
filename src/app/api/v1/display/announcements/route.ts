@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { displayAnnouncements } from "@/db/schema";
 import { WaitingRoomService } from "@/lib/services/waiting-room-service";
 import { desc, eq, and } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +58,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [created] = await db
-      .insert(displayAnnouncements)
-      .values({
+    const [created] = await insertReturning(db, displayAnnouncements, {
         tenantId,
         displayId: displayId || null,
         message: message.trim(),
@@ -68,8 +67,7 @@ export async function POST(req: NextRequest) {
         isActive: true,
         startsAt: startsAt ? new Date(startsAt) : new Date(),
         endsAt: endsAt ? new Date(endsAt) : null,
-      })
-      .returning();
+      });
 
     // Broadcast announcement event to active displays
     WaitingRoomService.broadcast({
@@ -103,11 +101,7 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    const [updated] = await db
-      .update(displayAnnouncements)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(displayAnnouncements.id, id))
-      .returning();
+    const [updated] = await updateReturning(db, displayAnnouncements, { isActive: false, updatedAt: new Date() }, eq(displayAnnouncements.id, id));
 
     if (updated) {
       WaitingRoomService.broadcast({

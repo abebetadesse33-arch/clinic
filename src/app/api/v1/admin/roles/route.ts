@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { customRoles, userCustomRoles, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAdminUser } from "@/lib/security/auth-session";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
       const { code, name, description, category, permissions } = body;
       if (!code || !name) return NextResponse.json({ error: "code and name required" }, { status: 400 });
 
-      const [role] = await db.insert(customRoles).values({
+      const [role] = await insertReturning(db, customRoles, {
         tenantId,
         code: code.toLowerCase().replace(/\s+/g, "_"),
         name,
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
         category: category || "clinical",
         permissions: permissions || [],
         isSystem: false,
-      }).returning();
+      });
       return NextResponse.json({ success: true, data: role });
     }
 
@@ -105,20 +106,17 @@ export async function POST(req: NextRequest) {
         ));
 
       if (existing.length > 0) {
-        const [updated] = await db.update(userCustomRoles)
-          .set({ isActive: true, expiresAt: expiresAt ? new Date(expiresAt) : null })
-          .where(eq(userCustomRoles.id, existing[0].id))
-          .returning();
+        const [updated] = await updateReturning(db, userCustomRoles, { isActive: true, expiresAt: expiresAt ? new Date(expiresAt) : null }, eq(userCustomRoles.id, existing[0].id));
         return NextResponse.json({ success: true, data: updated });
       }
 
-      const [assignment] = await db.insert(userCustomRoles).values({
+      const [assignment] = await insertReturning(db, userCustomRoles, {
         tenantId,
         userId,
         roleId,
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         isActive: true,
-      }).returning();
+      });
       return NextResponse.json({ success: true, data: assignment });
     }
 
@@ -137,14 +135,11 @@ export async function POST(req: NextRequest) {
     if (action === "update_role") {
       const { roleId, name, description, category, permissions } = body;
       if (!roleId) return NextResponse.json({ error: "roleId required" }, { status: 400 });
-      const [updated] = await db.update(customRoles)
-        .set({ name, description, category, permissions, updatedAt: new Date() })
-        .where(and(
+      const [updated] = await updateReturning(db, customRoles, { name, description, category, permissions, updatedAt: new Date() }, and(
           eq(customRoles.id, roleId),
           eq(customRoles.tenantId, tenantId),
           eq(customRoles.isSystem, false)
-        ))
-        .returning();
+        ));
       return NextResponse.json({ success: true, data: updated });
     }
 

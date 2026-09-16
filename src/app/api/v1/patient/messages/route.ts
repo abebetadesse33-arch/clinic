@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientMessages, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -82,9 +83,7 @@ export async function POST(req: NextRequest) {
 
     const targetRecipientId = recipientId || pat.primaryDoctorId || user.id;
 
-    const [newMsg] = await db
-      .insert(patientMessages)
-      .values({
+    const [newMsg] = await insertReturning(db, patientMessages, {
         organizationId: pat.tenantId,
         patientId: pat.id,
         senderId: user.id,
@@ -94,8 +93,7 @@ export async function POST(req: NextRequest) {
         subject: subject || "Message to Care Team",
         body: messageText.trim(),
         isRead: false,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

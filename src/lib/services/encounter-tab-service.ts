@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { encounterTabs, encounters, patients, users, auditLogs, systemPaymentSettings } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export interface ChargeItem {
   id: string;
@@ -68,25 +69,19 @@ export class EncounterTabService {
         const refundDue = Math.max(0, newDeposit - totalCharges);
         const balanceDue = Math.max(0, totalCharges - newDeposit);
 
-        const [updated] = await db
-          .update(encounterTabs)
-          .set({
+        const [updated] = await updateReturning(db, encounterTabs, {
             depositAmountEtb: newDeposit.toFixed(2),
             refundDueEtb: refundDue.toFixed(2),
             balanceDueEtb: balanceDue.toFixed(2),
             depositTxRef,
             updatedAt: new Date(),
-          })
-          .where(eq(encounterTabs.id, existingTab.id))
-          .returning();
+          }, eq(encounterTabs.id, existingTab.id));
 
         return updated;
       }
     }
 
-    const [tab] = await db
-      .insert(encounterTabs)
-      .values({
+    const [tab] = await insertReturning(db, encounterTabs, {
         tenantId,
         encounterId: input.encounterId,
         patientId: input.patientId,
@@ -98,8 +93,7 @@ export class EncounterTabService {
         balanceDueEtb: "0.00",
         refundDueEtb: depositAmount.toFixed(2),
         chargesList: [],
-      })
-      .returning();
+      });
 
     // Audit log
     try {
@@ -254,17 +248,13 @@ export class EncounterTabService {
     const newStatus = isRefund ? "refunded" : "settled";
     const now = new Date();
 
-    const [updatedTab] = await db
-      .update(encounterTabs)
-      .set({
+    const [updatedTab] = await updateReturning(db, encounterTabs, {
         status: newStatus,
         settledAt: now,
         settledBy: input.settledBy || null,
         settlementNotes: input.settlementNotes || (isRefund ? `Refund of ETB ${statement.refundDueEtb.toFixed(2)} disbursed.` : `Final balance settled via ${input.finalPaymentMethod || 'cash'}.`),
         updatedAt: now,
-      })
-      .where(eq(encounterTabs.id, statement.tabId))
-      .returning();
+      }, eq(encounterTabs.id, statement.tabId));
 
     // Audit log
     try {

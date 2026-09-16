@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { cases, notifications, users } from "@/db/schema";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { eq, or } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -167,11 +168,7 @@ export async function PATCH(
       updateFields.timeline = existingTimeline;
     }
 
-    const [updated] = await db
-      .update(cases)
-      .set(updateFields)
-      .where(eq(cases.id, currentCase.id))
-      .returning();
+    const [updated] = await updateReturning(db, cases, updateFields, eq(cases.id, currentCase.id));
 
     return NextResponse.json({
       success: true,

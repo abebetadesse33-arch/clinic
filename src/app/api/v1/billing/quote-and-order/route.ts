@@ -11,6 +11,7 @@ import {
   systemPaymentSettings,
 } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -195,9 +196,7 @@ export async function POST(req: NextRequest) {
     const invoicePrefix = department === "laboratory" ? "INV-LAB" : department === "pharmacy" ? "INV-RX" : "INV-CLINIC";
     const invoiceNumber = `${invoicePrefix}-${new Date().getFullYear()}${Math.floor(100000 + Math.random() * 900000)}`;
 
-    const [newInvoice] = await db
-      .insert(invoices)
-      .values({
+    const [newInvoice] = await insertReturning(db, invoices, {
         tenantId: patient.tenantId || "00000000-0000-0000-0000-000000000001",
         patientId,
         invoiceNumber,
@@ -209,8 +208,7 @@ export async function POST(req: NextRequest) {
         totalAmount: totalAmount.toString(),
         currency: "ETB",
         paidAt: totalAmount === 0 ? new Date() : null,
-      })
-      .returning();
+      });
 
     // 8. Insert Invoice Line Items
     for (const item of lineItems) {
@@ -229,9 +227,7 @@ export async function POST(req: NextRequest) {
     if (department === "laboratory" || department === "combined") {
       const doc = doctorId || "00000000-0000-0000-0000-000000000001";
       for (const item of lineItems.filter((i) => i.category === "laboratory")) {
-        const [order] = await db
-          .insert(labOrders)
-          .values({
+        const [order] = await insertReturning(db, labOrders, {
             tenantId: patient.tenantId || "00000000-0000-0000-0000-000000000001",
             patientId,
             doctorId: doc,
@@ -243,8 +239,7 @@ export async function POST(req: NextRequest) {
             currency: "ETB",
             paymentStatus: totalAmount === 0 ? "free" : "unpaid",
             invoiceId: newInvoice.id,
-          })
-          .returning();
+          });
         createdLabOrders.push(order);
       }
     }
@@ -255,9 +250,7 @@ export async function POST(req: NextRequest) {
       const doc = doctorId || "00000000-0000-0000-0000-000000000001";
       for (const item of lineItems.filter((i) => i.category === "pharmacy")) {
         const m = item.meta || {};
-        const [rx] = await db
-          .insert(prescriptions)
-          .values({
+        const [rx] = await insertReturning(db, prescriptions, {
             tenantId: patient.tenantId || "00000000-0000-0000-0000-000000000001",
             patientId,
             doctorId: doc,
@@ -275,8 +268,7 @@ export async function POST(req: NextRequest) {
             currency: "ETB",
             paymentStatus: totalAmount === 0 ? "free" : "unpaid",
             invoiceId: newInvoice.id,
-          })
-          .returning();
+          });
         createdPrescriptions.push(rx);
       }
     }

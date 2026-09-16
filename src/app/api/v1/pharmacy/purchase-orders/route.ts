@@ -4,6 +4,7 @@ import { purchaseOrders, auditLogs } from "@/db/schema";
 import { createPurchaseOrderSchema } from "@/lib/validations/schemas";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -33,9 +34,7 @@ export async function POST(req: NextRequest) {
 
     const poNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const [newPO] = await db
-      .insert(purchaseOrders)
-      .values({
+    const [newPO] = await insertReturning(db, purchaseOrders, {
         tenantId: DEFAULT_TENANT_ID,
         supplierId: validated.supplierId,
         poNumber,
@@ -45,8 +44,7 @@ export async function POST(req: NextRequest) {
         orderedBy: "11111111-1111-1111-1111-111111111104",
         orderedAt: new Date(),
         notes: validated.notes,
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

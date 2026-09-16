@@ -4,6 +4,7 @@ import { encounters, patients } from "@/db/schema";
 import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const encounterSchema = z.object({
   patientId: z.string().uuid(),
@@ -63,9 +64,7 @@ export async function POST(req: NextRequest) {
       `Follow-up:\n${input.followUpPlan || "No follow-up plan documented."}`,
     ].join("\n\n");
 
-    const [created] = await db
-      .insert(encounters)
-      .values({
+    const [created] = await insertReturning(db, encounters, {
         tenantId: auth.user.organizationId,
         patientId: input.patientId,
         clinicianId: auth.user.id,
@@ -77,8 +76,7 @@ export async function POST(req: NextRequest) {
         clinicalNotes: noteSections,
         startTime: new Date(),
         endTime: new Date(),
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {

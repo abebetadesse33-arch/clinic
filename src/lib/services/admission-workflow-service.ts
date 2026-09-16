@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { ClinicalOrderSet } from "./clinical-order-sets";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -255,9 +256,7 @@ export async function startAdmissionEncounter(input: StartAdmissionInput) {
   // If pre-registration provided, create patient if not existing
   if (!targetPatientId && input.preRegistrationData) {
     const mrn = `MRN-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
-    const [newPatient] = await db
-      .insert(patients)
-      .values({
+    const [newPatient] = await insertReturning(db, patients, {
         tenantId: input.tenantId,
         mrn,
         firstName: input.preRegistrationData.firstName,
@@ -270,8 +269,7 @@ export async function startAdmissionEncounter(input: StartAdmissionInput) {
         allergies: input.preRegistrationData.allergies || [],
         primaryDoctorId: input.assignedPhysicianId,
         triagePriority: input.admissionStatus === "emergency" ? "critical" : "routine",
-      })
-      .returning();
+      });
 
     targetPatientId = newPatient.id;
   }
@@ -281,9 +279,7 @@ export async function startAdmissionEncounter(input: StartAdmissionInput) {
   }
 
   // Create Encounter
-  const [encounter] = await db
-    .insert(encounters)
-    .values({
+  const [encounter] = await insertReturning(db, encounters, {
       tenantId: input.tenantId,
       patientId: targetPatientId,
       clinicianId: input.assignedPhysicianId,
@@ -306,13 +302,10 @@ export async function startAdmissionEncounter(input: StartAdmissionInput) {
       },
       chiefComplaint: input.chiefComplaint,
       startTime: new Date(),
-    })
-    .returning();
+    });
 
   // Create Task for Nurse
-  const [nurseTask] = await db
-    .insert(tasks)
-    .values({
+  const [nurseTask] = await insertReturning(db, tasks, {
       tenantId: input.tenantId,
       patientId: targetPatientId,
       encounterId: encounter.id,
@@ -325,8 +318,7 @@ export async function startAdmissionEncounter(input: StartAdmissionInput) {
       priority: input.admissionStatus === "emergency" ? "stat" : "urgent",
       status: "pending",
       slaMinutes: 45,
-    })
-    .returning();
+    });
 
   // Audit Log
   await logWorkflowAudit({
@@ -357,9 +349,7 @@ export async function submitNursingVitalsAndAssessment(input: NurseAssessmentInp
   const hasCriticalVitals = isCriticalSpO2 || isCriticalHR || isCriticalBP;
 
   // Insert Vitals
-  const [vitalRecord] = await db
-    .insert(vitals)
-    .values({
+  const [vitalRecord] = await insertReturning(db, vitals, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       encounterId: input.encounterId,
@@ -375,13 +365,10 @@ export async function submitNursingVitalsAndAssessment(input: NurseAssessmentInp
         ? String(Math.round((input.vitals.weightKg / Math.pow(input.vitals.heightCm / 100, 2)) * 10) / 10)
         : null,
       recordedBy: input.nurseId,
-    })
-    .returning();
+    });
 
   // Insert Nursing Assessment
-  const [assessment] = await db
-    .insert(nursingAssessments)
-    .values({
+  const [assessment] = await insertReturning(db, nursingAssessments, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       encounterId: input.encounterId,
@@ -391,8 +378,7 @@ export async function submitNursingVitalsAndAssessment(input: NurseAssessmentInp
       painScore: input.painScore,
       nursingCareNotes: input.nursingNotes,
       assessedBy: input.nurseId,
-    })
-    .returning();
+    });
 
   // Update encounter currentStep -> physician_review
   const [encounter] = await db
@@ -425,9 +411,7 @@ export async function submitNursingVitalsAndAssessment(input: NurseAssessmentInp
     .where(and(eq(tasks.encounterId, input.encounterId), eq(tasks.taskType, "vitals_assessment")));
 
   // Create Task for Physician
-  const [physicianTask] = await db
-    .insert(tasks)
-    .values({
+  const [physicianTask] = await insertReturning(db, tasks, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       encounterId: input.encounterId,
@@ -440,8 +424,7 @@ export async function submitNursingVitalsAndAssessment(input: NurseAssessmentInp
       priority: hasCriticalVitals ? "stat" : "urgent",
       status: "pending",
       slaMinutes: hasCriticalVitals ? 15 : 60,
-    })
-    .returning();
+    });
 
   // Audit Logs
   await logWorkflowAudit({
@@ -483,9 +466,7 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
   const items = input.selectedOrderItems || input.orderSet?.items || [];
   for (const item of items) {
     if (item.type === "lab") {
-      const [lo] = await db
-        .insert(labOrders)
-        .values({
+      const [lo] = await insertReturning(db, labOrders, {
           tenantId: input.tenantId,
           patientId: input.patientId,
           doctorId: input.physicianId,
@@ -493,13 +474,10 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
           clinicalReason: input.primaryDiagnosis,
           priority: item.priority || "urgent",
           status: "ordered",
-        })
-        .returning();
+        });
       createdLabOrders.push(lo);
     } else if (item.type === "medication") {
-      const [rx] = await db
-        .insert(prescriptions)
-        .values({
+      const [rx] = await insertReturning(db, prescriptions, {
           tenantId: input.tenantId,
           patientId: input.patientId,
           doctorId: input.physicianId,
@@ -510,8 +488,7 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
           quantity: 7,
           instructions: item.instructions || "Take as directed",
           status: "draft", // Pending Pharmacist Review
-        })
-        .returning();
+        });
       createdPrescriptions.push(rx);
     }
   }
@@ -528,9 +505,7 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
     { id: "i3", role: "pharmacist", description: "Review multi-vector drug interactions, renal dosing, and pharmacogenomics", frequency: "Once", status: "active" },
   ];
 
-  const [carePlan] = await db
-    .insert(carePlans)
-    .values({
+  const [carePlan] = await insertReturning(db, carePlans, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       createdBy: input.physicianId,
@@ -538,8 +513,7 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
       primaryDiagnosis: input.primaryDiagnosis,
       goals: input.carePlanGoals || defaultGoals,
       interventions: input.carePlanInterventions || defaultInterventions,
-    })
-    .returning();
+    });
 
   // 3. Update Encounter Step -> pharmacy_review
   const [encounter] = await db
@@ -573,9 +547,7 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
     .where(and(eq(tasks.encounterId, input.encounterId), eq(tasks.taskType, "physician_review")));
 
   // 4. Create Task for Pharmacist
-  const [pharmacyTask] = await db
-    .insert(tasks)
-    .values({
+  const [pharmacyTask] = await insertReturning(db, tasks, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       encounterId: input.encounterId,
@@ -587,17 +559,14 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
       priority: "urgent",
       status: "pending",
       slaMinutes: 30,
-    })
-    .returning();
+    });
 
   // 5. Create Allied Health Consult Tasks if indicated
   const alliedTasks = [];
   const lowerDiag = input.primaryDiagnosis.toLowerCase();
 
   if (lowerDiag.includes("diabet") || lowerDiag.includes("heart failure") || lowerDiag.includes("malnutr")) {
-    const [dietTask] = await db
-      .insert(tasks)
-      .values({
+    const [dietTask] = await insertReturning(db, tasks, {
         tenantId: input.tenantId,
         patientId: input.patientId,
         encounterId: input.encounterId,
@@ -609,8 +578,7 @@ export async function completePhysicianWorkup(input: PhysicianWorkupInput) {
         priority: "routine",
         status: "pending",
         slaMinutes: 120,
-      })
-      .returning();
+      });
     alliedTasks.push(dietTask);
   }
 
@@ -656,16 +624,12 @@ export async function processPharmacistReview(input: PharmacistReviewInput) {
   for (const item of input.reviews) {
     if (item.prescriptionId) {
       const newStatus = item.action === "approved" ? "signed" : item.action === "modified" ? "draft" : "rejected";
-      const [updatedRx] = await db
-        .update(prescriptions)
-        .set({
+      const [updatedRx] = await updateReturning(db, prescriptions, {
           status: newStatus,
           dosage: item.modifiedDosage || undefined,
           frequency: item.modifiedFrequency || undefined,
           instructions: item.clinicalReason ? `[Pharmacist note: ${item.clinicalReason}]` : undefined,
-        })
-        .where(eq(prescriptions.id, item.prescriptionId))
-        .returning();
+        }, eq(prescriptions.id, item.prescriptionId));
       processed.push(updatedRx);
     }
   }
@@ -715,9 +679,7 @@ export async function processPharmacistReview(input: PharmacistReviewInput) {
 // ─── Step 5: Dietitian Nutritional Assessment ────────────────────────────────
 
 export async function submitDietitianAssessment(input: DietitianAssessmentInput) {
-  const [nutrition] = await db
-    .insert(nutritionAssessments)
-    .values({
+  const [nutrition] = await insertReturning(db, nutritionAssessments, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       nutritionalRiskScore: input.nutritionalRiskScore,
@@ -727,8 +689,7 @@ export async function submitDietitianAssessment(input: DietitianAssessmentInput)
       dietType: input.dietType,
       mealPlanDetails: { summary: input.mealPlanSummary },
       assessedBy: input.dietitianId,
-    })
-    .returning();
+    });
 
   // Add nutrition goal to Care Plan
   const [carePlan] = await db
@@ -798,9 +759,7 @@ export async function submitDietitianAssessment(input: DietitianAssessmentInput)
 // ─── Step 6: Social Worker SDOH Assessment ───────────────────────────────────
 
 export async function submitSocialWorkAssessment(input: SocialWorkAssessmentInput) {
-  const [social] = await db
-    .insert(socialHistory)
-    .values({
+  const [social] = await insertReturning(db, socialHistory, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       category: "SDOH_Comprehensive",
@@ -809,8 +768,7 @@ export async function submitSocialWorkAssessment(input: SocialWorkAssessmentInpu
       description: input.supportSystemDescription,
       recommendedAction: input.dischargeBarriersIdentified.join("; "),
       communityResourcesConnected: input.recommendedCommunityResources,
-    })
-    .returning();
+    });
 
   // Update encounter progress
   const [encounter] = await db
@@ -859,9 +817,7 @@ export async function submitTherapyAssessment(input: TherapyAssessmentInput) {
   let assessmentRecord;
 
   if (input.therapyType === "physiotherapy") {
-    const [pt] = await db
-      .insert(physiotherapyAssessments)
-      .values({
+    const [pt] = await insertReturning(db, physiotherapyAssessments, {
         tenantId: input.tenantId,
         patientId: input.patientId,
         bergBalanceScore: input.bergBalanceScore || 48,
@@ -869,21 +825,17 @@ export async function submitTherapyAssessment(input: TherapyAssessmentInput) {
         rehabGoals: input.rehabGoals,
         exercisePlan: { summary: input.exerciseRegimenSummary },
         assessedBy: input.therapistId,
-      })
-      .returning();
+      });
     assessmentRecord = pt;
   } else {
-    const [ot] = await db
-      .insert(occupationalTherapyAssessments)
-      .values({
+    const [ot] = await insertReturning(db, occupationalTherapyAssessments, {
         tenantId: input.tenantId,
         patientId: input.patientId,
         barthelIndexScore: input.barthelIndexScore || 85,
         homeSafetyRisk: "low",
         cognitiveSupportNotes: input.rehabGoals,
         assessedBy: input.therapistId,
-      })
-      .returning();
+      });
     assessmentRecord = ot;
   }
 
@@ -971,14 +923,10 @@ export async function updateDischargePlanning(input: DischargePlanningInput) {
     followUpsScheduledCount: input.followUpAppointmentsScheduled.length,
   };
 
-  const [updatedEncounter] = await db
-    .update(encounters)
-    .set({
+  const [updatedEncounter] = await updateReturning(db, encounters, {
       currentStep: "completed",
       workflowProgress: progress,
-    })
-    .where(eq(encounters.id, input.encounterId))
-    .returning();
+    }, eq(encounters.id, input.encounterId));
 
   // Audit Log
   await logWorkflowAudit({

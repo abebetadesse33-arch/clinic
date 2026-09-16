@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { navigationItems } from "@/db/schema";
 import { eq, and, or, isNull, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -51,9 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Label and href are required" }, { status: 400 });
     }
 
-    const [newItem] = await db
-      .insert(navigationItems)
-      .values({
+    const [newItem] = await insertReturning(db, navigationItems, {
         label,
         href,
         icon: icon || null,
@@ -64,8 +63,7 @@ export async function POST(request: NextRequest) {
         badgeKey: badgeKey || null,
         parentId: parentId || null,
         tenantId: tenantId || null,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("navigation", "created", newItem);
 
@@ -85,14 +83,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Item ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(navigationItems)
-      .set({
+    const [updated] = await updateReturning(db, navigationItems, {
         ...updates,
         updatedAt: new Date(),
-      })
-      .where(eq(navigationItems.id, id))
-      .returning();
+      }, eq(navigationItems.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Navigation item not found" }, { status: 404 });

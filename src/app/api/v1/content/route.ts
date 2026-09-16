@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { pageContents } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -71,9 +72,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [created] = await db
-      .insert(pageContents)
-      .values({
+    const [created] = await insertReturning(db, pageContents, {
         pageKey,
         sectionKey,
         contentType: contentType || "json",
@@ -81,8 +80,7 @@ export async function POST(request: NextRequest) {
         language: language || "en",
         version: typeof version === "number" ? version : 1,
         isActive: isActive !== false,
-      })
-      .returning();
+      });
 
     broadcastConfigChange("content", "created", created);
 
@@ -102,14 +100,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Content ID is required" }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(pageContents)
-      .set({
+    const [updated] = await updateReturning(db, pageContents, {
         ...updates,
         updatedAt: new Date(),
-      })
-      .where(eq(pageContents.id, id))
-      .returning();
+      }, eq(pageContents.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Content not found" }, { status: 404 });

@@ -10,6 +10,7 @@ import {
   users,
 } from "@/db/schema";
 import { eq, and, desc, asc, sql, lt, lte, gte } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 
@@ -168,9 +169,7 @@ export async function POST(req: NextRequest) {
     const tenantId = body.tenantId ?? DEFAULT_TENANT;
 
     if (action === "add_drug") {
-      const [drug] = await db
-        .insert(drugCatalog)
-        .values({
+      const [drug] = await insertReturning(db, drugCatalog, {
           tenantId,
           genericName: body.genericName,
           brandName: body.brandName,
@@ -185,14 +184,11 @@ export async function POST(req: NextRequest) {
           defaultUnitCost: body.defaultUnitCost ?? "0.00",
           defaultSellingPrice: body.defaultSellingPrice ?? "0.00",
           storageCondition: body.storageCondition ?? "ambient",
-        })
-        .returning();
+        });
       return NextResponse.json({ success: true, drug });
 
     } else if (action === "add_batch") {
-      const [batch] = await db
-        .insert(drugBatches)
-        .values({
+      const [batch] = await insertReturning(db, drugBatches, {
           tenantId,
           drugId: body.drugId,
           supplierId: body.supplierId,
@@ -204,8 +200,7 @@ export async function POST(req: NextRequest) {
           costPerUnit: body.costPerUnit,
           sellingPrice: body.sellingPrice,
           locationBin: body.locationBin ?? "Shelf A-1",
-        })
-        .returning();
+        });
 
       // Log stock movement
       await db.insert(stockMovements).values({
@@ -224,9 +219,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, batch });
 
     } else if (action === "add_supplier") {
-      const [supplier] = await db
-        .insert(suppliers)
-        .values({
+      const [supplier] = await insertReturning(db, suppliers, {
           tenantId,
           name: body.name,
           contactPerson: body.contactPerson,
@@ -234,15 +227,12 @@ export async function POST(req: NextRequest) {
           phone: body.phone,
           address: body.address,
           leadTimeDays: body.leadTimeDays ?? 3,
-        })
-        .returning();
+        });
       return NextResponse.json({ success: true, supplier });
 
     } else if (action === "create_po") {
       const poNumber = `PO-${Date.now()}`;
-      const [po] = await db
-        .insert(purchaseOrders)
-        .values({
+      const [po] = await insertReturning(db, purchaseOrders, {
           tenantId,
           supplierId: body.supplierId,
           poNumber,
@@ -251,8 +241,7 @@ export async function POST(req: NextRequest) {
           totalAmount: body.totalAmount,
           orderedBy: body.orderedBy ?? null,
           notes: body.notes,
-        })
-        .returning();
+        });
       return NextResponse.json({ success: true, po });
 
     } else if (action === "ack_alert") {

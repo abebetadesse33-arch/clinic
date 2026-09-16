@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { systemPaymentSettings, auditLogs } from "@/db/schema";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -95,19 +96,13 @@ export async function PATCH(req: NextRequest) {
 
     let result;
     if (existing) {
-      [result] = await db
-        .update(systemPaymentSettings)
-        .set(sanitized)
-        .returning();
+      [result] = await updateReturning(db, systemPaymentSettings, sanitized);
     } else {
-      [result] = await db
-        .insert(systemPaymentSettings)
-        .values({
+      [result] = await insertReturning(db, systemPaymentSettings, {
           id: "00000000-0000-0000-0000-000000000001",
           globalFreeMode: false,
           ...sanitized,
-        })
-        .returning();
+        });
     }
 
     // Audit log

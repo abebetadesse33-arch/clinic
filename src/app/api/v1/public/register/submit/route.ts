@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -63,9 +64,7 @@ export async function POST(request: Request) {
       ? (typeof emergencyContact === "string" ? emergencyContact : `${emergencyContact}${emergencyPhone ? ` (${emergencyPhone})` : ""}`)
       : null;
 
-    const [newPat] = await db
-      .insert(patients)
-      .values({
+    const [newPat] = await insertReturning(db, patients, {
         tenantId: "00000000-0000-0000-0000-000000000001",
         mrn,
         firstName: firstName || "New",
@@ -75,8 +74,7 @@ export async function POST(request: Request) {
         phone: phone || "",
         email: email?.toLowerCase().trim() || `${mrn.toLowerCase()}@patient.Nini.org`,
         emergencyContact: emergencyContactStr,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

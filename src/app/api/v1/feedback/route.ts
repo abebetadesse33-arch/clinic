@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { feedbackRecords, organizations, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { analyzeFeedbackNLP } from "@/lib/ai/feedback-nlp";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -124,9 +125,7 @@ export async function POST(req: NextRequest) {
       rating,
     });
 
-    const [newRecord] = await db
-      .insert(feedbackRecords)
-      .values({
+    const [newRecord] = await insertReturning(db, feedbackRecords, {
         tenantId: resolvedTenantId,
         submitterType,
         submitterUserId: submitterUserId || null,
@@ -145,8 +144,7 @@ export async function POST(req: NextRequest) {
         urgencyLevel: nlpResult.urgencyLevel,
         isSafetyHazard: nlpResult.isSafetyHazard,
         resolutionStatus: nlpResult.isSafetyHazard ? "under_investigation" : "open",
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,
@@ -184,11 +182,7 @@ export async function PATCH(req: NextRequest) {
     if (assignedAdminId) updateData.assignedAdminId = assignedAdminId;
     if (resolutionNotes !== undefined) updateData.resolutionNotes = resolutionNotes;
 
-    const [updated] = await db
-      .update(feedbackRecords)
-      .set(updateData)
-      .where(eq(feedbackRecords.id, id))
-      .returning();
+    const [updated] = await updateReturning(db, feedbackRecords, updateData, eq(feedbackRecords.id, id));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { updateReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -89,15 +90,11 @@ export async function PATCH(
 
     if (action === "dispense") {
       // 1. Update prescription status
-      const [updatedRx] = await db
-        .update(prescriptions)
-        .set({
+      const [updatedRx] = await updateReturning(db, prescriptions, {
           status: "dispensed",
           dispensedAt: new Date(),
           pharmacistId: pharmacistId || "11111111-1111-1111-1111-111111111104",
-        })
-        .where(eq(prescriptions.id, rxId))
-        .returning();
+        }, eq(prescriptions.id, rxId));
 
       // 2. Add or update active patient medication list
       await db.insert(medications).values({
@@ -169,11 +166,7 @@ export async function PATCH(
     }
 
     if (action === "cancel") {
-      const [cancelledRx] = await db
-        .update(prescriptions)
-        .set({ status: "cancelled" })
-        .where(eq(prescriptions.id, rxId))
-        .returning();
+      const [cancelledRx] = await updateReturning(db, prescriptions, { status: "cancelled" }, eq(prescriptions.id, rxId));
 
       return NextResponse.json({
         success: true,

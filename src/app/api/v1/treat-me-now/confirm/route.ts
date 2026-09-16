@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { CaseWorkflowService } from "@/lib/services/case-workflow-service";
 import { QueueService } from "@/lib/services/queue-service";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +40,7 @@ export async function POST(req: NextRequest) {
       const lastName = parts.slice(1).join(" ") || "Patient";
       const mrn = `MRN-UC-${Date.now().toString().slice(-6)}`;
 
-      const [newPatient] = await db
-        .insert(patients)
-        .values({
+      const [newPatient] = await insertReturning(db, patients, {
           tenantId: DEFAULT_TENANT_ID,
           mrn,
           firstName,
@@ -50,8 +49,7 @@ export async function POST(req: NextRequest) {
           phone: phone || null,
           gender: "other",
           dateOfBirth: "1995-01-01",
-        })
-        .returning();
+        });
 
       existingPatient = newPatient;
       patientId = newPatient.id;

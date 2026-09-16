@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { familyMembers, familyGroups } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export async function DELETE(
   req: NextRequest,
@@ -24,16 +25,10 @@ export async function DELETE(
       );
     }
 
-    const [removed] = await db
-      .update(familyMembers)
-      .set({ isActive: false })
-      .where(
-        and(
+    const [removed] = await updateReturning(db, familyMembers, { isActive: false }, and(
           eq(familyMembers.familyGroupId, params.id),
           eq(familyMembers.patientId, params.patientId)
-        )
-      )
-      .returning();
+        ));
 
     return NextResponse.json({ success: true, data: removed });
   } catch (error: any) {

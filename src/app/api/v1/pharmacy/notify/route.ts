@@ -11,6 +11,7 @@ import {
   invoices,
 } from "@/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 
@@ -207,9 +208,7 @@ export async function POST(req: NextRequest) {
 
     } else if (action === "send_custom") {
       const { recipientId, recipientRole, title, body: msgBody, eventType, metadata, prescriptionId, queueItemId } = body;
-      const [notif] = await db
-        .insert(pharmacyNotifications)
-        .values({
+      const [notif] = await insertReturning(db, pharmacyNotifications, {
           tenantId: DEFAULT_TENANT,
           recipientId,
           recipientRole,
@@ -219,8 +218,7 @@ export async function POST(req: NextRequest) {
           metadata: metadata ?? {},
           prescriptionId: prescriptionId ?? null,
           queueItemId: queueItemId ?? null,
-        })
-        .returning();
+        });
       return NextResponse.json({ success: true, notification: notif });
     }
 

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { evaluateOrderCDS } from "@/lib/cds/order-cds-engine";
 import { queueOrderOutboxEvent } from "@/lib/workflow/outbox-worker";
 import { createTamperEvidentAuditLog } from "@/lib/security/tenant-guard";
+import { insertReturning } from "@/lib/db/returning";
 
 const createOrderSchema = z.object({
   patientId: z.string().uuid("Valid patient UUID required"),
@@ -114,9 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         : new Date();
 
       // Persist the order deterministically linked to encounter and session doctor
-      const [newOrder] = await tx
-        .insert(clinicalOrders)
-        .values({
+      const [newOrder] = await insertReturning(tx, clinicalOrders, {
           tenantId: encounter.tenantId,
           patientId: validated.patientId,
           encounterId: encounter.id,
@@ -127,8 +126,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           status: "ordered",
           isSensitive: validated.isSensitive,
           releaseAt,
-        })
-        .returning();
+        });
 
       // Tamper-evident audit trail with SHA-256 state checksum
       await createTamperEvidentAuditLog({

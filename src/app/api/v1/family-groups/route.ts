@@ -9,6 +9,7 @@ import {
   organizations,
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 const isValidUUID = (id?: string | null) =>
   Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
@@ -88,14 +89,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
 
-    const [newGroup] = await db
-      .insert(familyGroups)
-      .values({
+    const [newGroup] = await insertReturning(db, familyGroups, {
         tenantId: resolvedTenantId,
         primaryPatientId,
         name,
-      })
-      .returning();
+      });
 
     await db.insert(familyMembers).values({
       familyGroupId: newGroup.id,

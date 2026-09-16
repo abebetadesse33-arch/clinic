@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { servicePricingCatalog, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       );
     }
 
-    const [updated] = await db
-      .update(servicePricingCatalog)
-      .set({
+    const [updated] = await updateReturning(db, servicePricingCatalog, {
         basePrice: basePrice !== undefined ? String(basePrice) : existing.basePrice,
         isFree: typeof isFree === "boolean" ? isFree : existing.isFree,
         isActive: typeof isActive === "boolean" ? isActive : existing.isActive,
@@ -35,9 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         description: description !== undefined ? description : existing.description,
         validityDays: validityDays !== undefined ? (validityDays ? Number(validityDays) : null) : existing.validityDays,
         updatedAt: new Date(),
-      })
-      .where(eq(servicePricingCatalog.id, id))
-      .returning();
+      }, eq(servicePricingCatalog.id, id));
 
     try {
       await db.insert(auditLogs).values({
@@ -69,11 +66,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   try {
     const { id } = params;
 
-    const [deleted] = await db
-      .update(servicePricingCatalog)
-      .set({ isActive: false, updatedAt: new Date() })
-      .where(eq(servicePricingCatalog.id, id))
-      .returning();
+    const [deleted] = await updateReturning(db, servicePricingCatalog, { isActive: false, updatedAt: new Date() }, eq(servicePricingCatalog.id, id));
 
     if (!deleted) {
       return NextResponse.json({ success: false, error: "Service not found" }, { status: 404 });

@@ -5,6 +5,7 @@ import { createVitalSchema } from "@/lib/validations/schemas";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -81,9 +82,7 @@ export async function POST(req: NextRequest) {
       validated.patientId = auth.patient.id;
     }
 
-    const [newVital] = await db
-      .insert(vitals)
-      .values({
+    const [newVital] = await insertReturning(db, vitals, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         encounterId: validated.encounterId,
@@ -96,8 +95,7 @@ export async function POST(req: NextRequest) {
         bmi: validated.bmi?.toString(),
         heightCm: validated.heightCm?.toString(),
         weightKg: validated.weightKg?.toString(),
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

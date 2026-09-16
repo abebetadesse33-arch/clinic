@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cashDrawers, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -77,17 +78,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: false, error: "Cashier already has an open register session." }, { status: 409 });
       }
 
-      const [drawer] = await db
-        .insert(cashDrawers)
-        .values({
+      const [drawer] = await insertReturning(db, cashDrawers, {
           tenantId,
           cashierId,
           shiftLabel,
           openingCashEtb: (openingCashEtb || 0).toString(),
           status: "open",
           openedAt: new Date(),
-        })
-        .returning();
+        });
 
       return NextResponse.json({ success: true, data: drawer, message: "Register opened. You are ready to accept payments." }, { status: 201 });
     }
@@ -116,9 +114,7 @@ export async function POST(req: NextRequest) {
       const actualClosing = parseFloat(closingCashActualEtb || "0");
       const discrepancy = actualClosing - expectedClosing;
 
-      const [updated] = await db
-        .update(cashDrawers)
-        .set({
+      const [updated] = await updateReturning(db, cashDrawers, {
           status: "closed",
           totalCollectedCashEtb: collectedCash.toFixed(2),
           totalCollectedMobileEtb: (parseFloat(totalCollectedMobileEtb || "0")).toFixed(2),
@@ -133,9 +129,7 @@ export async function POST(req: NextRequest) {
           supervisorApprovedBy: supervisorApprovedBy || null,
           supervisorApprovedAt: supervisorApprovedBy ? new Date() : null,
           discrepancyNotes: discrepancyNotes || null,
-        })
-        .where(eq(cashDrawers.id, drawerId))
-        .returning();
+        }, eq(cashDrawers.id, drawerId));
 
       return NextResponse.json({
         success: true,

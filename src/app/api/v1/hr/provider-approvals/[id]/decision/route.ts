@@ -4,6 +4,7 @@ import { providerProfiles, providerSchedules, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -39,18 +40,14 @@ export async function POST(
 
     const newStatus = action === "approve" ? "approved" : "rejected";
 
-    const [updated] = await db
-      .update(providerProfiles)
-      .set({
+    const [updated] = await updateReturning(db, providerProfiles, {
         approvalStatus: newStatus,
         licenseVerified: action === "approve" ? true : existing.licenseVerified,
         hrFeedback: feedback || (action === "approve" ? "Approved by HR." : "Changes requested by HR."),
         hrReviewerId: reviewerId || null,
         approvedAt: action === "approve" ? new Date() : null,
         updatedAt: new Date(),
-      })
-      .where(eq(providerProfiles.id, params.id))
-      .returning();
+      }, eq(providerProfiles.id, params.id));
 
     // If approved, also approve all associated weekly schedules
     if (action === "approve") {

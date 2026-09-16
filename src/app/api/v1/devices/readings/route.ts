@@ -4,6 +4,7 @@ import { deviceReadings, devices, auditLogs } from "@/db/schema";
 import { createDeviceReadingSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -85,9 +86,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const [newReading] = await db
-      .insert(deviceReadings)
-      .values({
+    const [newReading] = await insertReturning(db, deviceReadings, {
         tenantId: DEFAULT_TENANT_ID,
         deviceId: validated.deviceId,
         patientId: validated.patientId,
@@ -97,8 +96,7 @@ export async function POST(req: NextRequest) {
         isAnomaly,
         anomalySeverity,
         recordedAt: new Date(),
-      })
-      .returning();
+      });
 
     // Update device last synced timestamp
     await db

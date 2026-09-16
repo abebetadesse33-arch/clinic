@@ -5,6 +5,7 @@ import {
   subscriptionInvoices,
 } from "@/db/schema";
 import { eq, and, sql, lte } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export class BillingAutomationService {
   /**
@@ -78,9 +79,7 @@ export class BillingAutomationService {
       }
 
       const invoiceNumber = `REC-INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const [invoice] = await db
-        .insert(subscriptionInvoices)
-        .values({
+      const [invoice] = await insertReturning(db, subscriptionInvoices, {
           tenantId,
           subscriptionId: subscription.id,
           invoiceNumber,
@@ -94,8 +93,7 @@ export class BillingAutomationService {
           currency: plan.currency,
           status: "open",
           dueDate: new Date(nextPeriodStart.getTime() + 5 * 24 * 60 * 60 * 1000),
-        })
-        .returning();
+        });
 
       // Advance subscription cycle
       await db

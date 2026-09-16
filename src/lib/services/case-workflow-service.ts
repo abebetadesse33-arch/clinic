@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { cases, patientAssignments, caseMessages, patients, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { RealtimeBroadcaster } from "./realtime-broadcaster";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export type CaseStatus =
   | "registered"
@@ -68,9 +69,7 @@ export class CaseWorkflowService {
       });
     }
 
-    const [created] = await db
-      .insert(cases)
-      .values({
+    const [created] = await insertReturning(db, cases, {
         caseId,
         caseNumber,
         tenantId,
@@ -84,8 +83,7 @@ export class CaseWorkflowService {
         aiAnalysis: params.aiAnalysis || {},
         timeline: initialTimeline as any,
         submittedAt: new Date(),
-      })
-      .returning();
+      });
 
     // Broadcast Case Creation to Care Coordinator
     await RealtimeBroadcaster.broadcast({
@@ -140,9 +138,7 @@ export class CaseWorkflowService {
     ];
 
     // 2. Update case
-    const [updatedCase] = await db
-      .update(cases)
-      .set({
+    const [updatedCase] = await updateReturning(db, cases, {
         status: "assigned",
         assignedProviderId: params.providerId,
         assignedHandlerId: params.providerId,
@@ -150,9 +146,7 @@ export class CaseWorkflowService {
         assignedRole: params.providerType || "physician",
         timeline: updatedTimeline as any,
         updatedAt: new Date(),
-      })
-      .where(eq(cases.id, existingCase.id))
-      .returning();
+      }, eq(cases.id, existingCase.id));
 
     // 3. Create patient assignment record
     if (existingCase.patientId) {
@@ -231,16 +225,12 @@ export class CaseWorkflowService {
       },
     ];
 
-    const [updated] = await db
-      .update(cases)
-      .set({
+    const [updated] = await updateReturning(db, cases, {
         status: params.status,
         timeline: updatedTimeline as any,
         completedAt: params.status === "completed" ? new Date() : undefined,
         updatedAt: new Date(),
-      })
-      .where(eq(cases.id, existingCase.id))
-      .returning();
+      }, eq(cases.id, existingCase.id));
 
     await RealtimeBroadcaster.broadcast({
       organizationId: existingCase.tenantId || this.DEFAULT_TENANT_ID,
@@ -274,9 +264,7 @@ export class CaseWorkflowService {
 
     if (!existingCase) throw new Error("Case not found");
 
-    const [msg] = await db
-      .insert(caseMessages)
-      .values({
+    const [msg] = await insertReturning(db, caseMessages, {
         tenantId: existingCase.tenantId || this.DEFAULT_TENANT_ID,
         caseId: existingCase.id,
         senderId: params.senderId || null,
@@ -284,8 +272,7 @@ export class CaseWorkflowService {
         senderType: params.senderType,
         message: params.message,
         attachments: params.attachments || [],
-      })
-      .returning();
+      });
 
     // Broadcast message to other participant
     const targetUserId = params.senderType === "patient" ? existingCase.assignedProviderId : undefined;

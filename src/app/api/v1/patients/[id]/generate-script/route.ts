@@ -4,6 +4,7 @@ import { patientEducationVideos } from "@/db/schema";
 import { generatePatientVideoScript, ScriptGenerationParams } from "@/lib/ai/video-script-generator";
 import { buildScenesFromScript } from "@/lib/video/animation-engine";
 import { VisualGraphicType } from "@/lib/video/animation-engine";
+import { insertReturning } from "@/lib/db/returning";
 
 export async function POST(
   req: NextRequest,
@@ -57,9 +58,7 @@ export async function POST(
     );
 
     // Persist to DB
-    const [record] = await db
-      .insert(patientEducationVideos)
-      .values({
+    const [record] = await insertReturning(db, patientEducationVideos, {
         tenantId,
         patientId: params.id,
         title: script.title,
@@ -76,8 +75,7 @@ export async function POST(
           generationPrompt: scriptParams,
         },
         status: "draft",
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       message: "Video script generated successfully",

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientAssignments, cases } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { RealtimeBroadcaster } from "@/lib/services/realtime-broadcaster";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +14,11 @@ export async function POST(
   try {
     const { id } = params;
 
-    const [assignment] = await db
-      .update(patientAssignments)
-      .set({
+    const [assignment] = await updateReturning(db, patientAssignments, {
         status: "accepted",
         acceptedAt: new Date(),
         updatedAt: new Date(),
-      })
-      .where(eq(patientAssignments.id, id))
-      .returning();
+      }, eq(patientAssignments.id, id));
 
     if (!assignment) {
       return NextResponse.json(

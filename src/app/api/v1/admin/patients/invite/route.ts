@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { patientRegistrations, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -31,9 +32,7 @@ export async function POST(request: Request) {
       if (userMatch) validUserId = userMatch.id;
     }
 
-    const [inserted] = await db
-      .insert(patientRegistrations)
-      .values({
+    const [inserted] = await insertReturning(db, patientRegistrations, {
         organizationId: DEFAULT_ORGANIZATION_ID,
         email: cleanEmail,
         phone: phone ? phone.trim() : null,
@@ -47,8 +46,7 @@ export async function POST(request: Request) {
           phone: phone || "",
         },
         invitedByUserId: validUserId,
-      })
-      .returning();
+      });
 
     const registrationUrl = `/register?token=${inviteToken}`;
 

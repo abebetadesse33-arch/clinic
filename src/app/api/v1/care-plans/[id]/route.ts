@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { carePlans, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -14,16 +15,12 @@ export async function PATCH(
     const body = await req.json();
     const { interventions, goals, status } = body;
 
-    const [updated] = await db
-      .update(carePlans)
-      .set({
+    const [updated] = await updateReturning(db, carePlans, {
         interventions: interventions || undefined,
         goals: goals || undefined,
         status: status || undefined,
         updatedAt: new Date(),
-      })
-      .where(eq(carePlans.id, params.id))
-      .returning();
+      }, eq(carePlans.id, params.id));
 
     if (!updated) {
       return NextResponse.json(

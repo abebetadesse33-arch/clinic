@@ -5,6 +5,7 @@ import {
   journalEntries, journalEntryLines, chartOfAccounts,
 } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -77,9 +78,7 @@ export async function POST(req: NextRequest) {
 
     const claimNumber = `CLM-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
-    const [claim] = await db
-      .insert(insuranceClaims)
-      .values({
+    const [claim] = await insertReturning(db, insuranceClaims, {
         tenantId,
         claimNumber,
         invoiceId: invoiceId || null,
@@ -96,8 +95,7 @@ export async function POST(req: NextRequest) {
         status: "submitted",
         processedBy: processedBy || null,
         submittedAt: new Date(),
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, data: claim, claimNumber }, { status: 201 });
   } catch (error: any) {
@@ -153,9 +151,7 @@ export async function PATCH(req: NextRequest) {
           .limit(1);
 
         if (arAccount.length > 0 && bankAccount.length > 0) {
-          const [je] = await db
-            .insert(journalEntries)
-            .values({
+          const [je] = await insertReturning(db, journalEntries, {
               tenantId,
               entryNumber: `JE-INS-${Date.now()}`,
               entryDate: new Date().toISOString().split("T")[0],
@@ -167,8 +163,7 @@ export async function PATCH(req: NextRequest) {
               status: "posted",
               postedBy: processedBy || null,
               postedAt: new Date(),
-            })
-            .returning();
+            });
 
           await db.insert(journalEntryLines).values([
             { journalEntryId: je.id, accountId: bankAccount[0].id, debit: reimbursedAmountEtb.toString(), credit: "0.00", memo: "Insurance payment received", lineOrder: 1 },
@@ -183,11 +178,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid action." }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(insuranceClaims)
-      .set(updateData)
-      .where(eq(insuranceClaims.id, claimId))
-      .returning();
+    const [updated] = await updateReturning(db, insuranceClaims, updateData, eq(insuranceClaims.id, claimId));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

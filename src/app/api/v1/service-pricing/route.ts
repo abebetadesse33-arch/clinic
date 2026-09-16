@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { servicePricing } from "@/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -70,9 +71,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "serviceName and basePrice are required" }, { status: 400 });
     }
 
-    const [created] = await db
-      .insert(servicePricing)
-      .values({
+    const [created] = await insertReturning(db, servicePricing, {
         serviceName,
         serviceType: serviceType || "subscription",
         planCode: planCode || null,
@@ -87,8 +86,7 @@ export async function POST(request: NextRequest) {
         ctaText: ctaText || "Get Started",
         isActive: isActive !== false,
         metadata: metadata || {},
-      })
-      .returning();
+      });
 
     broadcastConfigChange("service-pricing", "created", created);
 
@@ -113,11 +111,7 @@ export async function PUT(request: NextRequest) {
     if (yearlyPrice !== undefined) updateData.yearlyPrice = String(yearlyPrice);
     if (discountPercent !== undefined) updateData.discountPercent = String(discountPercent);
 
-    const [updated] = await db
-      .update(servicePricing)
-      .set(updateData)
-      .where(eq(servicePricing.id, id))
-      .returning();
+    const [updated] = await updateReturning(db, servicePricing, updateData, eq(servicePricing.id, id));
 
     if (!updated) {
       return NextResponse.json({ success: false, error: "Pricing tier not found" }, { status: 404 });

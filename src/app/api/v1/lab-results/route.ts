@@ -7,6 +7,7 @@ import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUserId, getAuthenticatedSessionUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -83,9 +84,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const [newResult] = await db
-      .insert(labResults)
-      .values({
+    const [newResult] = await insertReturning(db, labResults, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         testName: validated.testName,
@@ -97,8 +96,7 @@ export async function POST(req: NextRequest) {
         isAbnormal,
         interpretation,
         performedAt: new Date(),
-      })
-      .returning();
+      });
 
     // 1. Fetch Patient and linked Lab Order Details
     const [patient] = await db
@@ -121,11 +119,7 @@ export async function POST(req: NextRequest) {
 
     // If linked to an order, update order status to completed and log turnaround
     if (validated.labOrderId) {
-      const [order] = await db
-        .update(labOrders)
-        .set({ status: "completed" })
-        .where(eq(labOrders.id, validated.labOrderId))
-        .returning();
+      const [order] = await updateReturning(db, labOrders, { status: "completed" }, eq(labOrders.id, validated.labOrderId));
 
       if (order) {
         linkedDoctorId = order.doctorId;

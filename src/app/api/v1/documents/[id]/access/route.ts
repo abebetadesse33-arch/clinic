@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { documentAccessLogs } from "@/db/schema";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -17,15 +18,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: "userId is required" }, { status: 400 });
     }
 
-    const [log] = await db
-      .insert(documentAccessLogs)
-      .values({
+    const [log] = await insertReturning(db, documentAccessLogs, {
         fileId: params.id,
         accessedByUserId: userId,
         accessType: accessType || "preview",
         ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

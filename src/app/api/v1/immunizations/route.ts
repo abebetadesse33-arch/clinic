@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { immunizations, patients } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -87,9 +88,7 @@ export async function POST(req: NextRequest) {
     const [patient] = await db.select({ tenantId: patients.tenantId }).from(patients).where(eq(patients.id, patientId)).limit(1);
     const tenantId = patient?.tenantId || "00000000-0000-0000-0000-000000000001";
 
-    const [newRecord] = await db
-      .insert(immunizations)
-      .values({
+    const [newRecord] = await insertReturning(db, immunizations, {
         tenantId,
         patientId,
         vaccineName,
@@ -101,8 +100,7 @@ export async function POST(req: NextRequest) {
         nextDueDate: nextDueDate ? new Date(nextDueDate) : null,
         notes: notes || "Recorded via patient immunization workflow.",
         dateGiven: new Date(),
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, data: newRecord }, { status: 201 });
   } catch (error: any) {

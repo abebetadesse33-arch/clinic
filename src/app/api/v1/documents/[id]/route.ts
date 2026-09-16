@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { clinicalFiles, documentAccessLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -25,17 +26,13 @@ export async function PATCH(
     const body = await req.json();
     const { category, verificationStatus, tags, isConfidential, actorUserId } = body;
 
-    const [updated] = await db
-      .update(clinicalFiles)
-      .set({
+    const [updated] = await updateReturning(db, clinicalFiles, {
         category: category !== undefined ? category : undefined,
         verificationStatus: verificationStatus !== undefined ? verificationStatus : undefined,
         tags: tags !== undefined ? tags : undefined,
         isConfidential: isConfidential !== undefined ? isConfidential : undefined,
         updatedAt: new Date(),
-      })
-      .where(eq(clinicalFiles.id, params.id))
-      .returning();
+      }, eq(clinicalFiles.id, params.id));
 
     if (actorUserId) {
       try {
@@ -74,14 +71,10 @@ export async function DELETE(
         { status: 403 }
       );
     }
-    const [archived] = await db
-      .update(clinicalFiles)
-      .set({
+    const [archived] = await updateReturning(db, clinicalFiles, {
         archived: true,
         updatedAt: new Date(),
-      })
-      .where(eq(clinicalFiles.id, params.id))
-      .returning();
+      }, eq(clinicalFiles.id, params.id));
 
     return NextResponse.json({
       success: true,

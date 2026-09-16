@@ -15,6 +15,7 @@ import { updatePatientSchema } from "@/lib/validations/schemas";
 import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning, updateReturning, deleteReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -123,14 +124,10 @@ export async function PUT(
 
     const validated = updatePatientSchema.parse(body);
 
-    const [updated] = await db
-      .update(patients)
-      .set({
+    const [updated] = await updateReturning(db, patients, {
         ...validated,
         updatedAt: new Date(),
-      })
-      .where(eq(patients.id, patientId))
-      .returning();
+      }, eq(patients.id, patientId));
 
     if (!updated) {
       return NextResponse.json(
@@ -139,7 +136,7 @@ export async function PUT(
       );
     }
 
-    await db.insert(auditLogs).values({
+    await insertReturning(db, auditLogs, {
       tenantId: DEFAULT_TENANT_ID,
       action: "PATIENT_UPDATED",
       entityType: "patients",
@@ -186,10 +183,7 @@ export async function DELETE(
     }
     const patientId = params.id;
 
-    const [deleted] = await db
-      .delete(patients)
-      .where(eq(patients.id, patientId))
-      .returning();
+    const [deleted] = await deleteReturning(db, patients, eq(patients.id, patientId));
 
     if (!deleted) {
       return NextResponse.json(
@@ -198,7 +192,7 @@ export async function DELETE(
       );
     }
 
-    await db.insert(auditLogs).values({
+    await insertReturning(db, auditLogs, {
       tenantId: DEFAULT_TENANT_ID,
       action: "PATIENT_ARCHIVED",
       entityType: "patients",

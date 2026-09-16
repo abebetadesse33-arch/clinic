@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { db } from "@/db";
 import { smartConsents } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export interface GrantConsentParams {
   tenantId: string;
@@ -21,9 +22,7 @@ export async function grantSmartConsent(params: GrantConsentParams) {
   const signatureRaw = `${params.patientId}|${params.consentType}|${validUntil.toISOString()}|${params.patientSecretSignature || "PATIENT_PIN_AUTH"}`;
   const digitalSignature = `0x${createHash("sha256").update(signatureRaw).digest("hex")}`;
 
-  const [consent] = await db
-    .insert(smartConsents)
-    .values({
+  const [consent] = await insertReturning(db, smartConsents, {
       tenantId: params.tenantId,
       patientId: params.patientId,
       consentType: params.consentType,
@@ -32,22 +31,17 @@ export async function grantSmartConsent(params: GrantConsentParams) {
       permittedDataTypes: params.permittedDataTypes || ["vitals", "labs", "medications", "imaging", "notes"],
       validUntil,
       digitalSignature,
-    })
-    .returning();
+    });
 
   return consent;
 }
 
 export async function revokeSmartConsent(consentId: string) {
-  const [revoked] = await db
-    .update(smartConsents)
-    .set({
+  const [revoked] = await updateReturning(db, smartConsents, {
       status: "revoked",
       revokedAt: new Date(),
       updatedAt: new Date(),
-    })
-    .where(eq(smartConsents.id, consentId))
-    .returning();
+    }, eq(smartConsents.id, consentId));
 
   return revoked;
 }

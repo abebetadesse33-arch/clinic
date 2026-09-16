@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { workflowTemplates } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,16 +45,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [template] = await db
-      .insert(workflowTemplates)
-      .values({
+    const [template] = await insertReturning(db, workflowTemplates, {
         organizationId: orgId,
         name,
         processType: processType as any,
         description: description || null,
         steps: steps || [],
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, template });
   } catch (error: any) {

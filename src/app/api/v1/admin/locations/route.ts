@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { clinicLocations, auditLogs } from "@/db/schema";
 import { desc, asc, eq } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -81,9 +82,7 @@ export async function POST(req: NextRequest) {
         .where(eq(clinicLocations.isMain, true));
     }
 
-    const [newLocation] = await db
-      .insert(clinicLocations)
-      .values({
+    const [newLocation] = await insertReturning(db, clinicLocations, {
         tenantId: "00000000-0000-0000-0000-000000000001",
         name,
         slug,
@@ -104,8 +103,7 @@ export async function POST(req: NextRequest) {
         nextOpenSlot,
         googleMapsUrl,
         osmUrl,
-      })
-      .returning();
+      });
 
     // Log admin audit
     try {

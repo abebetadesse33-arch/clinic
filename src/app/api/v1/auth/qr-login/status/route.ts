@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { qrLoginSessions, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createSession, setSessionCookie } from "@/lib/security/auth-session";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -98,11 +99,7 @@ export async function GET(req: NextRequest) {
 
       // Mark session as consumed. The conditional update guarantees a challenge
       // can only ever be exchanged for a session once, even under concurrent polls.
-      const consumed = await db
-        .update(qrLoginSessions)
-        .set({ status: "consumed" })
-        .where(and(eq(qrLoginSessions.id, session.id), eq(qrLoginSessions.status, "authorized")))
-        .returning({ id: qrLoginSessions.id });
+      const consumed = await updateReturning(db, qrLoginSessions, { status: "consumed" }, and(eq(qrLoginSessions.id, session.id), eq(qrLoginSessions.status, "authorized")));
 
       if (consumed.length === 0) {
         return NextResponse.json(

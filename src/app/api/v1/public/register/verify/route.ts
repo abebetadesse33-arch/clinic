@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { patientRegistrations } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -50,14 +51,10 @@ export async function POST(request: Request) {
 
     if (reg) {
       // Update registration status to verified in database
-      const [updated] = await db
-        .update(patientRegistrations)
-        .set({
+      const [updated] = await updateReturning(db, patientRegistrations, {
           status: "verified",
           updatedAt: new Date(),
-        })
-        .where(eq(patientRegistrations.id, reg.id))
-        .returning();
+        }, eq(patientRegistrations.id, reg.id));
 
       return NextResponse.json({
         success: true,

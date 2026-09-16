@@ -4,6 +4,7 @@ import { imagingReports, imagingStudies, auditLogs } from "@/db/schema";
 import { createImagingReportSchema } from "@/lib/validations/schemas";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -13,9 +14,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createImagingReportSchema.parse(body);
 
-    const [newReport] = await db
-      .insert(imagingReports)
-      .values({
+    const [newReport] = await insertReturning(db, imagingReports, {
         tenantId: DEFAULT_TENANT_ID,
         studyId: validated.studyId,
         technique: validated.technique,
@@ -25,8 +24,7 @@ export async function POST(req: NextRequest) {
         signedBy: "11111111-1111-1111-1111-111111111101",
         signedAt: new Date(),
         peerReviewStatus: "none",
-      })
-      .returning();
+      });
 
     // Update study status to signed
     await db

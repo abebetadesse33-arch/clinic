@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { vendorInvoices, invoices, payments } from "@/db/schema";
 import { eq, desc, and, lt, gte } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -109,9 +110,7 @@ export async function POST(req: NextRequest) {
       const vat = parseFloat(vatAmountEtb || "0");
       const total = amount + vat;
 
-      const [inv] = await db
-        .insert(vendorInvoices)
-        .values({
+      const [inv] = await insertReturning(db, vendorInvoices, {
           tenantId, vendorName, vendorContact: vendorContact || null,
           invoiceNumber, poReference: poReference || null,
           description, category: category || "other",
@@ -121,8 +120,7 @@ export async function POST(req: NextRequest) {
           dueDate, documentUrl: documentUrl || null,
           paymentStatus: "unpaid",
           createdBy,
-        })
-        .returning();
+        });
 
       return NextResponse.json({ success: true, data: inv }, { status: 201 });
     }
@@ -146,9 +144,7 @@ export async function POST(req: NextRequest) {
       const newPaid = alreadyPaid + paid;
       const newStatus = newPaid >= total ? "paid" : "partial";
 
-      const [updated] = await db
-        .update(vendorInvoices)
-        .set({
+      const [updated] = await updateReturning(db, vendorInvoices, {
           paidAmountEtb: newPaid.toFixed(2),
           paymentStatus: newStatus as "paid" | "partial",
           paymentMethod: paymentMethod || "bank_transfer",
@@ -158,9 +154,7 @@ export async function POST(req: NextRequest) {
           approvedAt: approvedBy ? new Date() : null,
           threeWayMatchStatus: "matched",
           updatedAt: new Date(),
-        })
-        .where(eq(vendorInvoices.id, vendorInvoiceId))
-        .returning();
+        }, eq(vendorInvoices.id, vendorInvoiceId));
 
       return NextResponse.json({ success: true, data: updated, message: `Paid ${paid.toFixed(2)} ETB to ${inv.vendorName}.` });
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { providerProfiles, providerSchedules, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
@@ -130,9 +131,7 @@ export async function PUT(req: NextRequest) {
 
     let savedProfile;
     if (existing) {
-      [savedProfile] = await db
-        .update(providerProfiles)
-        .set({
+      [savedProfile] = await updateReturning(db, providerProfiles, {
           bio,
           specialties,
           languages,
@@ -142,13 +141,9 @@ export async function PUT(req: NextRequest) {
           metadata: metadata || existing.metadata,
           approvalStatus: "draft", // Stays in draft until submitted for HR approval
           updatedAt: new Date(),
-        })
-        .where(eq(providerProfiles.id, existing.id))
-        .returning();
+        }, eq(providerProfiles.id, existing.id));
     } else {
-      [savedProfile] = await db
-        .insert(providerProfiles)
-        .values({
+      [savedProfile] = await insertReturning(db, providerProfiles, {
           tenantId: DEFAULT_TENANT_ID,
           userId,
           bio,
@@ -159,8 +154,7 @@ export async function PUT(req: NextRequest) {
           consultationFeeEtb: String(consultationFeeEtb || "500"),
           metadata: metadata || {},
           approvalStatus: "draft",
-        })
-        .returning();
+        });
     }
 
     // 2. Upsert Schedules

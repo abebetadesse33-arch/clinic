@@ -4,6 +4,7 @@ import {
   chartOfAccounts, journalEntries, journalEntryLines,
 } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -162,9 +163,7 @@ export async function POST(req: NextRequest) {
     }
 
     const entryNumber = `JE-MAN-${Date.now()}`;
-    const [je] = await db
-      .insert(journalEntries)
-      .values({
+    const [je] = await insertReturning(db, journalEntries, {
         tenantId,
         entryNumber,
         entryDate: entryDate || new Date().toISOString().split("T")[0],
@@ -175,8 +174,7 @@ export async function POST(req: NextRequest) {
         status: "posted",
         postedBy: postedBy || null,
         postedAt: new Date(),
-      })
-      .returning();
+      });
 
     const lineRows = lines.map((l: any, i: number) => ({
       journalEntryId: je.id,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { leaveRequests, staffProfiles, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -59,16 +60,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
 
-    const [newLeave] = await db
-      .insert(leaveRequests)
-      .values({
+    const [newLeave] = await insertReturning(db, leaveRequests, {
         staffId, tenantId, leaveType, startDate, endDate,
         totalDays: Number(totalDays),
         reason,
         supportingDocumentUrl: supportingDocumentUrl || null,
         status: "pending",
-      })
-      .returning();
+      });
 
     return NextResponse.json({ success: true, data: newLeave }, { status: 201 });
   } catch (error: any) {
@@ -106,11 +104,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid action." }, { status: 400 });
     }
 
-    const [updated] = await db
-      .update(leaveRequests)
-      .set(updateData)
-      .where(eq(leaveRequests.id, leaveId))
-      .returning();
+    const [updated] = await updateReturning(db, leaveRequests, updateData, eq(leaveRequests.id, leaveId));
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {

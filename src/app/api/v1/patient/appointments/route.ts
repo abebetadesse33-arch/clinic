@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { encounters, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -96,9 +97,7 @@ export async function POST(req: NextRequest) {
       ? new Date(`${date}T${time.replace(" AM", "").replace(" PM", "")}`)
       : new Date(Date.now() + 86400000 * 3);
 
-    const [newEnc] = await db
-      .insert(encounters)
-      .values({
+    const [newEnc] = await insertReturning(db, encounters, {
         tenantId: pat.tenantId,
         patientId: pat.id,
         clinicianId: pat.primaryDoctorId || u.id,
@@ -108,8 +107,7 @@ export async function POST(req: NextRequest) {
         currentStep: "front_desk",
         chiefComplaint: reason || type || "General consultation",
         startTime,
-      })
-      .returning();
+      });
 
     return NextResponse.json({
       success: true,

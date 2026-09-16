@@ -4,6 +4,7 @@ import { criticalAlerts } from "@/db/schema";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
 import { eq, and, isNull } from "drizzle-orm";
 import { createTamperEvidentAuditLog } from "@/lib/security/tenant-guard";
+import { updateReturning } from "@/lib/db/returning";
 
 // POST /api/v1/orders/critical-alerts/[id]/ack - Acknowledge a critical/panic value alert
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -16,15 +17,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const body = await req.json().catch(() => ({}));
     const { note } = body;
 
-    const [alert] = await db
-      .update(criticalAlerts)
-      .set({
+    const [alert] = await updateReturning(db, criticalAlerts, {
         acknowledgedBy: sessionUserId,
         acknowledgedAt: new Date(),
         acknowledgmentNote: note || "Clinician acknowledged critical panic value",
-      })
-      .where(and(eq(criticalAlerts.id, params.id), isNull(criticalAlerts.acknowledgedAt)))
-      .returning();
+      }, and(eq(criticalAlerts.id, params.id), isNull(criticalAlerts.acknowledgedAt)));
 
     if (!alert) {
       return NextResponse.json(

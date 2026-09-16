@@ -4,6 +4,7 @@ import { referrals, patients, users, notifications } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -219,9 +220,7 @@ export async function POST(request: NextRequest) {
 
     const resolvedWard = targetWard || (receivingRole ? receivingRole.replace(/_/g, " ").toUpperCase() : "Specialty Ward");
 
-    const [newReferral] = await db
-      .insert(referrals)
-      .values({
+    const [newReferral] = await insertReturning(db, referrals, {
         organizationId: DEFAULT_TENANT_ID,
         patientId: targetPatientId,
         type: (type as any) || "internal",
@@ -247,8 +246,7 @@ export async function POST(request: NextRequest) {
             : `On-Duty ${resolvedWard} Clinical Pool (First Available)`,
         } as any,
         insuranceAuthNumber: `AUTH-Nini-${Math.floor(100000 + Math.random() * 900000)}`,
-      })
-      .returning();
+      });
 
     // Notify all available professionals on duty in that specific ward / role
     try {
@@ -328,17 +326,13 @@ export async function PATCH(request: NextRequest) {
     }
 
     const now = new Date();
-    const [updated] = await db
-      .update(referrals)
-      .set({
+    const [updated] = await updateReturning(db, referrals, {
         status: status as any,
         responseNotes: responseNotes || null,
         updatedAt: now,
         ...(status === "accepted" || status === "approved" ? { acceptedAt: now } : {}),
         ...(status === "completed" ? { completedAt: now } : {}),
-      })
-      .where(eq(referrals.id, id))
-      .returning();
+      }, eq(referrals.id, id));
 
     // If referral updated, notify referring doctor and patient
     if (updated?.referringUserId) {

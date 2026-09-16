@@ -62,7 +62,7 @@ export async function GET(_req: NextRequest) {
       },
       database: {
         status: "connected",
-        dialect: "PostgreSQL 16 (pgvector)",
+        dialect: "MySQL 8",
         latencyMs: dbLatencyMs,
       },
       aiEngine: {

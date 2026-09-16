@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import { db } from "@/db";
 import { blockchainAnchors, auditLogs } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface MerkleTreeResult {
   rootHash: string;
@@ -73,9 +74,7 @@ export async function anchorAuditLogsToBlockchain(tenantId: string) {
   const blockHash = sha256(blockData);
   const txHash = `0x${sha256(blockHash + "_TX_PAYLOAD")}`;
 
-  const [anchor] = await db
-    .insert(blockchainAnchors)
-    .values({
+  const [anchor] = await insertReturning(db, blockchainAnchors, {
       tenantId,
       batchStartAt: logs.length > 0 ? logs[logs.length - 1].createdAt : new Date(),
       batchEndAt: logs.length > 0 ? logs[0].createdAt : new Date(),
@@ -85,8 +84,7 @@ export async function anchorAuditLogsToBlockchain(tenantId: string) {
       blockHash,
       transactionHash: txHash,
       network: "private_hyperledger_simulated",
-    })
-    .returning();
+    });
 
   return anchor;
 }

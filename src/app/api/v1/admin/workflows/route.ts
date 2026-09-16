@@ -10,6 +10,7 @@ import {
 import { INTENSIVE_WORKFLOW_TEMPLATES } from "@/lib/workflow/workflow-templates-intensive";
 import { INTENSIVE_WORKFLOW_TEMPLATES_PT2 } from "@/lib/workflow/workflow-templates-intensive-pt2";
 import { REFERRAL_LABORATORY_WORKFLOW_TEMPLATES } from "@/lib/workflow/workflow-templates-referral-laboratory";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -206,9 +207,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const [wf] = await db
-        .insert(workflowDefinitions)
-        .values({
+      const [wf] = await insertReturning(db, workflowDefinitions, {
           tenantId: TENANT_ID,
           name,
           description: description || null,
@@ -216,8 +215,7 @@ export async function POST(req: NextRequest) {
           conditions: conditions || {},
           steps,
           isActive: true,
-        })
-        .returning();
+        });
 
       return NextResponse.json({ success: true, data: wf, message: "Workflow created successfully." }, { status: 201 });
     }
@@ -227,11 +225,7 @@ export async function POST(req: NextRequest) {
       const { workflowId, isActive } = body;
       if (!workflowId) return NextResponse.json({ error: "workflowId required" }, { status: 400 });
 
-      const [updated] = await db
-        .update(workflowDefinitions)
-        .set({ isActive: Boolean(isActive), updatedAt: new Date() })
-        .where(and(eq(workflowDefinitions.id, workflowId), eq(workflowDefinitions.tenantId, TENANT_ID)))
-        .returning();
+      const [updated] = await updateReturning(db, workflowDefinitions, { isActive: Boolean(isActive), updatedAt: new Date() }, and(eq(workflowDefinitions.id, workflowId), eq(workflowDefinitions.tenantId, TENANT_ID)));
 
       return NextResponse.json({ success: true, data: updated });
     }
@@ -248,11 +242,7 @@ export async function POST(req: NextRequest) {
       if (conditions !== undefined) updateData.conditions = conditions;
       if (steps) updateData.steps = steps;
 
-      const [updated] = await db
-        .update(workflowDefinitions)
-        .set(updateData)
-        .where(and(eq(workflowDefinitions.id, workflowId), eq(workflowDefinitions.tenantId, TENANT_ID)))
-        .returning();
+      const [updated] = await updateReturning(db, workflowDefinitions, updateData, and(eq(workflowDefinitions.id, workflowId), eq(workflowDefinitions.tenantId, TENANT_ID)));
 
       return NextResponse.json({ success: true, data: updated, message: "Workflow updated successfully." });
     }
@@ -292,23 +282,17 @@ export async function POST(req: NextRequest) {
 
       let deployedWf;
       if (existing.length > 0) {
-        const [updated] = await db
-          .update(workflowDefinitions)
-          .set({
+        const [updated] = await updateReturning(db, workflowDefinitions, {
             description: template.description,
             triggerEvent: template.triggerEvent,
             conditions: template.conditions,
             steps: template.steps,
             isActive: true,
             updatedAt: new Date(),
-          })
-          .where(eq(workflowDefinitions.id, existing[0].id))
-          .returning();
+          }, eq(workflowDefinitions.id, existing[0].id));
         deployedWf = updated;
       } else {
-        const [inserted] = await db
-          .insert(workflowDefinitions)
-          .values({
+        const [inserted] = await insertReturning(db, workflowDefinitions, {
             tenantId: TENANT_ID,
             name: template.name,
             description: template.description,
@@ -316,8 +300,7 @@ export async function POST(req: NextRequest) {
             conditions: template.conditions,
             steps: template.steps,
             isActive: true,
-          })
-          .returning();
+          });
         deployedWf = inserted;
       }
 
@@ -344,23 +327,17 @@ export async function POST(req: NextRequest) {
           .limit(1);
 
         if (existing) {
-          const [updated] = await db
-            .update(workflowDefinitions)
-            .set({
+          const [updated] = await updateReturning(db, workflowDefinitions, {
               description: t.description,
               triggerEvent: t.triggerEvent,
               conditions: t.conditions,
               steps: t.steps,
               isActive: true,
               updatedAt: new Date(),
-            })
-            .where(eq(workflowDefinitions.id, existing.id))
-            .returning();
+            }, eq(workflowDefinitions.id, existing.id));
           deployed.push(updated);
         } else {
-          const [inserted] = await db
-            .insert(workflowDefinitions)
-            .values({
+          const [inserted] = await insertReturning(db, workflowDefinitions, {
               tenantId: TENANT_ID,
               name: t.name,
               description: t.description,
@@ -368,8 +345,7 @@ export async function POST(req: NextRequest) {
               conditions: t.conditions,
               steps: t.steps,
               isActive: true,
-            })
-            .returning();
+            });
           deployed.push(inserted);
         }
       }

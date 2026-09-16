@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { mobileClinicEncounters } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 // ─── POST /api/v1/mobile-clinic-sessions/[id]/sync ────────────────────────────
 // Receives offline encounter batches from PWA, merges idempotently
@@ -59,9 +60,7 @@ export async function POST(
 
       const vitals = encounterPayload.vitals || {};
 
-      const [encounter] = await db
-        .insert(mobileClinicEncounters)
-        .values({
+      const [encounter] = await insertReturning(db, mobileClinicEncounters, {
           sessionId: params.id,
           patientId: encounterPayload.patientId || null,
           offlineSyncId: encounterPayload.encounterId,
@@ -72,9 +71,7 @@ export async function POST(
           pocLabResults: (encounterPayload.labTests as any) || [],
           syncedAt: new Date(),
           clientTimestamp: clientTimestamp ? new Date(clientTimestamp) : new Date(),
-        })
-        .onConflictDoNothing()
-        .returning();
+        });
 
       result = { encounter: encounter || existing[0] };
     } else {

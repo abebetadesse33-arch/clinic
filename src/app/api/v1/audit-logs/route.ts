@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { auditLogs, users } from "@/db/schema";
 import { createAuditLogSchema } from "@/lib/validations/schemas";
-import { desc, eq, ilike, or, and, gte, lte } from "drizzle-orm";
+import { desc, eq, like, or, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -39,9 +40,9 @@ export async function GET(req: NextRequest) {
     if (search) {
       conditions.push(
         or(
-          ilike(auditLogs.summary, `%${search}%`),
-          ilike(auditLogs.action, `%${search}%`),
-          ilike(auditLogs.entityId, `%${search}%`)
+          like(auditLogs.summary, `%${search}%`),
+          like(auditLogs.action, `%${search}%`),
+          like(auditLogs.entityId, `%${search}%`)
         )
       );
     }
@@ -102,9 +103,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createAuditLogSchema.parse(body);
 
-    const [newLog] = await db
-      .insert(auditLogs)
-      .values({
+    const [newLog] = await insertReturning(db, auditLogs, {
         tenantId: DEFAULT_TENANT_ID,
         userId: body.userId || "11111111-1111-1111-1111-111111111101",
         action: validated.action,
@@ -113,8 +112,7 @@ export async function POST(req: NextRequest) {
         summary: validated.summary,
         diff: validated.details || {},
         ipAddress: req.headers.get("x-forwarded-for") || "127.0.0.1",
-      })
-      .returning();
+      });
 
     const serializedLog = newLog
       ? {

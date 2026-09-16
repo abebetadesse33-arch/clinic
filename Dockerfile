@@ -28,7 +28,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_CPU_COUNT=1
-ENV DATABASE_URL=postgres://postgres:postgres@localhost:5432/clinic_enterprise
+ENV DATABASE_URL=mysql://root:root@localhost:3306/clinic_enterprise
 ENV REDIS_URL=redis://localhost:6379
 ENV GEMINI_API_KEY_1=placeholder
 ENV NEXT_PUBLIC_APP_NAME="NiniMed Enterprise CDSS"

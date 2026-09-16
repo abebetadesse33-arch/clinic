@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { authVerificationCodes, systemAuthSettings, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { createHash, randomInt } from "crypto";
+import { insertReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -78,9 +79,7 @@ export async function POST(req: NextRequest) {
       );
 
     // 5. Store new OTP record
-    const [insertedRecord] = await db
-      .insert(authVerificationCodes)
-      .values({
+    const [insertedRecord] = await insertReturning(db, authVerificationCodes, {
         identifier: cleanIdentifier,
         channel: resolvedChannel,
         codeHash,
@@ -95,8 +94,7 @@ export async function POST(req: NextRequest) {
           userAgent: req.headers.get("user-agent") || "NiniMed Client",
           fullName: fullName || null,
         },
-      })
-      .returning();
+      });
 
     // 6. Simulate / Dispatch notification
     console.log(

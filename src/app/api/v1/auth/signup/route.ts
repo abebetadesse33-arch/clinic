@@ -6,6 +6,7 @@ import { randomInt } from "crypto";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { hashPassword } from "@/lib/security/password";
 import { createSession, ensureAuthSchema, setSessionCookie } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -126,9 +127,7 @@ export async function POST(req: NextRequest) {
     const passwordHash = await hashPassword(password);
 
     const { createdUser, createdPatient } = await db.transaction(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({
+      const [user] = await insertReturning(tx, users, {
           organizationId: orgId,
           email: normalizedEmail,
           passwordHash,
@@ -136,12 +135,9 @@ export async function POST(req: NextRequest) {
           role: "patient",
           nationalId: cleanNationalId,
           phone: normalizedPhone,
-        })
-        .returning();
+        });
 
-      const [patient] = await tx
-        .insert(patients)
-        .values({
+      const [patient] = await insertReturning(tx, patients, {
           tenantId: orgId,
           userId: user.id,
           mrn: patientMrn,
@@ -156,8 +152,7 @@ export async function POST(req: NextRequest) {
           bloodType: bloodType || "O+",
           email: normalizedEmail,
           phone: normalizedPhone,
-        })
-        .returning();
+        });
 
       return { createdUser: user, createdPatient: patient };
     });

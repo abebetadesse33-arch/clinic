@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { patients, auditLogs } from "@/db/schema";
 import { createPatientSchema } from "@/lib/validations/schemas";
-import { desc, eq, ilike, or, and, count } from "drizzle-orm";
+import { desc, eq, like, or, and, count } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { getAuthenticatedSessionUser } from "@/lib/security/auth-session";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -58,9 +59,9 @@ export async function GET(req: NextRequest) {
     if (search && !patientId) {
       conditions.push(
         or(
-          ilike(patients.firstName, `%${search}%`),
-          ilike(patients.lastName, `%${search}%`),
-          ilike(patients.mrn, `%${search}%`)
+          like(patients.firstName, `%${search}%`),
+          like(patients.lastName, `%${search}%`),
+          like(patients.mrn, `%${search}%`)
         )!
       );
     }
@@ -111,9 +112,7 @@ export async function POST(req: NextRequest) {
 
     const mrn = `MRN-${Math.floor(10000 + Math.random() * 90000)}`;
 
-    const [newPatient] = await db
-      .insert(patients)
-      .values({
+    const [newPatient] = await insertReturning(db, patients, {
         tenantId: DEFAULT_TENANT_ID,
         mrn,
         firstName: validated.firstName,
@@ -128,8 +127,7 @@ export async function POST(req: NextRequest) {
         primaryDoctorId: validated.primaryDoctorId,
         triagePriority: validated.triagePriority || "routine",
         avatar: validated.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
-      })
-      .returning();
+      });
 
     // Append to immutable audit log
     await db.insert(auditLogs).values({

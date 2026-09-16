@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { telemedicineSessions, encounters, prescriptions, notifications, auditLogs, appointments } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -66,11 +67,7 @@ export async function PATCH(
     if (consultationNotes) updateFields.consultationNotes = consultationNotes;
     if (aiConsultationSummary) updateFields.aiConsultationSummary = aiConsultationSummary;
 
-    const [updated] = await db
-      .update(telemedicineSessions)
-      .set(updateFields)
-      .where(eq(telemedicineSessions.roomId, params.roomId))
-      .returning();
+    const [updated] = await updateReturning(db, telemedicineSessions, updateFields, eq(telemedicineSessions.roomId, params.roomId));
 
     // 1. If ending session & linked to an encounter, finalize encounter & matching appointments
     if (status === "completed" || status === "finished") {

@@ -8,6 +8,7 @@ import { captureOrderCharge } from "@/lib/billing/order-charge-capture";
 import { queueOrderOutboxEvent } from "@/lib/workflow/outbox-worker";
 import { createTamperEvidentAuditLog } from "@/lib/security/tenant-guard";
 import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
+import { updateReturning } from "@/lib/db/returning";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -68,11 +69,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         updateData.cancelledAt = new Date();
       }
 
-      const [updated] = await tx
-        .update(clinicalOrders)
-        .set(updateData)
-        .where(eq(clinicalOrders.id, params.id))
-        .returning();
+      const [updated] = await updateReturning(tx, clinicalOrders, updateData, eq(clinicalOrders.id, params.id));
 
       // 4. AUTOMATED REVENUE CHARGE CAPTURE ON FINAL VERIFICATION
       if (nextStatus === "final_verified") {

@@ -1,4 +1,5 @@
-import postgres from "postgres";
+import type { Pool } from "mysql2/promise";
+import { randomUUID } from "crypto";
 
 type DemoStaff = [department: string, name: string, role: string, email: string, designation: string];
 type DemoPatient = [name: string, gender: "male" | "female", age: number, email: string, guardianEmail?: string];
@@ -103,35 +104,41 @@ export function shouldSeedDemoAccounts(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-export async function seedDemoAccounts(client: postgres.Sql) {
+export async function seedDemoAccounts(client: Pool) {
   if (!shouldSeedDemoAccounts()) {
     console.log("ℹ️ Skipping demo account seed (production). Set NINIMED_SEED_DEMO_ACCOUNTS=true to override.");
     return;
   }
-  const passwordHash = await client`SELECT encode(digest(${DEMO_PASSWORD}, 'sha256'), 'hex') AS hash`;
-  const hash = passwordHash[0].hash as string;
+  const [[hashRow]] = await client.query<any[]>("SELECT SHA2(?, 256) AS hash", [DEMO_PASSWORD]);
+  const hash = hashRow.hash as string;
   const staffIds = new Map<string, string>();
 
   for (const [index, staff] of STAFF.entries()) {
     const [department, name, role, email, designation] = staff;
-    const [user] = await client`
-      INSERT INTO users (organization_id, email, password_hash, full_name, role, department, is_admin_granted_by_super_admin, is_active)
-      VALUES (${TENANT_ID}, ${email}, ${hash}, ${name}, ${role}, ${department}, ${role === "system_admin" || role === "tenant_admin"}, TRUE)
-      ON CONFLICT (email) DO UPDATE SET
-        password_hash = EXCLUDED.password_hash,
-        full_name = EXCLUDED.full_name,
-        role = EXCLUDED.role,
-        department = EXCLUDED.department,
-        is_admin_granted_by_super_admin = EXCLUDED.is_admin_granted_by_super_admin,
-        is_active = TRUE
-      RETURNING id
-    `;
-    staffIds.set(email, user.id);
-    await client`
-      INSERT INTO staff_profiles (user_id, tenant_id, employee_code, department, designation, specialization, employment_type, status, hired_at)
-      VALUES (${user.id}, ${TENANT_ID}, ${`DEMO-${String(index + 1).padStart(3, "0")}`}, ${department}, ${designation}, ${designation}, 'full_time', 'active', CURRENT_DATE)
-      ON CONFLICT (user_id) DO UPDATE SET department = EXCLUDED.department, designation = EXCLUDED.designation, specialization = EXCLUDED.specialization, status = 'active'
-    `;
+    const candidateId = randomUUID();
+    const isAdmin = role === "system_admin" || role === "tenant_admin";
+    await client.query(
+      `INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_admin_granted_by_super_admin, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, NOW(), NOW())
+       ON DUPLICATE KEY UPDATE
+         password_hash = VALUES(password_hash),
+         full_name = VALUES(full_name),
+         role = VALUES(role),
+         department = VALUES(department),
+         is_admin_granted_by_super_admin = VALUES(is_admin_granted_by_super_admin),
+         is_active = TRUE`,
+      [candidateId, TENANT_ID, email, hash, name, role, department, isAdmin]
+    );
+    const [[userRow]] = await client.query<any[]>("SELECT id FROM users WHERE email = ?", [email]);
+    const userId = userRow.id as string;
+    staffIds.set(email, userId);
+
+    await client.query(
+      `INSERT INTO staff_profiles (id, user_id, tenant_id, employee_code, department, designation, specialization, employment_type, status, hired_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'full_time', 'active', CURDATE(), NOW(), NOW())
+       ON DUPLICATE KEY UPDATE department = VALUES(department), designation = VALUES(designation), specialization = VALUES(specialization), status = 'active'`,
+      [randomUUID(), userId, TENANT_ID, `DEMO-${String(index + 1).padStart(3, "0")}`, department, designation, designation]
+    );
   }
 
   for (const [index, patient] of PATIENTS.entries()) {
@@ -142,26 +149,29 @@ export async function seedDemoAccounts(client: postgres.Sql) {
     let userId = guardianEmail ? staffIds.get(guardianEmail) : undefined;
 
     if (guardianEmail && !userId) {
-      const [guardianUser] = await client`SELECT id FROM users WHERE email = ${guardianEmail} LIMIT 1`;
+      const [[guardianUser]] = await client.query<any[]>("SELECT id FROM users WHERE email = ? LIMIT 1", [guardianEmail]);
       userId = guardianUser?.id;
     }
 
     if (!userId) {
-      const [user] = await client`
-        INSERT INTO users (organization_id, email, password_hash, full_name, role, department, is_active)
-        VALUES (${TENANT_ID}, ${email}, ${hash}, ${name}, 'patient', 'patient_services', TRUE)
-        ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, full_name = EXCLUDED.full_name, role = 'patient', is_active = TRUE
-        RETURNING id
-      `;
-      userId = user.id;
+      const candidateId = randomUUID();
+      await client.query(
+        `INSERT INTO users (id, organization_id, email, password_hash, full_name, role, department, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 'patient', 'patient_services', TRUE, NOW(), NOW())
+         ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), full_name = VALUES(full_name), role = 'patient', is_active = TRUE`,
+        [candidateId, TENANT_ID, email, hash, name]
+      );
+      const [[userRow]] = await client.query<any[]>("SELECT id FROM users WHERE email = ?", [email]);
+      userId = userRow.id as string;
     }
 
-    await client`
-      INSERT INTO patients (tenant_id, user_id, mrn, first_name, last_name, date_of_birth, gender, blood_type, email, triage_priority)
-      VALUES (${TENANT_ID}, ${userId ?? null}, ${`DEMO-${String(index + 1).padStart(5, "0")}`}, ${firstName}, ${lastName}, ${dateOfBirth(age)}, ${gender}, 'O+', ${accountEmail}, 'routine')
-      ON CONFLICT (mrn) DO UPDATE SET user_id = EXCLUDED.user_id, first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, date_of_birth = EXCLUDED.date_of_birth, gender = EXCLUDED.gender, email = EXCLUDED.email
-    `;
+    await client.query(
+      `INSERT INTO patients (id, tenant_id, user_id, mrn, first_name, last_name, date_of_birth, gender, blood_type, email, triage_priority, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'O+', ?, 'routine', NOW(), NOW())
+       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), first_name = VALUES(first_name), last_name = VALUES(last_name), date_of_birth = VALUES(date_of_birth), gender = VALUES(gender), email = VALUES(email)`,
+      [randomUUID(), TENANT_ID, userId ?? null, `DEMO-${String(index + 1).padStart(5, "0")}`, firstName, lastName, dateOfBirth(age), gender, accountEmail]
+    );
   }
 
   console.log(`✅ Demo account seed synchronized: ${STAFF.length} staff and ${PATIENTS.length} patient records.`);
-}
+}

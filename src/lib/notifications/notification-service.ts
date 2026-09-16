@@ -11,6 +11,7 @@ import {
 import { eq, and, inArray } from "drizzle-orm";
 import { sendTelegramNotification, sendBatchTelegramNotifications } from "./telegram-notifier";
 import { EventEmitter } from "events";
+import { insertReturning } from "@/lib/db/returning";
 
 export type NotificationCategory =
   | "appointments"
@@ -185,9 +186,7 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
 
     for (const userId of recipientUserIds) {
       // Explicit DB Insertion: Strictly stores senderUserId in the database schema column
-      const [inserted] = await db
-        .insert(notifications)
-        .values({
+      const [inserted] = await insertReturning(db, notifications, {
           organizationId: notificationOrganizationId,
           userId: userId,
           recipientUserId: userId,
@@ -210,8 +209,7 @@ export async function dispatchNotification(payload: NotificationDispatchPayload)
             actionText,
             senderUserId: payload.senderUserId || null,
           },
-        })
-        .returning({ id: notifications.id });
+        });
 
       if (inserted?.id) {
         insertedIds.push(inserted.id);

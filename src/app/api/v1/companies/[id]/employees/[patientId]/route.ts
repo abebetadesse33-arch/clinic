@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { subscriptions, subscriptionMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 export async function DELETE(
   req: NextRequest,
@@ -17,16 +18,10 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Active company subscription not found" }, { status: 404 });
     }
 
-    const [removed] = await db
-      .update(subscriptionMembers)
-      .set({ isActive: false, removedAt: new Date() })
-      .where(
-        and(
+    const [removed] = await updateReturning(db, subscriptionMembers, { isActive: false, removedAt: new Date() }, and(
           eq(subscriptionMembers.subscriptionId, sub.id),
           eq(subscriptionMembers.patientId, params.patientId)
-        )
-      )
-      .returning();
+        ));
 
     return NextResponse.json({
       success: true,

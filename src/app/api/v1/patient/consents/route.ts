@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientConsents } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
         revokedAt: def.defaultGranted ? null : new Date(),
       }));
 
-      existingConsents = await db.insert(patientConsents).values(rowsToInsert).returning();
+      existingConsents = await insertReturning(db, patientConsents, rowsToInsert);
     }
 
     // Map database records with titles and descriptions
@@ -155,23 +156,17 @@ export async function POST(request: NextRequest) {
 
     let updatedRecord: any;
     if (existing) {
-      const [updated] = await db
-        .update(patientConsents)
-        .set({
+      const [updated] = await updateReturning(db, patientConsents, {
           isGranted: Boolean(isGranted),
           version: def.version,
           userAgent,
           ipAddress,
           grantedAt: isGranted ? new Date() : existing.grantedAt,
           revokedAt: isGranted ? null : new Date(),
-        })
-        .where(eq(patientConsents.id, existing.id))
-        .returning();
+        }, eq(patientConsents.id, existing.id));
       updatedRecord = updated;
     } else {
-      const [created] = await db
-        .insert(patientConsents)
-        .values({
+      const [created] = await insertReturning(db, patientConsents, {
           organizationId: DEFAULT_ORGANIZATION_ID,
           patientId: patient.id,
           consentType,
@@ -181,8 +176,7 @@ export async function POST(request: NextRequest) {
           ipAddress,
           grantedAt: new Date(),
           revokedAt: isGranted ? null : new Date(),
-        })
-        .returning();
+        });
       updatedRecord = created;
     }
 

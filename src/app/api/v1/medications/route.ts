@@ -4,6 +4,7 @@ import { medications, auditLogs } from "@/db/schema";
 import { createMedicationSchema } from "@/lib/validations/schemas";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { insertReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -42,9 +43,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createMedicationSchema.parse(body);
 
-    const [newMed] = await db
-      .insert(medications)
-      .values({
+    const [newMed] = await insertReturning(db, medications, {
         tenantId: DEFAULT_TENANT_ID,
         patientId: validated.patientId,
         name: validated.name,
@@ -55,8 +54,7 @@ export async function POST(req: NextRequest) {
         startDate: validated.startDate,
         isActive: validated.isActive,
         pharmacistVerified: validated.pharmacistVerified,
-      })
-      .returning();
+      });
 
     await db.insert(auditLogs).values({
       tenantId: DEFAULT_TENANT_ID,

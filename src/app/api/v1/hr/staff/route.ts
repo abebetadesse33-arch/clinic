@@ -6,6 +6,7 @@ import {
 import { eq, desc, and, ne } from "drizzle-orm";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { requireAdminUser } from "@/lib/security/auth-session";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -141,9 +142,7 @@ export async function POST(req: NextRequest) {
 
     let staffRecord;
     if (existing) {
-      const [updated] = await db
-        .update(staffProfiles)
-        .set({
+      const [updated] = await updateReturning(db, staffProfiles, {
           department,
           designation,
           specialization: specialization ?? existing.specialization,
@@ -151,14 +150,10 @@ export async function POST(req: NextRequest) {
           licenseExpiryDate: licenseExpiryDate ?? existing.licenseExpiryDate,
           baseSalaryEtb: baseSalaryEtb?.toString() ?? existing.baseSalaryEtb,
           updatedAt: new Date(),
-        })
-        .where(eq(staffProfiles.id, existing.id))
-        .returning();
+        }, eq(staffProfiles.id, existing.id));
       staffRecord = updated;
     } else {
-      const [inserted] = await db
-        .insert(staffProfiles)
-        .values({
+      const [inserted] = await insertReturning(db, staffProfiles, {
           userId,
           tenantId,
           employeeCode: empCode,
@@ -179,8 +174,7 @@ export async function POST(req: NextRequest) {
           mobileWalletProvider: mobileWalletProvider || "none",
           hiredAt: hireDate,
           status: "active",
-        })
-        .returning();
+        });
       staffRecord = inserted;
     }
 
@@ -246,9 +240,7 @@ export async function PATCH(req: NextRequest) {
     // If profile doesn't exist yet but userId is provided, create it
     if (!profile && userId) {
       const empCode = `EMP-${Date.now().toString().slice(-4)}`;
-      const [created] = await db
-        .insert(staffProfiles)
-        .values({
+      const [created] = await insertReturning(db, staffProfiles, {
           userId,
           tenantId: auth.user.organizationId,
           employeeCode: empCode,
@@ -258,8 +250,7 @@ export async function PATCH(req: NextRequest) {
           baseSalaryEtb: baseSalaryEtb?.toString() || "25000.00",
           hiredAt: new Date().toISOString().split("T")[0],
           status: "active",
-        })
-        .returning();
+        });
       profile = created;
     }
 
@@ -279,11 +270,7 @@ export async function PATCH(req: NextRequest) {
     if (employmentType !== undefined) updateFields.employmentType = employmentType;
     if (cmePoints !== undefined) updateFields.cmePoints = cmePoints;
 
-    const [updated] = await db
-      .update(staffProfiles)
-      .set(updateFields)
-      .where(and(eq(staffProfiles.id, profile.id), eq(staffProfiles.tenantId, auth.user.organizationId)))
-      .returning();
+    const [updated] = await updateReturning(db, staffProfiles, updateFields, and(eq(staffProfiles.id, profile.id), eq(staffProfiles.tenantId, auth.user.organizationId)));
 
     // Synchronize users table if department or designation changed
     if (department) {

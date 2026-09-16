@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { systemAuthSettings, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
 
@@ -80,15 +81,9 @@ export async function PATCH(req: NextRequest) {
 
     let result;
     if (existing) {
-      [result] = await db
-        .update(systemAuthSettings)
-        .set(sanitized)
-        .where(eq(systemAuthSettings.id, existing.id))
-        .returning();
+      [result] = await updateReturning(db, systemAuthSettings, sanitized, eq(systemAuthSettings.id, existing.id));
     } else {
-      [result] = await db
-        .insert(systemAuthSettings)
-        .values({
+      [result] = await insertReturning(db, systemAuthSettings, {
           id: "00000000-0000-0000-0000-000000000001",
           requireEmailVerification: true,
           requireSmsVerification: false,
@@ -98,8 +93,7 @@ export async function PATCH(req: NextRequest) {
           otpExpiryMinutes: 10,
           maxAttempts: 5,
           ...sanitized,
-        })
-        .returning();
+        });
     }
 
     // Log admin audit trail

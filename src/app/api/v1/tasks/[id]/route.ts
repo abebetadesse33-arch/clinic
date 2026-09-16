@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { tasks, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { updateReturning } from "@/lib/db/returning";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -14,14 +15,10 @@ export async function PATCH(
     const body = await req.json();
     const { status } = body;
 
-    const [updated] = await db
-      .update(tasks)
-      .set({
+    const [updated] = await updateReturning(db, tasks, {
         status,
         completedAt: status === "completed" ? new Date() : undefined,
-      })
-      .where(eq(tasks.id, params.id))
-      .returning();
+      }, eq(tasks.id, params.id));
 
     if (!updated) {
       return NextResponse.json(

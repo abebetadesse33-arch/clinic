@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { billingClaims } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { insertReturning } from "@/lib/db/returning";
 
 export interface ClaimInput {
   tenantId: string;
@@ -68,9 +69,7 @@ export async function createAndValidateBillingClaim(input: ClaimInput) {
   const validation = evaluateClaimDenialRisk(input);
   const claimNumber = `CLM-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
 
-  const [record] = await db
-    .insert(billingClaims)
-    .values({
+  const [record] = await insertReturning(db, billingClaims, {
       tenantId: input.tenantId,
       patientId: input.patientId,
       encounterId: input.encounterId,
@@ -84,8 +83,7 @@ export async function createAndValidateBillingClaim(input: ClaimInput) {
       aiDenialRiskScore: String(validation.aiDenialRiskScore),
       aiDenialRiskFactors: validation.aiDenialRiskFactors,
       submissionDate: validation.isCleanClaim ? new Date() : null,
-    })
-    .returning();
+    });
 
   return {
     claim: record,
