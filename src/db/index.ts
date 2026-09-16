@@ -16,7 +16,18 @@ const connectionString =
 if (/^mysql:\/\//i.test(connectionString)) {
   throw new Error(
     "[NiniMed DB] DATABASE_URL must use PostgreSQL (postgres:// or postgresql://). " +
-      "MySQL connection strings are not supported by the current Drizzle schema."
+      "MySQL database instances are not supported by the NiniMed PostgreSQL schema. " +
+      "Please create a PostgreSQL database in Plesk."
+  );
+}
+
+// Check for unencoded '@' in password (e.g., postgresql://user:pass@word@host...)
+const atMatches = connectionString.match(/@/g);
+if (atMatches && atMatches.length > 1) {
+  console.warn(
+    "[NiniMed DB] ⚠️  DATABASE_URL contains multiple '@' characters. " +
+      "If your password contains '@' or '&', you MUST URL-encode them ('@' -> '%40', '&' -> '%26'). " +
+      "Example: postgresql://user:pass%40%261@host:port/dbname"
   );
 }
 

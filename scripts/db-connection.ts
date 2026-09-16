@@ -28,6 +28,19 @@ function errorDetails(error: unknown): string[] {
 
 export async function connectToDatabase(connectionString: string, operation: string): Promise<Sql> {
 
+  if (/^mysql:\/\//i.test(connectionString)) {
+    throw new Error(
+      `[${operation}] DATABASE_URL must use PostgreSQL (postgresql://). MySQL is not supported by NiniMed PostgreSQL schema.`
+    );
+  }
+
+  const atMatches = connectionString.match(/@/g);
+  if (atMatches && atMatches.length > 1) {
+    console.warn(
+      `[${operation}] ⚠️  DATABASE_URL contains multiple '@' symbols. URL-encode special password characters: '@' -> '%40', '&' -> '%26'`
+    );
+  }
+
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
