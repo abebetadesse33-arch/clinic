@@ -336,6 +336,8 @@ function SignInContent() {
                     <input
                       type="text"
                       required
+                      autoComplete="username"
+                      inputMode="email"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
                       placeholder="name@ninimed.org or +251..."
@@ -360,6 +362,7 @@ function SignInContent() {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter account password"

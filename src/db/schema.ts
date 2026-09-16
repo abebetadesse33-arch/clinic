@@ -2119,7 +2119,7 @@ export const authVerificationCodes = pgTable("auth_verification_codes", {
 
 export const systemAuthSettings = pgTable("system_auth_settings", {
   id: uuid("id").defaultRandom().primaryKey(),
-  requireEmailVerification: boolean("require_email_verification").default(true).notNull(),
+  requireEmailVerification: boolean("require_email_verification").default(false).notNull(),
   requireSmsVerification: boolean("require_sms_verification").default(false).notNull(),
   enableTwoFactorLogin: boolean("enable_two_factor_login").default(false).notNull(),
   twoFactorTargetRoles: jsonb("two_factor_target_roles").default(["system_admin", "tenant_admin", "physician", "pharmacist"]).notNull(),

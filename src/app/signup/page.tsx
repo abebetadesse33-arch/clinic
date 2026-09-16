@@ -252,6 +252,7 @@ export default function SignUpPage() {
                     <input
                       type="text"
                       required
+                      autoComplete="name"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                       placeholder="e.g. Abebe Tadesse Bekele"
@@ -267,6 +268,8 @@ export default function SignUpPage() {
                     <input
                       type="email"
                       required
+                      autoComplete="email"
+                      inputMode="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. abebe.t@example.com"
@@ -284,6 +287,7 @@ export default function SignUpPage() {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      autoComplete="new-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Create secure password"
@@ -327,6 +331,8 @@ export default function SignUpPage() {
                     <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                     <input
                       type="tel"
+                      autoComplete="tel"
+                      inputMode="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="+251 911 234 567"

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     const [settings] = await db.select().from(systemAuthSettings).limit(1);
-    const requireEmail = settings ? settings.requireEmailVerification : true;
+    const requireEmail = settings ? settings.requireEmailVerification : false;
     const requireSms = settings ? settings.requireSmsVerification : false;
 
     if ((requireEmail || requireSms) && !verificationToken) {

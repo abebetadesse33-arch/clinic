@@ -1958,7 +1958,7 @@ export async function ensureDatabaseInitialized(
 
       CREATE TABLE IF NOT EXISTS system_auth_settings (
           id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-          require_email_verification BOOLEAN DEFAULT TRUE NOT NULL,
+          require_email_verification BOOLEAN DEFAULT FALSE NOT NULL,
           require_sms_verification BOOLEAN DEFAULT FALSE NOT NULL,
           enable_two_factor_login BOOLEAN DEFAULT FALSE NOT NULL,
           two_factor_target_roles JSONB DEFAULT '["system_admin", "tenant_admin", "physician", "pharmacist"]'::jsonb NOT NULL,
@@ -2980,7 +2980,7 @@ export async function ensureDatabaseInitialized(
       INSERT INTO system_auth_settings (id, require_email_verification, require_sms_verification, enable_two_factor_login, allow_demo_bypass, sms_gateway_provider, otp_expiry_minutes, max_attempts)
       VALUES (
           '00000000-0000-0000-0000-000000000001',
-          TRUE,
+          FALSE,
           FALSE,
           FALSE,
           TRUE,
@@ -2988,6 +2988,13 @@ export async function ensureDatabaseInitialized(
           10,
           5
       ) ON CONFLICT DO NOTHING;
+
+      -- Public registration is immediately usable while the default provider
+      -- is the local simulator; real providers can re-enable email verification.
+      UPDATE system_auth_settings
+      SET require_email_verification = FALSE
+      WHERE sms_gateway_provider = 'simulator'
+        AND require_email_verification = TRUE;
 
       INSERT INTO clinic_locations (id, name, slug, branch_type, neighborhood, city, region, address, latitude, longitude, phone, email, hours, services, amenities, is_active, is_main, next_open_slot, google_maps_url, osm_url)
       VALUES
