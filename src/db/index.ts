@@ -13,12 +13,15 @@ if (typeof BigInt !== "undefined" && !(BigInt.prototype as any).toJSON) {
 const connectionString =
   process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/clinic_enterprise";
 
+let validConnectionString = connectionString;
+
 if (/^mysql:\/\//i.test(connectionString)) {
-  throw new Error(
-    "[NiniMed DB] DATABASE_URL must use PostgreSQL (postgres:// or postgresql://). " +
-      "MySQL database instances are not supported by the NiniMed PostgreSQL schema. " +
-      "Please create a PostgreSQL database in Plesk."
+  console.error(
+    "[NiniMed DB] ❌ DATABASE_URL uses MySQL (mysql://). NiniMed requires PostgreSQL. " +
+      "Please create a PostgreSQL database in Plesk or set DATABASE_URL to a PostgreSQL instance (postgresql://)."
   );
+  // Use dummy postgres connection string to prevent postgres client from throwing protocol parse errors on startup
+  validConnectionString = "postgres://postgres:invalid@127.0.0.1:5432/clinic_enterprise";
 }
 
 // Check for unencoded '@' in password (e.g., postgresql://user:pass@word@host...)
@@ -44,11 +47,12 @@ if (
   );
 }
 
-// Connection pool configuration for high concurrency
-const client = postgres(connectionString, {
+// Connection pool configuration for high concurrency (non-fatal client creation)
+const client = postgres(validConnectionString, {
   max: 20,
   idle_timeout: 30,
   connect_timeout: 10,
+  onnotice: () => {},
 });
 
 // Auto-run schema & seed check asynchronously at runtime (not during Next.js static build)
