@@ -5,8 +5,20 @@ import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const requestedRole = searchParams.get("role");
+  const sessionCookie = request.cookies.get("Nini_session")?.value;
+
+  // Guest users and unauthenticated clients should not establish SSE connections.
+  // Returning HTTP 204 instructs EventSource to cleanly terminate without retrying.
+  if (requestedRole === "guest" || !sessionCookie) {
+    return new Response(null, { status: 204 });
+  }
+
   const auth = await requireAuthenticatedUser(request);
-  if ("response" in auth) return auth.response;
+  if ("response" in auth) {
+    return new Response(null, { status: 204 });
+  }
 
   const userId = auth.user.id;
   const role = auth.user.role;

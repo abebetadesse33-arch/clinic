@@ -92,7 +92,8 @@ export async function GET(_req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Health check failed";
+    const raw = error instanceof Error ? error.message : String(error);
+    const message = raw.trim() || (error as any)?.cause?.message || "Database connection unavailable";
     console.error("System health check error:", error);
     return NextResponse.json(
       {

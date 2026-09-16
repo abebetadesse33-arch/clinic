@@ -11,7 +11,10 @@ const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(request: NextRequest) {
   try {
-    if (!request.cookies.get("Nini_session")?.value) {
+    const { searchParams } = new URL(request.url);
+    const roleParam = searchParams.get("role");
+
+    if (roleParam === "guest" || !request.cookies.get("Nini_session")?.value) {
       return NextResponse.json({
         success: true,
         data: { notifications: [], total: 0, unreadCount: 0 },
@@ -20,11 +23,13 @@ export async function GET(request: NextRequest) {
 
     const auth = await requireAuthenticatedUser(request);
     if ("response" in auth) {
-      return auth.response;
+      return NextResponse.json({
+        success: true,
+        data: { notifications: [], total: 0, unreadCount: 0 },
+      });
     }
 
     const sessionUser = auth.user;
-    const { searchParams } = new URL(request.url);
     const role = searchParams.get("role") || sessionUser.role;
     const category = searchParams.get("category");
     const unreadOnly = searchParams.get("unreadOnly") === "true";
