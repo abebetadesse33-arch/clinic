@@ -163,9 +163,11 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf release deploy.tar.gz
-          mkdir -p release/.next release/tmp
+          mkdir -p release/.next/standalone release/tmp
 
-          cp -R .next/standalone/. release/
+          # Keep Next's generated server in its own module context. The
+          # Passenger wrapper below loads this exact nested entrypoint.
+          cp -R .next/standalone/. release/.next/standalone/
           cp -R .next/static       release/.next/static
           cp -R public             release/public
           touch release/tmp/restart.txt
