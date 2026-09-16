@@ -11,7 +11,10 @@ Configure the Node.js application:
 - Node.js version: 20.x
 - Application mode: `production`
 - Application root: `/var/www/vhosts/example.com/app.example.com/current`
-- Application startup file: `server.js`
+- Application startup file: `server.js` (Plesk's "Auto-configure hosting"
+  button may instead set this to `.plesk.startup.cjs` and move aside a static
+  `index.html` in the document root — both files boot the app identically, so
+  either name works)
 - Document root: the subdomain document root created by Plesk
 - Passenger app environment: production
 
@@ -225,4 +228,5 @@ If you cannot or do not want to open SSH port 22 on your server, use Plesk's bui
 - **Database connection errors:** verify `DATABASE_URL`, firewall rules, TLS requirements, and that PostgreSQL is reachable from the Plesk host.
 - **Assets return 404:** verify `.next/static` and `public` exist under `current`.
 - **Notifications do not update live:** verify the browser can keep an SSE connection to `/api/v1/notifications/stream` and disable proxy buffering in Nginx for that path.
-- **Application restart:** Phusion Passenger reloads automatically whenever `tmp/restart.txt` is updated (handled by `scripts/plesk-release.sh` and `scripts/plesk-git-deploy.sh`).
+- **Application restart:** Phusion Passenger reloads automatically whenever `tmp/restart.txt` is updated (handled by `scripts/plesk-release.sh` and `scripts/plesk-git-deploy.sh`). That signal is lazy on some hosts — both scripts also call `passenger-config restart-app` to force an immediate restart.
+- **Deploy reports success but the live site still behaves like the old code:** `/api/health` includes a `buildSha` field (the git commit it was built from). Compare it to the commit you pushed. A mismatch means the Git pull/build succeeded but the running Passenger process was never actually restarted onto it — check the Node.js application's Application startup file matches one of `server.js` / `app.js` / `.plesk.startup.cjs` (all three are kept identical by the deploy scripts), and try a manual restart from **Plesk → Node.js → Restart App** once to confirm. `scripts/healthcheck.ts` fails the deploy automatically on this mismatch when `EXPECTED_BUILD_SHA` is set (the GitHub Actions workflow always sets it).
