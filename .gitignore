@@ -53,3 +53,4 @@ capacitor.config.json
 /docker/data
 pgdata/
 redisdata/
+.neon
