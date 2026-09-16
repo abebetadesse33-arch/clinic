@@ -1,18 +1,29 @@
-const healthcheckUrl = process.env.HEALTHCHECK_URL;
-const allowInsecureTls = process.env.HEALTHCHECK_INSECURE_TLS === "true";
+const rawUrl = process.env.HEALTHCHECK_URL;
+// Allow insecure TLS if explicitly enabled, if NODE_TLS_REJECT_UNAUTHORIZED=0, or default to true unless explicitly "false"
+const allowInsecureTls =
+  process.env.HEALTHCHECK_INSECURE_TLS !== "false" ||
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0";
 
 export {};
 
-if (!healthcheckUrl) {
+if (!rawUrl) {
   console.error("HEALTHCHECK_URL is required.");
   process.exit(1);
 }
 
+// Normalize double slashes in URL (e.g. https://domain.com//api/health -> https://domain.com/api/health)
+const healthcheckUrl = rawUrl.replace(/([^:]\/)\/+/g, "$1");
+
+if (allowInsecureTls) {
+  // Process-wide setting required for Bun's fetch to ignore TLS errors on redirects & socket renegotiation
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+}
+
 const controller = new AbortController();
-// Give the app 20 s to respond (was 15 s)
+// Give the app 20 s to respond
 const timeout = setTimeout(() => controller.abort(), 20_000);
 
-// Bun ignores NODE_TLS_REJECT_UNAUTHORIZED; we must pass tls options directly.
+// Bun ignores NODE_TLS_REJECT_UNAUTHORIZED in some fetch signatures; pass tls option as well.
 const fetchOptions: RequestInit & { tls?: { rejectUnauthorized?: boolean } } = {
   signal: controller.signal,
   headers: { Accept: "application/json, text/plain" },

@@ -543,10 +543,16 @@ jobs:
       - name: Verify production health
         if: inputs.migration_only != true
         env:
-          HEALTHCHECK_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}/api/health
+          RAW_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           HEALTHCHECK_INSECURE_TLS: "true"
+          NODE_TLS_REJECT_UNAUTHORIZED: "0"
         run: |
           set -Eeuo pipefail
+
+          # Normalize base URL (strip trailing slash)
+          APP_URL="${RAW_APP_URL%/}"
+          export HEALTHCHECK_URL="${APP_URL}/api/health"
+          echo "Health check target: ${HEALTHCHECK_URL}"
 
           # Give Plesk time to pull the code, install deps, and restart Node.
           # Without this, early attempts hit a still-booting or still-deploying server.
