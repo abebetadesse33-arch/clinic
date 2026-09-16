@@ -10,9 +10,40 @@ if (typeof BigInt !== "undefined" && !(BigInt.prototype as any).toJSON) {
   };
 }
 
-const connectionString =
-  process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/clinic_enterprise";
+function resolveConnectionString(): string {
+  let conn = process.env.DATABASE_URL || "";
+  const isDummy = (s: string) =>
+    !s || s.includes("@localhost") || s.includes("@127.0.0.1") || s.includes("@Nini_postgres_db");
 
+  if (isDummy(conn) && typeof window === "undefined") {
+    try {
+      const fs = require("fs");
+      const path = require("path");
+      const candidates = [
+        path.resolve(process.cwd(), ".env"),
+        path.resolve(process.cwd(), ".env.production"),
+        path.resolve(process.cwd(), "..", ".env"),
+        path.resolve(__dirname, ".env"),
+        path.resolve(__dirname, "..", ".env"),
+      ];
+      for (const file of candidates) {
+        if (fs.existsSync(file)) {
+          const content = fs.readFileSync(file, "utf8");
+          const match = content.match(/^DATABASE_URL\s*=\s*["']?([^"'\r\n]+)["']?/m);
+          if (match && match[1] && !isDummy(match[1].trim())) {
+            conn = match[1].trim();
+            process.env.DATABASE_URL = conn;
+            break;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return conn || "postgres://postgres:postgres@localhost:5432/clinic_enterprise";
+}
+
+const connectionString = resolveConnectionString();
 let validConnectionString = connectionString;
 
 if (/^mysql:\/\//i.test(connectionString)) {

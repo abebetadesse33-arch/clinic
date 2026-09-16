@@ -91,15 +91,33 @@ export async function GET(_req: NextRequest) {
         blockchainAuditAnchors: "active",
       },
     });
-  } catch (error: unknown) {
+  } catch (error: any) {
     const raw = error instanceof Error ? error.message : String(error);
-    const message = raw.trim() || (error as any)?.cause?.message || "Database connection unavailable";
+    const code = error?.code || error?.cause?.code || "";
+    const message = raw.trim() || code || (error as any)?.cause?.message || "Database connection unavailable";
     console.error("System health check error:", error);
+
+    const dbUrl = process.env.DATABASE_URL || "";
+    let dbHost = "unconfigured";
+    if (dbUrl) {
+      try {
+        const u = new URL(dbUrl.replace(/^postgresql:/, "http:").replace(/^postgres:/, "http:"));
+        dbHost = u.host;
+      } catch {
+        dbHost = "malformed";
+      }
+    }
+
     return NextResponse.json(
       {
         status: "degraded",
         timestamp: new Date().toISOString(),
         error: message,
+        database: {
+          configured: Boolean(process.env.DATABASE_URL),
+          host: dbHost,
+          code: code || undefined,
+        },
       },
       { status: 500 }
     );

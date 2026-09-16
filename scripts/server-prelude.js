@@ -54,7 +54,8 @@ for (const p of possibleEnvPaths) {
             if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
               v = v.slice(1, -1);
             }
-            if (!process.env[k]) {
+            const isDummyDb = (val) => !val || val.includes('@localhost') || val.includes('@127.0.0.1') || val.includes('@Nini_postgres_db');
+            if (!process.env[k] || (k === 'DATABASE_URL' && isDummyDb(process.env[k]) && !isDummyDb(v))) {
               process.env[k] = v;
             }
           }
