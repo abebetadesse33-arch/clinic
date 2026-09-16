@@ -21,7 +21,11 @@ if (isPassenger && passengerPort) {
   const originalListen = http.Server.prototype.listen;
   http.Server.prototype.listen = function (...args) {
     if (typeof args[0] === 'number' || args[0] === 3000) {
+      const callback = args.find((arg) => typeof arg === 'function');
       console.log(`[Passenger Prelude] Intercepted server.listen(${args[0]}), delegating to Phusion Passenger socket: ${passengerPort}`);
+      if (callback) {
+        return originalListen.call(this, passengerPort, callback);
+      }
       return originalListen.call(this, passengerPort);
     }
     return originalListen.apply(this, args);
