@@ -88,6 +88,11 @@ try {
 }
 NODE_ENTRYPOINT
   cp -f server.js app.js
+  # Plesk's "Auto-configure hosting" for Next.js sets the application startup
+  # file to .plesk.startup.cjs. Keep it byte-identical to server.js/app.js so
+  # the app boots the same way no matter which of the three names the Node.js
+  # panel is actually configured to run.
+  cp -f server.js .plesk.startup.cjs
 else
   echo "ERROR: Next.js standalone server was not generated at .next/standalone/server.js." >&2
   exit 1
@@ -121,4 +126,26 @@ touch tmp/restart.txt
 touch .next/standalone/tmp/restart.txt 2>/dev/null || true
 chmod -R a+rX public .next/static tmp 2>/dev/null || true
 
+# tmp/restart.txt is a *lazy* signal: Passenger only acts on it the next time
+# it decides to check, which on some Plesk/Passenger configurations can be
+# long after the next request (i.e. the old process keeps serving requests
+# indefinitely). Force an immediate restart through every mechanism available
+# on this host, best-effort, so a touched restart.txt is never the only shot.
+APP_ROOT="$(pwd)"
+if command -v passenger-config >/dev/null 2>&1; then
+  echo "Forcing immediate restart via passenger-config..."
+  passenger-config restart-app "$APP_ROOT" --ignore-app-not-running 2>&1 || true
+fi
+if command -v plesk >/dev/null 2>&1; then
+  DETECTED_DOMAIN="$(basename "$(dirname "$APP_ROOT")" 2>/dev/null || true)"
+  if [ -n "$DETECTED_DOMAIN" ]; then
+    echo "Forcing immediate restart via Plesk CLI for domain: ${DETECTED_DOMAIN}..."
+    plesk bin nodejs --restart -domain "$DETECTED_DOMAIN" 2>&1 || true
+  fi
+fi
+
 echo "=== Plesk live deployment completed successfully! ==="
+echo "Deployed commit: ${NEXT_PUBLIC_BUILD_SHA}"
+echo "If the live site still serves old responses after this, the Application"
+echo "Root in Plesk > Node.js must be restarted manually once from the panel —"
+echo "that confirms whether the restart signal itself is the remaining gap."

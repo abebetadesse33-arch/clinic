@@ -203,6 +203,7 @@ jobs:
           NODE_ENTRYPOINT
           fi
           cp -f release/server.js release/app.js 2>/dev/null || true
+          cp -f release/server.js release/.plesk.startup.cjs 2>/dev/null || true
 
           tar -czf deploy.tar.gz -C release .
           echo "✅ Package assembled: $(du -h deploy.tar.gz | cut -f1)"
