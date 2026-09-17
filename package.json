@@ -18,9 +18,9 @@
     "deploy": "bash scripts/plesk-git-deploy.sh",
     "db:generate": "drizzle-kit generate:mysql",
     "db:push": "drizzle-kit push:mysql",
-    "db:migrate-from-postgres": "bun scripts/migrate-postgres-to-mysql.ts",
-    "db:export-postgres-dump": "bun scripts/export-postgres-dump.ts",
-    "db:import-mysql-dump": "bun scripts/import-mysql-dump.ts"
+    "db:migrate-from-postgres": "npx tsx scripts/migrate-postgres-to-mysql.ts",
+    "db:export-postgres-dump": "npx tsx scripts/export-postgres-dump.ts",
+    "db:import-mysql-dump": "npx tsx scripts/import-mysql-dump.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
@@ -39,6 +39,7 @@
     "mysql2": "^3.11.5",
     "next": "^14.2.3",
     "postgres": "^3.4.4",
+    "tsx": "^4.19.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^2.3.0",
