@@ -10,13 +10,48 @@ set -Eeuo pipefail
 
 echo "=== [1/4] Detecting Node.js / Bun Runtime in Plesk ==="
 
-# Add Plesk's installed Node.js versions to PATH if not already present
-for node_dir in /opt/plesk/node/22/bin /opt/plesk/node/20/bin /opt/plesk/node/18/bin /opt/plesk/node/*/bin; do
-  if [ -d "$node_dir" ]; then
-    export PATH="$node_dir:$PATH"
-    break
+# Plesk's Git "Additional deployment actions" run in a bare shell that does
+# NOT inherit the PATH Passenger sets up for the actual application process,
+# so bun/node/npm are typically missing here even though the app runs fine.
+# Try common Plesk-bundled locations first (both major-version and
+# full-version directory naming, since Plesk uses either depending on
+# version), then fall back to a filesystem search rather than guessing.
+if ! command -v bun >/dev/null 2>&1 && ! command -v node >/dev/null 2>&1; then
+  for node_dir in /opt/plesk/node/*/bin /opt/alt/node*/bin /opt/nodejs/*/bin ~/.nvm/versions/node/*/bin; do
+    if [ -x "$node_dir/node" ]; then
+      export PATH="$node_dir:$PATH"
+      break
+    fi
+  done
+fi
+
+if ! command -v bun >/dev/null 2>&1 && ! command -v node >/dev/null 2>&1; then
+  echo "Common Node.js paths not found; searching the filesystem (one-time cost)..."
+  FOUND_NODE_BIN="$(find /opt /usr/local /var/www/vhosts/system -maxdepth 6 -type f -name node -perm -u+x 2>/dev/null | head -1)"
+  if [ -n "$FOUND_NODE_BIN" ]; then
+    echo "Found node at: $FOUND_NODE_BIN"
+    export PATH="$(dirname "$FOUND_NODE_BIN"):$PATH"
   fi
-done
+fi
+
+if ! command -v bun >/dev/null 2>&1 && ! command -v node >/dev/null 2>&1; then
+  echo "Common bun paths not found; searching the filesystem (one-time cost)..."
+  FOUND_BUN_BIN="$(find /opt /usr/local /root ~ -maxdepth 6 -type f -name bun -perm -u+x 2>/dev/null | head -1)"
+  if [ -n "$FOUND_BUN_BIN" ]; then
+    echo "Found bun at: $FOUND_BUN_BIN"
+    export PATH="$(dirname "$FOUND_BUN_BIN"):$PATH"
+  fi
+fi
+
+if ! command -v bun >/dev/null 2>&1 && ! command -v node >/dev/null 2>&1; then
+  echo "ERROR: Could not locate a node or bun executable anywhere searched." >&2
+  echo "  Node.js panel reports a version is configured, but this deploy shell" >&2
+  echo "  can't find its binary. Find the real path with, e.g.:" >&2
+  echo "    find / -xdev -maxdepth 8 -type f -name node -perm -u+x 2>/dev/null" >&2
+  echo "  (run over SSH, or via Plesk's Node.js panel if it exposes a shell)" >&2
+  echo "  then add that directory to the node_dir list at the top of this script." >&2
+  exit 1
+fi
 
 # Auto-source .env file if present in app root or parent directory
 for env_file in .env .env.production ../.env; do
