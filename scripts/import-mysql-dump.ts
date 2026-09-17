@@ -1,44 +1,47 @@
 /**
- * One-time data migration: copies every row from the old PostgreSQL database
- * into the new MySQL database, table by table, matching on physical column
- * names (identical snake_case names on both sides — only the engine and the
- * Drizzle schema builders changed, not the column names).
+ * One-time import: reads the JSON file produced by
+ * scripts/export-postgres-dump.ts and writes every row into the MySQL
+ * database (this app's own DATABASE_URL). Run this on the host that can
+ * actually reach the target MySQL server (e.g. via Plesk's "Run script").
  *
  * Usage:
- *   SOURCE_DATABASE_URL=postgres://...  (the old Neon/Postgres database)
- *   DATABASE_URL=mysql://...            (the new MySQL database)
- *   bun run db:migrate-from-postgres
+ *   IN_FILE=postgres-dump.json bun run db:import-mysql-dump
  *
- * Safe to re-run: uses INSERT IGNORE, so rows already copied are skipped
- * rather than duplicated or erroring. It does not delete or modify anything
- * in the source Postgres database.
+ * Safe to re-run: uses INSERT IGNORE, so already-imported rows are skipped
+ * rather than duplicated or erroring.
+ *
+ * Contains PHI — delete the input JSON file from the server once this has
+ * run successfully.
  */
-import postgres from "postgres";
 import mysql from "mysql2/promise";
+import fs from "fs";
 
 const BATCH_SIZE = 200;
 
+function serializeValue(value: unknown): unknown {
+  if (value === null || value === undefined) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  if (Array.isArray(value) || (typeof value === "object" && value !== null)) {
+    return JSON.stringify(value);
+  }
+  return value;
+}
+
 async function main() {
-  const sourceUrl = process.env.SOURCE_DATABASE_URL;
   const targetUrl = process.env.DATABASE_URL;
-
-  if (!sourceUrl || !/^postgres(ql)?:\/\//i.test(sourceUrl)) {
-    throw new Error("SOURCE_DATABASE_URL must be set to the old PostgreSQL connection string.");
-  }
   if (!targetUrl || !/^mysql:\/\//i.test(targetUrl)) {
-    throw new Error("DATABASE_URL must be set to the new MySQL connection string.");
+    throw new Error("DATABASE_URL must be set to this app's MySQL connection string.");
+  }
+  const inFile = process.env.IN_FILE || "postgres-dump.json";
+  if (!fs.existsSync(inFile)) {
+    throw new Error(`Dump file not found: ${inFile}`);
   }
 
-  const pg = postgres(sourceUrl, { max: 5, connect_timeout: 15 });
+  const dump: Record<string, any[]> = JSON.parse(fs.readFileSync(inFile, "utf8"));
   const my = mysql.createPool({ uri: targetUrl, connectionLimit: 5, connectTimeout: 15_000 });
 
   try {
-    const pgTables: { table_name: string }[] = await pg`
-      SELECT table_name FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-      ORDER BY table_name
-    `;
-
     const [myTableRows] = await my.query<any[]>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()`
     );
@@ -48,13 +51,11 @@ async function main() {
 
     const summary: { table: string; rows: number; status: string }[] = [];
 
-    for (const { table_name: table } of pgTables) {
+    for (const [table, rows] of Object.entries(dump)) {
       if (!myTableSet.has(table)) {
         summary.push({ table, rows: 0, status: "SKIPPED (no matching MySQL table)" });
         continue;
       }
-
-      const rows = await pg`SELECT * FROM ${pg(table)}`;
       if (rows.length === 0) {
         summary.push({ table, rows: 0, status: "empty" });
         continue;
@@ -86,14 +87,9 @@ async function main() {
         for (let i = 0; i < rows.length; i += BATCH_SIZE) {
           const batch = rows.slice(i, i + BATCH_SIZE);
           const placeholders = batch.map(() => `(${columns.map(() => "?").join(", ")})`).join(", ");
-          const values = batch.flatMap((row) =>
-            columns.map((col) => serializeValue((row as any)[col]))
-          );
+          const values = batch.flatMap((row) => columns.map((col) => serializeValue(row[col])));
 
-          await my.query(
-            `INSERT IGNORE INTO \`${table}\` (${columnList}) VALUES ${placeholders}`,
-            values
-          );
+          await my.query(`INSERT IGNORE INTO \`${table}\` (${columnList}) VALUES ${placeholders}`, values);
           migrated += batch.length;
         }
         summary.push({ table, rows: migrated, status: "OK" });
@@ -104,35 +100,23 @@ async function main() {
 
     await my.query("SET FOREIGN_KEY_CHECKS=1");
 
-    console.log("\n=== Migration summary ===");
+    console.log("\n=== Import summary ===");
     for (const s of summary) {
       console.log(`${s.status.startsWith("ERROR") ? "❌" : "✅"} ${s.table}: ${s.rows} rows (${s.status})`);
     }
     const errors = summary.filter((s) => s.status.startsWith("ERROR"));
     if (errors.length > 0) {
-      console.error(`\n${errors.length} table(s) had errors. Review them above before cutting over.`);
+      console.error(`\n${errors.length} table(s) had errors.`);
       process.exitCode = 1;
     } else {
-      console.log("\nAll tables migrated successfully.");
+      console.log("\nAll tables imported successfully.");
     }
   } finally {
-    await pg.end({ timeout: 1 });
     await my.end();
   }
 }
 
-/** Converts a Postgres-driver value into something mysql2 can bind directly. */
-function serializeValue(value: unknown): unknown {
-  if (value === null || value === undefined) return null;
-  if (value instanceof Date) return value;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  if (Array.isArray(value) || (typeof value === "object" && value !== null)) {
-    return JSON.stringify(value);
-  }
-  return value;
-}
-
 main().catch((error) => {
-  console.error("Data migration failed:", error instanceof Error ? error.message : error);
+  console.error("Import failed:", error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });

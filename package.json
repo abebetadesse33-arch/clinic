@@ -18,7 +18,9 @@
     "deploy": "bash scripts/plesk-git-deploy.sh",
     "db:generate": "drizzle-kit generate:mysql",
     "db:push": "drizzle-kit push:mysql",
-    "db:migrate-from-postgres": "bun scripts/migrate-postgres-to-mysql.ts"
+    "db:migrate-from-postgres": "bun scripts/migrate-postgres-to-mysql.ts",
+    "db:export-postgres-dump": "bun scripts/export-postgres-dump.ts",
+    "db:import-mysql-dump": "bun scripts/import-mysql-dump.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
