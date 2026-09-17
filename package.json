@@ -20,7 +20,8 @@
     "db:push": "drizzle-kit push:mysql",
     "db:migrate-from-postgres": "npx tsx scripts/migrate-postgres-to-mysql.ts",
     "db:export-postgres-dump": "npx tsx scripts/export-postgres-dump.ts",
-    "db:import-mysql-dump": "npx tsx scripts/import-mysql-dump.ts"
+    "db:import-mysql-dump": "npx tsx scripts/import-mysql-dump.ts",
+    "db:reset-mysql-schema": "npx tsx scripts/reset-mysql-schema.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
