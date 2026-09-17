@@ -11,10 +11,15 @@ Configure the Node.js application:
 - Node.js version: 20.x
 - Application mode: `production`
 - Application root: `/var/www/vhosts/example.com/app.example.com/current`
-- Application startup file: `server.js` (Plesk's "Auto-configure hosting"
-  button may instead set this to `.plesk.startup.cjs` and move aside a static
-  `index.html` in the document root — both files boot the app identically, so
-  either name works)
+- Application startup file: `server.js`. Do **not** use Plesk's
+  "Auto-configure hosting" button for this app: it generates and takes
+  ownership of `.plesk.startup.cjs`, and if that file already exists (e.g.
+  from a previous manual auto-configure), Plesk's toolkit silently refuses
+  to detect the framework, install dependencies, build, or start the app on
+  every single deploy — with no clear error surfaced outside its own log
+  panel. If `.plesk.startup.cjs` exists in the document root and deploys
+  stop taking effect, delete that file via Plesk's File Manager and set the
+  startup file back to `server.js` by hand.
 - Document root: the subdomain document root created by Plesk
 - Passenger app environment: production
 
@@ -229,4 +234,4 @@ If you cannot or do not want to open SSH port 22 on your server, use Plesk's bui
 - **Assets return 404:** verify `.next/static` and `public` exist under `current`.
 - **Notifications do not update live:** verify the browser can keep an SSE connection to `/api/v1/notifications/stream` and disable proxy buffering in Nginx for that path.
 - **Application restart:** Phusion Passenger reloads automatically whenever `tmp/restart.txt` is updated (handled by `scripts/plesk-release.sh` and `scripts/plesk-git-deploy.sh`). That signal is lazy on some hosts — both scripts also call `passenger-config restart-app` to force an immediate restart.
-- **Deploy reports success but the live site still behaves like the old code:** `/api/health` includes a `buildSha` field (the git commit it was built from). Compare it to the commit you pushed. A mismatch means the Git pull/build succeeded but the running Passenger process was never actually restarted onto it — check the Node.js application's Application startup file matches one of `server.js` / `app.js` / `.plesk.startup.cjs` (all three are kept identical by the deploy scripts), and try a manual restart from **Plesk → Node.js → Restart App** once to confirm. `scripts/healthcheck.ts` fails the deploy automatically on this mismatch when `EXPECTED_BUILD_SHA` is set (the GitHub Actions workflow always sets it).
+- **Deploy reports success but the live site still behaves like the old code:** `/api/health` includes a `buildSha` field (the git commit it was built from). Compare it to the commit you pushed. First check for a stray `.plesk.startup.cjs` in the document root (see above) — this has been the actual cause every time it's come up: Plesk's toolkit refuses every stage (detect/install/build/start) as soon as that file exists and it didn't generate it, so the app silently keeps running whatever was last actually started. If that's not it, check the Node.js application's Application startup file matches `server.js` (kept identical to `app.js` by the deploy scripts), and try a manual restart from **Plesk → Node.js → Restart App**. `scripts/healthcheck.ts` fails the deploy automatically on a buildSha mismatch when `EXPECTED_BUILD_SHA` is set (the GitHub Actions workflow always sets it).

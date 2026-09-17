@@ -88,11 +88,11 @@ try {
 }
 NODE_ENTRYPOINT
   cp -f server.js app.js
-  # Plesk's "Auto-configure hosting" for Next.js sets the application startup
-  # file to .plesk.startup.cjs. Keep it byte-identical to server.js/app.js so
-  # the app boots the same way no matter which of the three names the Node.js
-  # panel is actually configured to run.
-  cp -f server.js .plesk.startup.cjs
+  # Do NOT touch .plesk.startup.cjs here: Plesk's own Node.js "auto-configure
+  # hosting" toolkit owns that filename and refuses to build/start the app at
+  # every stage the moment it finds a version it didn't generate itself. If
+  # the panel's Application startup file is set to .plesk.startup.cjs, let
+  # Plesk regenerate it; this script only needs to keep server.js/app.js current.
 else
   echo "ERROR: Next.js standalone server was not generated at .next/standalone/server.js." >&2
   exit 1

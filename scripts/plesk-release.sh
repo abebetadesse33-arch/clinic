@@ -31,16 +31,15 @@ ln -sfn "${deploy_path}/current/.next" "${deploy_path}/.next"
 ln -sfn "${deploy_path}/current/public" "${deploy_path}/public"
 ln -sfn "${deploy_path}/current/node_modules" "${deploy_path}/node_modules"
 
-# Ensure server.js, app.js, .plesk.startup.cjs and plesk-prelude.js are
-# available at root if Plesk Application Root is set to document root. All
-# three entrypoint names are byte-identical so it doesn't matter which one
-# the Node.js panel's "Application startup file" is actually set to.
+# Ensure server.js and plesk-prelude.js are available at root if Plesk
+# Application Root is set to document root. Deliberately NOT touching
+# .plesk.startup.cjs: Plesk's own Node.js "auto-configure hosting" toolkit
+# owns that filename and refuses to build/start the app at every stage the
+# moment it finds a version it didn't generate itself.
 cp -f "${release_dir}/plesk-prelude.js" "${deploy_path}/plesk-prelude.js" 2>/dev/null || true
 cp -f "${release_dir}/server.js" "${deploy_path}/server.js" 2>/dev/null || true
 cp -f "${release_dir}/server.js" "${deploy_path}/app.js" 2>/dev/null || true
-cp -f "${release_dir}/server.js" "${deploy_path}/.plesk.startup.cjs" 2>/dev/null || true
 cp -f "${release_dir}/server.js" "${release_dir}/app.js" 2>/dev/null || true
-cp -f "${release_dir}/server.js" "${release_dir}/.plesk.startup.cjs" 2>/dev/null || true
 
 # Preserve .env file across releases if present in parent deployment directory
 if [ -f "${deploy_path}/.env" ]; then

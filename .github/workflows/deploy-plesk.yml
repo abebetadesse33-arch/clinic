@@ -203,7 +203,10 @@ jobs:
           NODE_ENTRYPOINT
           fi
           cp -f release/server.js release/app.js 2>/dev/null || true
-          cp -f release/server.js release/.plesk.startup.cjs 2>/dev/null || true
+          # Deliberately NOT shipping .plesk.startup.cjs: Plesk's own Node.js
+          # "auto-configure hosting" toolkit owns that filename and refuses to
+          # build/start the app at every stage if it finds a version it didn't
+          # generate itself.
 
           tar -czf deploy.tar.gz -C release .
           echo "✅ Package assembled: $(du -h deploy.tar.gz | cut -f1)"
