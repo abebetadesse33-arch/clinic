@@ -7,8 +7,16 @@
  * Usage:
  *   IN_FILE=postgres-dump.json bun run db:import-mysql-dump
  *
- * Safe to re-run: uses INSERT IGNORE, so already-imported rows are skipped
- * rather than duplicated or erroring.
+ * This is a one-time cutover: each table is TRUNCATEd immediately before its
+ * rows are (re)inserted, so re-running always reflects the dump exactly
+ * rather than leaving stale partial rows behind from an earlier run against
+ * an incomplete schema (this bit us once: a schema apply had not finished
+ * when this ran, several tables were missing most of their real columns,
+ * INSERT IGNORE let those partial rows through, and because their IDs then
+ * "existed" a later re-run silently skipped fixing them).
+ *
+ * Do not run this against a database that already has real production
+ * traffic on it — it deletes existing rows in every table the dump touches.
  *
  * Contains PHI — delete the input JSON file from the server once this has
  * run successfully.
@@ -65,8 +73,11 @@ async function main() {
       }
 
       // The source schema may have evolved since these rows were written
-      // (renamed/dropped columns). Only import columns the current MySQL
-      // table actually has; drop the rest rather than failing the table.
+      // (a handful of columns renamed/dropped). Only import columns the
+      // current MySQL table actually has — but if a large fraction of the
+      // source columns are missing, that's not schema drift, it's a schema
+      // that was never fully applied; refuse rather than silently importing
+      // gutted rows.
       const [colRows] = await my.query<any[]>(
         `SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?`,
         [table]
@@ -75,6 +86,16 @@ async function main() {
       const sourceColumns = Object.keys(rows[0]);
       const columns = sourceColumns.filter((c) => targetColumns.has(c));
       const droppedColumns = sourceColumns.filter((c) => !targetColumns.has(c));
+      const droppedFraction = droppedColumns.length / sourceColumns.length;
+
+      if (droppedFraction > 0.3) {
+        summary.push({
+          table,
+          rows: 0,
+          status: `ERROR: target table is missing ${droppedColumns.length}/${sourceColumns.length} source columns (${droppedColumns.join(", ")}) — schema looks incomplete, run db:migrate first`,
+        });
+        continue;
+      }
       if (droppedColumns.length > 0) {
         console.warn(`  ${table}: dropping columns no longer in the schema: ${droppedColumns.join(", ")}`);
       }
@@ -87,6 +108,7 @@ async function main() {
       let migrated = 0;
 
       try {
+        await my.query(`TRUNCATE TABLE \`${table}\``);
         for (let i = 0; i < rows.length; i += BATCH_SIZE) {
           const batch = rows.slice(i, i + BATCH_SIZE);
           const placeholders = batch.map(() => `(${columns.map(() => "?").join(", ")})`).join(", ");

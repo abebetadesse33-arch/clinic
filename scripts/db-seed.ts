@@ -1,5 +1,8 @@
 import { ensureDatabaseInitialized } from "../src/db/migrate-and-seed";
 import { connectToDatabase } from "./db-connection";
+import { loadDotEnv } from "./load-dotenv";
+
+loadDotEnv();
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
