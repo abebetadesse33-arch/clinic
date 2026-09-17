@@ -12,6 +12,9 @@
  */
 import postgres from "postgres";
 import fs from "fs";
+import { loadDotEnv } from "./load-dotenv";
+
+loadDotEnv();
 
 async function main() {
   const sourceUrl = process.env.SOURCE_DATABASE_URL;

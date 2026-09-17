@@ -15,6 +15,9 @@
  */
 import mysql from "mysql2/promise";
 import fs from "fs";
+import { loadDotEnv } from "./load-dotenv";
+
+loadDotEnv();
 
 const BATCH_SIZE = 200;
 

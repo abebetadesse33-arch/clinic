@@ -15,6 +15,9 @@
  */
 import postgres from "postgres";
 import mysql from "mysql2/promise";
+import { loadDotEnv } from "./load-dotenv";
+
+loadDotEnv();
 
 const BATCH_SIZE = 200;
 
