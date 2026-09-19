@@ -39,6 +39,23 @@ const nextConfig = {
     NEXT_PUBLIC_BUILD_SHA: resolveBuildSha(),
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
+  async redirects() {
+    return [
+      // /system-admin is an alias that was circulating in bookmarks and
+      // external links — redirect permanently to the real admin dashboard.
+      {
+        source: "/system-admin",
+        destination: "/admin",
+        permanent: true,
+      },
+      // /system-admin/:path* deep links (e.g. /system-admin/users)
+      {
+        source: "/system-admin/:path*",
+        destination: "/admin/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
@@ -55,4 +72,5 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
 

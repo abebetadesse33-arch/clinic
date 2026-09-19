@@ -53,9 +53,25 @@ export default function MobileBottomNav() {
     },
     {
       label: currentUser?.fullName ? "Profile" : "Sign In",
-      href: currentUser?.role && currentUser.role !== "guest" ? `/${currentUser.role === "patient" ? "patient/dashboard" : currentUser.role.replace("_", "-")}` : "/signin",
+      href: (() => {
+        if (!currentUser?.role || currentUser.role === "guest") return "/signin";
+        // Explicit role-to-dashboard mapping to avoid broken /system-admin, /nurse_practitioner, etc.
+        const roleRouteMap: Record<string, string> = {
+          patient: "/patient/dashboard",
+          system_admin: "/admin",
+          tenant_admin: "/admin",
+          auditor: "/audit",
+          pharmacist: "/pharmacy",
+          biologist: "/biologist",
+        };
+        return roleRouteMap[currentUser.role] ?? "/provider/profile";
+      })(),
       icon: User,
-      isActive: pathname === "/signin" || pathname.startsWith("/patient") || pathname.startsWith("/admin"),
+      isActive:
+        pathname === "/signin" ||
+        pathname.startsWith("/patient") ||
+        pathname.startsWith("/admin") ||
+        pathname.startsWith("/provider"),
     },
   ];
 
