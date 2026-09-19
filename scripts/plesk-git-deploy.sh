@@ -133,7 +133,7 @@ else
   exit 1
 fi
 
-echo "=== [3.5/4] Synchronizing PostgreSQL database schema & migrations ==="
+echo "=== [3.5/4] Synchronizing database schema & migrations ==="
 if [ -n "${DATABASE_URL:-}" ]; then
   echo "DATABASE_URL detected, applying database schema & table migrations..."
   if command -v bun >/dev/null 2>&1; then
