@@ -17,22 +17,18 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: pgvector/pgvector:pg16
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_DB: clinic_enterprise
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: clinic_enterprise
+          MYSQL_ROOT_HOST: "%"
         ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d clinic_enterprise"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -proot" --health-interval=10s --health-timeout=5s --health-retries=10
 
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/clinic_enterprise
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/clinic_enterprise
       NODE_ENV: test
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       NEXT_PUBLIC_API_URL: http://localhost:3000
@@ -56,15 +52,7 @@ jobs:
       - name: Validate database migration
         run: |
           set -Eeuo pipefail
-          for attempt in 1 2 3 4 5; do
-            if pg_isready -h localhost -p 5432 -U postgres -d clinic_enterprise; then
-              break
-            fi
-            echo "PostgreSQL is not ready; retrying in 5 seconds (attempt ${attempt}/5)."
-            sleep 5
-          done
-          pg_isready -h localhost -p 5432 -U postgres -d clinic_enterprise
-          echo "Running migration against localhost:5432/clinic_enterprise"
+          echo "Running migration against MySQL 127.0.0.1:3306/clinic_enterprise"
           bun run db:migrate
 
       - name: Validate idempotent seed
