@@ -35,7 +35,7 @@ export default function QuickActionGrid() {
           </div>
         </Link>
 
-        {/* 2. Treat Me Now (24/7 Virtual Urgent Care) */}
+        {/* 2. Request virtual triage */}
         <Link
           href="/services/virtual-urgent-care/triage"
           className="group relative text-left bg-gradient-to-br from-sky-600 via-sky-700 to-blue-900 text-white rounded-2xl p-5 border border-sky-400/40 shadow-lg shadow-sky-600/20 hover:shadow-warm-md transition-all duration-200 flex flex-col justify-between"
@@ -46,7 +46,7 @@ export default function QuickActionGrid() {
             </div>
             <div className="flex items-center gap-2 mb-1">
               <span className="text-xs font-semibold uppercase tracking-wider text-white bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-sm">
-                24/7 Virtual Care
+                Virtual Triage
               </span>
               <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75"></span>

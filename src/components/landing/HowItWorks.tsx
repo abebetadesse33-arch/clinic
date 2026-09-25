@@ -1,26 +1,26 @@
 "use client";
 
 import React from "react";
-import { UserPlus, Sparkles, Stethoscope, ArrowRight, Zap, Building2, HeartHandshake } from "lucide-react";
+import { Stethoscope, Building2, HeartHandshake } from "lucide-react";
 
 export function HowItWorks() {
   const steps = [
     {
       number: "01",
-      title: "Join or Book On-Demand",
-      desc: "Sign up in 2 minutes or start a 24/7 Treat Me Now™ virtual visit without an appointment from your phone or computer.",
-      icon: Zap,
+      title: "Choose a Visit",
+      desc: "Request an outpatient appointment for a service currently offered by the Habitat clinic.",
+      icon: Stethoscope,
     },
     {
       number: "02",
-      title: "See Your Doctor Without the Wait",
-      desc: "Connect instantly via HD video or walk into one of our calm, beautifully designed clinics. Enjoy zero waiting room delays.",
+      title: "Attend Your Appointment",
+      desc: "Visit the clinic at your confirmed appointment time. Ask staff about current service availability and fees.",
       icon: Building2,
     },
     {
       number: "03",
-      title: "Stay Connected with Your Care Team",
-      desc: "Message your doctor 24/7, track lab test explanations, and refill prescriptions with a single click inside your health app.",
+      title: "Follow Up or Get Referred",
+      desc: "Follow your care plan or receive a referral when you need services beyond outpatient clinic capability.",
       icon: HeartHandshake,
     },
   ];
@@ -28,12 +28,12 @@ export function HowItWorks() {
   return (
     <section id="how-it-works" className="py-16 px-4 sm:px-8 max-w-7xl mx-auto space-y-12">
       <div className="text-center space-y-3 max-w-2xl mx-auto">
-        <span className="badge-mint text-xs">Frictionless Healthcare</span>
+        <span className="badge-mint text-xs">Habitat Medium Clinic</span>
         <h2 className="text-3xl sm:text-4xl font-bold text-[#162E27] font-serif-heading">
-          How One Medical membership works
+          How outpatient care works
         </h2>
         <p className="text-xs sm:text-sm text-[#687B74] leading-relaxed">
-          Three simple steps to world-class clinical care, from instant 24/7 triage to long-term preventive wellness.
+          Three steps for planned outpatient care at NiniMed Habitat Clinic.
         </p>
       </div>
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Send, Paperclip, ShieldCheck, Clock, CheckCheck, User, Sparkles } from "lucide-react";
+import { Send, Paperclip, Clock, CheckCheck, User, Sparkles } from "lucide-react";
 
 interface Message {
   id: string;
@@ -81,19 +81,18 @@ export default function CareTeamChat() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-[#162E27]">Your Dedicated Care Team</h3>
-              <span className="badge-mint text-[10px] py-0.5 px-2">Active</span>
+              <h3 className="font-bold text-sm text-[#162E27]">Clinic Care Messages</h3>
+              <span className="badge-mint text-[10px] py-0.5 px-2">Non-emergency</span>
             </div>
             <p className="text-[11px] text-[#687B74]">
-              Primary Care Leads & Triage Staff • Encrypted clinical inbox
+              Send a message to your care team during clinic operations.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-[#005C4B] font-semibold bg-[#E8F4F0] px-3 py-1 rounded-full">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>HIPAA Compliant</span>
-        </div>
+        <span className="text-[10px] text-slate-600 font-semibold bg-[#E8F4F0] px-3 py-1 rounded-full">
+          Clinic messages
+        </span>
       </div>
 
       {/* Message List */}

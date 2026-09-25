@@ -1,38 +1,38 @@
 "use client";
 
 import React from "react";
-import { Sparkles, Video, Dna, CreditCard, ShieldCheck, HeartHandshake, Clock, Building2 } from "lucide-react";
+import { CreditCard, ShieldCheck, HeartHandshake, Clock, Building2, Stethoscope } from "lucide-react";
 
 export function WhyChooseUs() {
   const benefits = [
     {
-      title: "Longer, Un-Rushed Appointments",
-      desc: "Our salaried doctors spend 30–45 minutes with you to truly listen, explain diagnoses, and develop personalized preventive plans.",
+      title: "Outpatient Care",
+      desc: "Consultations and planned follow-up delivered by appropriately qualified clinicians within the clinic's approved scope.",
       icon: Clock,
     },
     {
-      title: "24/7 Treat Me Now™ Virtual Care",
-      desc: "Connect with licensed attending clinicians from your phone in under 3 minutes. Fast e-prescriptions and same-day lab orders.",
-      icon: Video,
+      title: "Primary & Specialist Consultations",
+      desc: "Book primary care and scheduled specialist visits based on actual clinician availability.",
+      icon: Stethoscope,
     },
     {
-      title: "Serene, Welcoming Offices",
-      desc: "Experience calm lighting, complimentary organic tea, comfortable lounges, and on-site blood drawing rooms with zero waiting room delays.",
+      title: "Habitat Clinic",
+      desc: "A medium-size outpatient clinic planned for the Habitat area of Debre Birhan. Verify the address and hours before visiting.",
       icon: Building2,
     },
     {
-      title: "Whole-Person Collaborative Care",
-      desc: "Primary care physicians, nurse practitioners, dietitians, and mental health therapists work together on a unified patient chart.",
+      title: "Continuity & Referral",
+      desc: "Support for follow-up and coordination with higher-level facilities when a patient's needs exceed outpatient capability.",
       icon: HeartHandshake,
     },
     {
-      title: "Transparent, Predictable Billing",
-      desc: "Simple membership plans, zero surprise medical bills, transparent copays, and full HSA/FSA and major insurance compatibility.",
+      title: "Transparent Fees",
+      desc: "Ask the clinic to confirm current service prices and accepted payment methods before your visit.",
       icon: CreditCard,
     },
     {
-      title: "Enterprise HIPAA & Cryptographic Security",
-      desc: "Your confidential medical records and clinical notes are protected with end-to-end encryption and strict privacy standards.",
+      title: "Service Availability",
+      desc: "Laboratory, pharmacy, imaging, vaccination, and other ancillary services are offered only when separately authorized and available.",
       icon: ShieldCheck,
     },
   ];
@@ -42,10 +42,10 @@ export function WhyChooseUs() {
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <span className="badge-mint text-xs">The Clinical Experience</span>
         <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 font-serif-heading">
-          Why members love NiniMed
+          Why choose NiniMed Habitat Clinic
         </h2>
         <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-          Combining human-centered relationship medicine with modern technology and effortless convenience.
+          Respectful outpatient care, clear communication, and referral pathways appropriate to a medium clinic.
         </p>
       </div>
 

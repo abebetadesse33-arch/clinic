@@ -383,7 +383,7 @@ export default function SubmitCasePage() {
               </div>
               <div>
                 <h1 className="text-sm font-bold text-white">Patient Case Submission</h1>
-                <p className="text-[10px] text-slate-400">NiniMed Enterprise CDSS · Secure & HIPAA Compliant</p>
+                <p className="text-[10px] text-slate-400">NiniMed patient case submission</p>
               </div>
             </div>
             <div className="text-xs text-slate-500">Step {step} of {STEPS.length}</div>
@@ -444,7 +444,7 @@ export default function SubmitCasePage() {
               <h2 className="text-xl font-extrabold text-white flex items-center gap-2">
                 <User className="w-5 h-5 text-teal-400" /> Personal Information
               </h2>
-              <p className="text-xs text-slate-400 mt-1">All information is end-to-end encrypted and HIPAA compliant.</p>
+              <p className="text-xs text-slate-400 mt-1">Provide only information needed for care. Review the clinic's privacy information before submitting.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1145,7 +1145,7 @@ export default function SubmitCasePage() {
             <div className="flex items-start gap-3 p-4 bg-slate-900/60 border border-slate-800 rounded-xl">
               <ShieldCheck className="w-5 h-5 text-teal-400 mt-0.5 shrink-0" />
               <p className="text-xs text-slate-400 leading-relaxed">
-                I consent to NiniMed processing my health information for clinical care, AI-assisted analysis, and secure sharing with assigned healthcare providers. My data is protected under HIPAA, GDPR, and 21 CFR Part 11.
+                I consent to NiniMed processing my health information for clinical care, AI-assisted analysis, and sharing with assigned healthcare providers as described in the applicable privacy information.
               </p>
             </div>
           </div>

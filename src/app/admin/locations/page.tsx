@@ -52,34 +52,28 @@ interface ClinicLocationAdmin {
 }
 
 const COMMON_SERVICES = [
-  "24/7 Emergency & Trauma",
   "Primary Care Consultations",
   "Specialist In-Office Consultations",
   "Maternal Antenatal & Postnatal Care",
   "Pediatrics & Child Wellness",
-  "ICU & Inpatient Care",
-  "Digital CT & PA Radiography",
-  "Ultrasound Sonography",
-  "Automated Clinical Chemistry Lab",
-  "Point-of-Care Rapid Testing",
+  "Ultrasound Sonography (approval required)",
+  "Point-of-Care Rapid Testing (approval required)",
   "Cardiopulmonary Physiotherapy",
   "Clinical Nutrition & MNT",
-  "Specialized Compounding Pharmacy",
-  "24/7 Prescription Dispensation",
-  "Vaccination & Immunization",
+  "Chronic Disease Management",
+  "Preventive Health Screening",
+  "Basic Nursing Procedures",
+  "Referral Coordination",
+  "Vaccination & Immunization (approval required)",
 ];
 
 const COMMON_AMENITIES = [
-  "Dedicated Ambulance Standby",
-  "On-Site Blood Bank",
   "Quiet Wellness Lounge",
-  "Drive-Through Rx Pickup",
   "Free High-Speed Wi-Fi",
   "Child-Friendly Play Area",
   "Wheelchair Accessible Ramp",
   "Spacious Private Parking",
-  "Direct Corporate Insurance Desk",
-  "Emergency Generator Power Backup",
+  "Backup Power",
 ];
 
 export default function AdminLocationsPage() {
@@ -102,12 +96,12 @@ export default function AdminLocationsPage() {
     city: "Debre Birhan",
     region: "Amhara, Ethiopia",
     address: "",
-    latitude: "9.6780",
-    longitude: "39.5320",
-    phone: "+251 11 681 ",
-    email: "info@ninimed.org",
-    hours: "Mon–Sat: 8:00 AM – 7:00 PM",
-    nextOpenSlot: "Today at 2:00 PM",
+    latitude: "",
+    longitude: "",
+    phone: "",
+    email: "",
+    hours: "Confirm operating hours",
+    nextOpenSlot: "Confirm appointment availability",
     isMain: false,
     services: [] as string[],
     amenities: [] as string[],
@@ -145,15 +139,15 @@ export default function AdminLocationsPage() {
       city: "Debre Birhan",
       region: "Amhara, Ethiopia",
       address: "",
-      latitude: "9.6780",
-      longitude: "39.5320",
-      phone: "+251 11 681 ",
-      email: "info@ninimed.org",
-      hours: "Mon–Sat: 8:00 AM – 7:00 PM",
-      nextOpenSlot: "Today at 2:00 PM",
+      latitude: "",
+      longitude: "",
+      phone: "",
+      email: "",
+      hours: "Confirm operating hours",
+      nextOpenSlot: "Confirm appointment availability",
       isMain: false,
-      services: ["Primary Care Consultations", "Point-of-Care Rapid Testing", "Retail Pharmacy"],
-      amenities: ["Wheelchair Accessible Ramp", "Spacious Private Parking", "Free High-Speed Wi-Fi"],
+      services: ["Primary Care Consultations", "Chronic Disease Management", "Preventive Health Screening"],
+      amenities: [],
     });
     setEditingLocation(null);
     setIsAddModalOpen(true);
@@ -289,7 +283,10 @@ export default function AdminLocationsPage() {
               Clinic Locations & Geolocation Network
             </h1>
             <p className="text-xs sm:text-sm text-[#687B74]">
-              Manage multi-branch physical facilities, real-time GPS coordinates, Clinics, and online appointment routing in Debre Birhan, Ethiopia.
+              Manage clinic locations, verified GPS coordinates, approved service lists, and appointment routing in Debre Birhan, Ethiopia.
+            </p>
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 max-w-3xl">
+              Habitat is planned as a medium outpatient clinic. This editor does not verify licenses; publish only services, contact details, hours, and coordinates confirmed for the real facility.
             </p>
           </div>
 
@@ -334,12 +331,12 @@ export default function AdminLocationsPage() {
 
           <div className="p-5 rounded-3xl bg-white border border-[#E7E2D8] space-y-2 shadow-warm">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#687B74] block">
-              Main Campus
+              Main Clinic
             </span>
             <div className="text-xs font-bold text-[#162E27] truncate">
-              {mainFacility ? mainFacility.neighborhood : "Habitat Hospital"}
+              {mainFacility ? mainFacility.neighborhood : "Habitat Medium Clinic"}
             </div>
-            <span className="badge-mint text-[10px] py-0.5 px-2">24/7 Level 1 Emergency</span>
+            <span className="badge-mint text-[10px] py-0.5 px-2">Medium Clinic · Outpatient</span>
           </div>
 
           <div className="p-5 rounded-3xl bg-white border border-[#E7E2D8] space-y-2 shadow-warm">
@@ -367,7 +364,7 @@ export default function AdminLocationsPage() {
           <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
             {[
               { id: "all", label: "All Types" },
-              { id: "main", label: "Main Hospital" },
+              { id: "main", label: "Main Clinic" },
               { id: "diagnostic_hub", label: "Clinics" },
               { id: "branch", label: "Community Clinics" },
               { id: "pharmacy_clinic", label: "Pharmacy Clinics" },
@@ -413,7 +410,7 @@ export default function AdminLocationsPage() {
                     <span className="badge-mint text-[10px]">{loc.neighborhood}</span>
                     {loc.isMain && (
                       <span className="px-2 py-0.5 rounded-full bg-[#005C4B] text-white text-[10px] font-bold">
-                        ★ Main Specialty Hospital
+                        ★ Main Clinic
                       </span>
                     )}
                     <span
@@ -590,7 +587,7 @@ export default function AdminLocationsPage() {
                       required
                       value={formData.neighborhood}
                       onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
-                      placeholder="e.g. Habitat Sub-City"
+                      placeholder="e.g. Habitat area, Debre Birhan"
                       className="input-warm w-full text-xs"
                     />
                   </div>
@@ -614,7 +611,7 @@ export default function AdminLocationsPage() {
                       required
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      placeholder="e.g. Main Campus Highway, Habitat Sub-City, Debre Birhan, Ethiopia"
+                      placeholder="Street address, Habitat area, Debre Birhan, Ethiopia"
                       className="input-warm w-full text-xs"
                     />
                   </div>
@@ -694,7 +691,7 @@ export default function AdminLocationsPage() {
                 {/* Main Branch Switch */}
                 <div className="p-3 bg-[#FAF8F5] rounded-2xl border border-[#E7E2D8] flex items-center justify-between">
                   <div>
-                    <span className="font-bold text-[#162E27] block">Designate as Main Hospital Campus</span>
+                    <span className="font-bold text-[#162E27] block">Designate as Main Clinic</span>
                     <span className="text-[11px] text-[#687B74]">
                       Featured as primary level-1 medical hub on maps and navigation.
                     </span>

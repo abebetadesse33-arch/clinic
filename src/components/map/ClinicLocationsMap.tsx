@@ -159,7 +159,14 @@ export default function ClinicLocationsMap({
     locations.forEach((loc) => {
       const lat = Number(loc.latitude);
       const lng = Number(loc.longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
+      if (
+        loc.latitude === "" ||
+        loc.longitude === "" ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        Math.abs(lat) > 90 ||
+        Math.abs(lng) > 180
+      ) return;
 
       bounds.push([lat, lng]);
 
@@ -206,7 +213,7 @@ export default function ClinicLocationsMap({
           <div class="flex items-center gap-1.5">
             <span class="inline-block w-2 h-2 rounded-full ${isMain ? "bg-[#005C4B]" : "bg-teal-600"}"></span>
             <span class="text-[10px] font-extrabold uppercase tracking-wider text-[#005C4B]">
-              ${isMain ? "★ Main Specialty Hospital" : "NiniMed Branch"}
+              ${isMain ? "★ Main Clinic" : "NiniMed Branch"}
             </span>
           </div>
           <h4 class="text-xs font-bold leading-snug">${loc.name}</h4>
@@ -217,10 +224,10 @@ export default function ClinicLocationsMap({
               <span class="font-semibold text-[10px] text-slate-500">Hours:</span>
               <span>${loc.hours}</span>
             </div>
-            <div class="flex items-center gap-1.5">
+            ${loc.phone ? `<div class="flex items-center gap-1.5">
               <span class="font-semibold text-[10px] text-slate-500">Phone:</span>
               <a href="tel:${loc.phone}" class="text-[#005C4B] font-bold hover:underline">${loc.phone}</a>
-            </div>
+            </div>` : ""}
           </div>
 
           <div class="pt-2 flex items-center gap-2">
@@ -349,12 +356,12 @@ export default function ClinicLocationsMap({
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-md bg-[#005C4B] inline-block shadow-sm"></span>
           <span className="font-semibold text-[#162E27] text-[11px]">
-            Habitat Clinic(24/7)
+            Habitat Medium Clinic
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-md bg-white border border-[#005C4B] inline-block shadow-sm"></span>
-          <span className="text-[#687B74] text-[11px]">District Medical & Pharmacy Branches</span>
+          <span className="text-[#687B74] text-[11px]">Other clinic locations</span>
         </div>
         {userCoords && (
           <div className="flex items-center gap-2 pt-1 border-t border-slate-100">

@@ -67,119 +67,30 @@ interface ClinicLocation {
 const INITIAL_LOCATIONS: ClinicLocation[] = [
   {
     id: "loc-habitat-main",
-    name: "NiniMed Habitat Clinic& 24/7 Emergency",
-    neighborhood: "Habitat Sub-City, Debre Birhan",
+    name: "NiniMed Habitat Medium Clinic",
+    neighborhood: "Habitat area, Debre Birhan",
     city: "Debre Birhan",
     region: "Amhara, Ethiopia",
-    address: "Main Campus Highway, Habitat Sub-City, Debre Birhan, Ethiopia",
-    latitude: 9.6825,
-    longitude: 39.5312,
-    hours: "Open 24/7 (24 Hours Emergency, Inpatient & OPD)",
-    phone: "+251 11 681 2000",
-    email: "habitat@ninimed.org",
-    services: [
-      "24/7 Emergency & Trauma",
-      "Specialist In-Office Consultations",
-      "ICU & Inpatient Care",
-      "Digital CT & PA Radiography",
-      "Automated Clinical Chemistry Lab",
-      "Central Hospital Pharmacy",
-    ],
-    amenities: [
-      "Dedicated Ambulance Standby",
-      "On-Site Blood Bank",
-      "Spacious Private Parking",
-      "Free High-Speed Wi-Fi",
-    ],
-    nextOpenSlot: "Open 24/7 · Immediate Walk-In & Booking",
-    isMain: true,
-    branchType: "main",
-    googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=9.6825,39.5312",
-  },
-  {
-    id: "loc-tebasse-hub",
-    name: "NiniMed Tebasse Clinic",
-    neighborhood: "Tebasse District, Debre Birhan",
-    city: "Debre Birhan",
-    region: "Amhara, Ethiopia",
-    address: "Commercial Avenue, Near Tebasse Square, Debre Birhan, Ethiopia",
-    latitude: 9.691,
-    longitude: 39.5445,
-    hours: "Mon–Sat: 7:30 AM – 8:00 PM • Sun: 8:30 AM – 4:00 PM",
-    phone: "+251 11 681 3311",
-    email: "tebasse@ninimed.org",
+    address: "Habitat area, Debre Birhan, Amhara Region, Ethiopia (exact street address to be confirmed)",
+    latitude: "",
+    longitude: "",
+    hours: "Operating hours to be confirmed",
+    phone: "",
     services: [
       "Primary Care Consultations",
-      "Comprehensive Diagnostic Blood Lab",
-      "Ultrasound Sonography",
-      "Preventive Health Screening",
-      "Retail Pharmacy",
-    ],
-    amenities: [
-      "Express Lab Turnaround (<30 min)",
-      "Quiet Wellness Lounge",
-      "Wheelchair Accessible",
-    ],
-    nextOpenSlot: "Today at 11:30 AM",
-    isMain: false,
-    branchType: "diagnostic_hub",
-    googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=9.6910,39.5445",
-  },
-  {
-    id: "loc-atakilt-branch",
-    name: "NiniMed Atakilt Clinic",
-    neighborhood: "Atakilt Market District, Debre Birhan",
-    city: "Debre Birhan",
-    region: "Amhara, Ethiopia",
-    address: "Atakilt Center Street, Debre Birhan, Ethiopia",
-    latitude: 9.673,
-    longitude: 39.526,
-    hours: "Mon–Sat: 8:00 AM – 7:00 PM",
-    phone: "+251 11 681 4422",
-    email: "atakilt@ninimed.org",
-    services: [
-      "Family Medicine & Pediatrics",
+      "Specialist In-Office Consultations",
       "Maternal Antenatal & Postnatal Care",
+      "Pediatrics & Child Wellness",
       "Chronic Disease Management",
-      "Rapid Point-of-Care Testing",
+      "Point-of-Care Rapid Testing (subject to approval)",
+      "Clinical Nutrition & MNT",
+      "Cardiopulmonary Physiotherapy",
+      "Vaccination & Immunization (subject to approval)",
     ],
-    amenities: [
-      "Child-Friendly Playroom",
-      "Nutrition Counseling Room",
-      "Direct Insurance Billing",
-    ],
-    nextOpenSlot: "Today at 2:15 PM",
-    isMain: false,
-    branchType: "branch",
-    googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=9.6730,39.5260",
-  },
-  {
-    id: "loc-liche-pharmacy",
-    name: "NiniMed Liche Clinic",
-    neighborhood: "Liche District, Debre Birhan",
-    city: "Debre Birhan",
-    region: "Amhara, Ethiopia",
-    address: "Liche North Boulevard, Debre Birhan, Ethiopia",
-    latitude: 9.6645,
-    longitude: 39.518,
-    hours: "Mon–Sat: 8:00 AM – 9:00 PM • Sun: 9:00 AM – 6:00 PM",
-    phone: "+251 11 681 5533",
-    email: "liche@ninimed.org",
-    services: [
-      "Urgent Care Walk-In Triage",
-      "Specialized Compounding Pharmacy",
-      "Blood Pressure & Glucose Checks",
-      "Telehealth Video Consultation Kiosk",
-    ],
-    amenities: [
-      "Drive-Through Rx Pickup",
-      "Digital Prescription Lockers",
-      "Emergency Medicine Dispenser",
-    ],
-    nextOpenSlot: "Today at 3:45 PM",
-    isMain: false,
-    branchType: "pharmacy_clinic",
-    googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=9.6645,39.5180",
+    amenities: [],
+    nextOpenSlot: "Appointment availability to be confirmed",
+    isMain: true,
+    branchType: "main",
   },
 ];
 
@@ -256,7 +167,7 @@ export default function LocationsPage() {
       const lng = Number(loc.longitude);
       let distanceKm: number | null = null;
 
-      if (userCoords && !isNaN(lat) && !isNaN(lng)) {
+      if (userCoords && loc.latitude !== "" && loc.longitude !== "" && Number.isFinite(lat) && Number.isFinite(lng)) {
         distanceKm = calculateDistanceKm(userCoords.lat, userCoords.lng, lat, lng);
       }
 
@@ -298,7 +209,7 @@ export default function LocationsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="badge-mint text-xs">Debre Birhan Clinic Network</span>
             <span className="px-2.5 py-0.5 rounded-full bg-[#E8F4F0] text-[#005C4B] text-[11px] font-bold">
-              4 Integrated Locations
+              Habitat Medium Clinic
             </span>
           </div>
 
@@ -306,7 +217,7 @@ export default function LocationsPage() {
             Find a NiniMed clinic near you
           </h1>
           <p className="text-sm sm:text-base text-[#687B74] leading-relaxed">
-            Every NiniMed facility in Debre Birhan offers compassionate relationship medicine, on-site diagnostics, digital prescriptions, and zero waiting room delays.
+            Outpatient care in Habitat, Debre Birhan. Services, opening hours, and appointment availability are confirmed by the clinic.
           </p>
 
           <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -316,7 +227,7 @@ export default function LocationsPage() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search Habitat, Tebasse, Atakilt, Liche..."
+                placeholder="Search Habitat, Debre Birhan..."
                 className="input-warm pl-9 text-xs sm:text-sm w-full"
               />
             </div>
@@ -366,11 +277,8 @@ export default function LocationsPage() {
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
         {[
-          { id: "all", label: "All Facilities (4)" },
-          { id: "main", label: "Habitat (Main Hospital 24/7)" },
-          { id: "diagnostic_hub", label: "Tebasse (Clinic)" },
-          { id: "branch", label: "Atakilt (Maternal & Family)" },
-          { id: "pharmacy_clinic", label: "Liche (Pharmacy & OPD)" },
+          { id: "all", label: "All Locations" },
+          { id: "main", label: "Habitat Medium Clinic" },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -406,7 +314,7 @@ export default function LocationsPage() {
                     <span className="badge-mint text-[10px]">{loc.neighborhood}</span>
                     {loc.isMain && (
                       <span className="px-2 py-0.5 rounded-full bg-[#005C4B] text-white text-[10px] font-bold uppercase tracking-wider">
-                        ★ Main Specialty Hospital
+                        ★ Main Medium Clinic
                       </span>
                     )}
                     {loc.distanceKm !== null && loc.distanceKm !== undefined && (
@@ -432,24 +340,28 @@ export default function LocationsPage() {
                   <Clock className="w-4 h-4 text-[#005C4B] shrink-0" />
                   <span className="font-semibold">{loc.hours}</span>
                 </div>
-                <div className="flex items-center gap-2.5">
-                  <Phone className="w-4 h-4 text-[#005C4B] shrink-0" />
-                  <a href={`tel:${loc.phone}`} className="font-bold text-[#005C4B] hover:underline">
-                    {loc.phone}
-                  </a>
-                </div>
-                <div className="flex items-center gap-2.5 text-[#687B74]">
-                  <Compass className="w-4 h-4 text-[#687B74] shrink-0" />
-                  <span className="font-mono text-[11px]">
-                    GPS: {Number(loc.latitude).toFixed(4)}° N, {Number(loc.longitude).toFixed(4)}° E
-                  </span>
-                </div>
+                {loc.phone && (
+                  <div className="flex items-center gap-2.5">
+                    <Phone className="w-4 h-4 text-[#005C4B] shrink-0" />
+                    <a href={`tel:${loc.phone}`} className="font-bold text-[#005C4B] hover:underline">
+                      {loc.phone}
+                    </a>
+                  </div>
+                )}
+                {loc.latitude !== "" && loc.longitude !== "" && Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude)) && (
+                  <div className="flex items-center gap-2.5 text-[#687B74]">
+                    <Compass className="w-4 h-4 text-[#687B74] shrink-0" />
+                    <span className="font-mono text-[11px]">
+                      GPS: {Number(loc.latitude).toFixed(4)}° N, {Number(loc.longitude).toFixed(4)}° E
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Services Offered */}
               <div className="pt-2">
                 <div className="text-[10px] font-bold uppercase tracking-wider text-[#687B74] mb-1.5">
-                  Clinical Services & Labs
+                  Planned Outpatient Services
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {loc.services.map((svc, idx) => (
@@ -491,15 +403,17 @@ export default function LocationsPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="Get turn-by-turn navigation in Google Maps"
-                    className="btn-pill-ghost text-xs py-2 px-3 flex items-center gap-1"
-                  >
-                    <Navigation className="w-3.5 h-3.5 text-[#005C4B]" /> Directions
-                  </a>
+                  {loc.latitude !== "" && loc.longitude !== "" && Number.isFinite(Number(loc.latitude)) && Number.isFinite(Number(loc.longitude)) && (
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Get turn-by-turn navigation in Google Maps"
+                      className="btn-pill-ghost text-xs py-2 px-3 flex items-center gap-1"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-[#005C4B]" /> Directions
+                    </a>
+                  )}
                   <Link
                     href={`/patient/book?location=${loc.id}`}
                     className="btn-pill-primary text-xs py-2 px-4 shadow-sm"

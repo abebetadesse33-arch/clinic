@@ -30,7 +30,7 @@ export default function PatientMessagesPage() {
 
       {/* Triage Disclaimer */}
       <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E7E2D8] text-xs text-[#687B74] flex items-center justify-between">
-        <span>For urgent concerns after hours, use <strong>Treat Me Now™</strong> or call our 24/7 Nurse Hotline.</span>
+        <span>For emergencies, seek care at an appropriately equipped hospital. Clinic messaging is not monitored as an emergency service.</span>
         <a href="/patient/treat-me-now" className="text-[#005C4B] font-bold hover:underline">
           Launch Treat Me Now →
         </a>

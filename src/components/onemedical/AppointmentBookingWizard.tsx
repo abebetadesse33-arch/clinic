@@ -24,12 +24,10 @@ interface DoctorOption {
 }
 
 const VISIT_REASONS = [
-  { id: "annual-wellness", label: "Annual Wellness Checkup", icon: "🌱", time: "45 min", durationMinutes: 45, desc: "Comprehensive physical exam, bloodwork order & prevention goals" },
-  { id: "illness-injury", label: "New Illness or Injury", icon: "🩺", time: "30 min", durationMinutes: 30, desc: "Cough, sprain, rash, abdominal pain, sudden symptoms" },
-  { id: "mental-health", label: "Mental Health & Stress", icon: "🧠", time: "45 min", durationMinutes: 45, desc: "Anxiety, depression, burnout, therapy referral, medication review" },
-  { id: "chronic-followup", label: "Chronic Condition Follow-up", icon: "📊", time: "30 min", durationMinutes: 30, desc: "Hypertension, diabetes, thyroid, cholesterol management" },
-  { id: "lab-draw", label: "In-Office Lab Draw & Vitals", icon: "🧪", time: "15 min", durationMinutes: 15, desc: "Routine blood test, urine panel, vaccine administration" },
-  { id: "rx-consult", label: "Medication Review & Refill", icon: "💊", time: "20 min", durationMinutes: 20, desc: "Adjust dosing, discuss side effects, ongoing refills" },
+  { id: "annual-wellness", label: "General Outpatient Consultation", icon: "🩺", time: "30 min", durationMinutes: 30, desc: "Discuss a health concern with a clinician" },
+  { id: "illness-injury", label: "New Illness or Concern", icon: "🩺", time: "30 min", durationMinutes: 30, desc: "Outpatient assessment for a new, non-emergency health concern" },
+  { id: "chronic-followup", label: "Chronic Condition Follow-up", icon: "📊", time: "30 min", durationMinutes: 30, desc: "Follow-up for an ongoing condition" },
+  { id: "specialist", label: "Specialist Consultation", icon: "👩‍⚕️", time: "30 min", durationMinutes: 30, desc: "Subject to clinician availability and the clinic's approved scope" },
 ];
 
 const TIME_SLOTS = [
@@ -419,7 +417,7 @@ export default function AppointmentBookingWizard() {
                       <div className="flex items-center justify-between gap-2">
                         <span className="badge-mint text-[10px]">{loc.neighborhood || "Debre Birhan"}</span>
                         {loc.isMain && (
-                          <span className="text-[10px] font-bold text-[#005C4B]">★ Main Hospital</span>
+                          <span className="text-[10px] font-bold text-[#005C4B]">★ Main Clinic</span>
                         )}
                       </div>
                       <h5 className="font-bold text-xs text-[#162E27] mt-1">{loc.name}</h5>

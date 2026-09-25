@@ -396,7 +396,7 @@ function PatientDashboardContent() {
                 <h2 className="text-sm font-bold text-[#162E27] uppercase tracking-wider">
                   Quick Care Launcher
                 </h2>
-                <span className="text-xs text-[#005C4B] font-semibold">24/7 Available</span>
+                <span className="text-xs text-[#005C4B] font-semibold">Request triage</span>
               </div>
               <QuickActionGrid />
             </div>
@@ -654,7 +654,7 @@ function PatientDashboardContent() {
                 </div>
                 <div className="space-y-1">
                   <h3 className="font-bold text-sm text-[#162E27]">No Health Cases Submitted Yet</h3>
-                  <p className="text-xs text-[#687B74]">Submit your symptoms, audio voice memo, and photos for 24/7 AI pre-triage & clinician review.</p>
+                  <p className="text-xs text-[#687B74]">Submit your symptoms for clinical review. This feature is not an emergency service and does not guarantee an immediate response.</p>
                 </div>
                 <Link href="/patient/submit-case" className="btn-pill-primary text-xs py-2.5 px-5 inline-flex items-center gap-1.5 shadow-sm">
                   <Plus className="w-3.5 h-3.5" /> Submit a New Health Case
@@ -1095,7 +1095,7 @@ function PatientDashboardContent() {
                 nationalId: patient?.nationalId || "ETH-VERIFIED-ID",
                 nationalIdVerified: true,
                 bloodType: pData.bloodType || "O+",
-                primaryClinic: "NiniMed Habitat Main Clinic & 24/7 ER",
+                primaryClinic: "NiniMed Habitat Medium Clinic",
                 issuedAt: "Aug 2026",
                 validUntil: "Nov 2026",
                 status: "Active 3-Month Membership",

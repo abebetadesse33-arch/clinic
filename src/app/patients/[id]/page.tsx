@@ -1612,7 +1612,7 @@ export default function PatientProfilePage() {
                 bloodType: patient.bloodType || "O+",
                 phone: patient.phone || "+251 941111540",
                 email: patient.email || "jason369tesla@gmail.com",
-                primaryClinic: "NiniMed Habitat Main Clinic & 24/7 ER",
+                primaryClinic: "NiniMed Habitat Medium Clinic",
                 issuedAt: "Sep 2026",
                 validUntil: "Sep 2027",
                 status: "Active Comprehensive Care",

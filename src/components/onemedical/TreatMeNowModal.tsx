@@ -36,7 +36,7 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
     title: string;
     initials: string;
   }>({
-    name: "NiniMed On-Call Physician, MD",
+    name: "NiniMed Physician",
     title: "Urgent Care & Telehealth Lead",
     initials: "AM",
   });
@@ -49,7 +49,7 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
           const doc = d.data[0];
           setOnCallDoctor({
             name: doc.name,
-            title: `${doc.title} • On-Call Urgent Care Lead`,
+            title: `${doc.title} • Triage Clinician`,
             initials: doc.initials || "MD",
           });
         }
@@ -105,7 +105,7 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
         if (data.data.assignedHandler) {
           setOnCallDoctor({
             name: data.data.assignedHandler,
-            title: "On-Call Urgent Care Lead",
+            title: "Triage Clinician",
             initials: data.data.assignedHandler.split(" ").map((n: string) => n[0]).join("").slice(0, 2),
           });
         }
@@ -134,7 +134,7 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-bold text-[#162E27] font-display">Treat Me Now™</h2>
-                <span className="badge-mint text-[11px] py-0.5 px-2">24/7 Virtual Urgent Care</span>
+                <span className="badge-mint text-[11px] py-0.5 px-2">Virtual Triage Request</span>
               </div>
               <p className="text-xs text-[#687B74]">No appointment needed. Average wait: Under 3 minutes.</p>
             </div>
@@ -153,7 +153,7 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
             <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E7E2D8] flex items-center gap-3 text-xs text-[#162E27]">
               <ShieldCheck className="w-5 h-5 text-[#005C4B] shrink-0" />
               <span>
-                Board-certified physicians and clinical nurse practitioners on call 24/7. Prescriptions sent to your pharmacy immediately.
+                Submit a virtual triage request for review by an available clinician. This service does not replace emergency care or guarantee an immediate response.
               </span>
             </div>
 
@@ -243,7 +243,7 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
 
             <div>
               <label className="block text-xs font-bold text-[#162E27] uppercase tracking-wider mb-1.5">
-                How would you prefer to connect with the on-call doctor?
+                How would you prefer to submit your request for clinician review?
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
@@ -293,10 +293,10 @@ export default function TreatMeNowModal({ onClose, pageMode = false }: TreatMeNo
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
                     <span className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></span>
-                    Connecting to On-Call Physician...
+                    Submitting your request...
                   </span>
                 ) : (
-                  <span>Connect with On-Call Provider</span>
+                  <span>Request clinician review</span>
                 )}
               </button>
             </div>

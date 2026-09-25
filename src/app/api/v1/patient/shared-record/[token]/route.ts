@@ -170,7 +170,7 @@ export async function GET(
             { allergen: "NSAIDs (Ibuprofen)", reaction: "Mild Gastritis", severity: "mild" },
           ],
           emergencyContact: patient.emergencyContact || "+251 911 829 412 (Family Member)",
-          preferredClinicBranch: patient.preferredClinicBranch || "NiniMed Habitat Main Clinic & 24/7 ER, Debre Birhan",
+          preferredClinicBranch: patient.preferredClinicBranch || "NiniMed Habitat Medium Clinic, Debre Birhan",
         },
         clinicalSummary: {
           vitals: {

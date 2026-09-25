@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Activity, ShieldCheck, Menu, X, ChevronRight, Phone, HeartPulse, Zap } from "lucide-react";
+import { Activity, ShieldCheck, Menu, X, ChevronRight, Phone, HeartPulse, MapPin } from "lucide-react";
 
 export function LandingNavbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -36,7 +36,7 @@ export function LandingNavbar() {
               <div className="font-extrabold text-slate-900 text-lg tracking-tight font-display">
                 Nini<span className="text-sky-600">Med</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-medium">One Medical Clinical Network</p>
+              <p className="text-[10px] text-slate-500 font-medium">Habitat Medium Clinic · Debre Birhan</p>
             </div>
           </Link>
 
@@ -48,8 +48,8 @@ export function LandingNavbar() {
             <a href="#how-it-works" className="hover:text-sky-600 transition-colors">
               How It Works
             </a>
-            <a href="#membership" className="hover:text-sky-600 transition-colors">
-              Membership & Pricing
+            <a href="/locations" className="hover:text-sky-600 transition-colors">
+              Clinic Location
             </a>
             <a href="#doctors" className="hover:text-sky-600 transition-colors">
               Our Doctors
@@ -62,11 +62,11 @@ export function LandingNavbar() {
           {/* Desktop CTAs */}
           <div className="hidden lg:flex items-center gap-3">
             <Link
-              href="/services/virtual-urgent-care/triage"
+              href="/locations"
               className="btn-pill-ghost text-xs flex items-center gap-1.5 text-sky-700"
             >
-              <Zap className="w-3.5 h-3.5 fill-[#E5A93C] text-[#E5A93C]" />
-              <span>Treat Me Now™</span>
+              <MapPin className="w-3.5 h-3.5 text-sky-700" />
+              <span>Clinic information</span>
             </Link>
             <Link
               href="/signin"
@@ -114,11 +114,11 @@ export function LandingNavbar() {
                 How It Works
               </a>
               <a
-                href="#membership"
+                href="/locations"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2 border-b border-[#F2EFE9]"
               >
-                Membership & Pricing
+                Clinic Location & Services
               </a>
               <a
                 href="#doctors"
@@ -130,11 +130,11 @@ export function LandingNavbar() {
             </nav>
             <div className="flex flex-col gap-2 pt-2">
               <Link
-                href="/services/virtual-urgent-care/triage"
+                href="/locations"
                 onClick={() => setMobileMenuOpen(false)}
                 className="btn-pill-terracotta w-full text-xs text-center"
               >
-                Treat Me Now™ (24/7 Virtual)
+                Clinic information
               </Link>
               <Link
                 href="/patient/book"

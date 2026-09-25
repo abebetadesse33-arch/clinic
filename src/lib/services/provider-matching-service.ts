@@ -167,7 +167,7 @@ export class ProviderMatchingService {
         matchScore: 98,
         matchReason: "Top-rated on-call physician with highest specialty alignment",
         isOnline: true,
-        hospitalAffiliation: "NiniMed Habitat Main Campus",
+        hospitalAffiliation: "NiniMed Habitat Medium Clinic",
       },
       {
         id: "00000000-0000-0000-0000-000000000003",

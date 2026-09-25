@@ -455,7 +455,7 @@ export default function SignUpPage() {
                       onChange={(e) => setPreferredClinicBranch(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-emerald-300 font-bold"
                     >
-                      <option value="habitat-main">Habitat (Main 24/7 ER)</option>
+                      <option value="habitat-main">NiniMed Habitat Medium Clinic</option>
                       <option value="tebasse-branch">Tebasse Clinic</option>
                       <option value="atakilt-branch">Atakilt Clinic</option>
                       <option value="liche-branch">Liche Health Center</option>

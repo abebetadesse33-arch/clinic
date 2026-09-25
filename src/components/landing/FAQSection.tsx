@@ -7,28 +7,28 @@ import { HelpCircle } from "lucide-react";
 export function FAQSection() {
   const faqs = [
     {
-      q: "What is included with a NiniMed Health Shield membership?",
-      a: "NiniMed membership includes unlimited 24/7 on-demand virtual urgent care visits, 4 to 12 scheduled specialist consultations per month, annual baseline biometric screenings, comprehensive diagnostic lab chemistry panels, up to 25% pharmacy discounts, automated pharmacogenomic drug safety reviews, and a dedicated multidisciplinary care team.",
+      q: "What outpatient services does the Habitat clinic plan to provide?",
+      a: "The planned medium-clinic scope centers on outpatient primary and specialist consultations, follow-up care, and other services shown on the clinic location page. Availability depends on licensing, staffing, and confirmation by the clinic.",
     },
     {
-      q: "How fast can I speak with a doctor through 24/7 Virtual Care?",
-      a: "Our virtual urgent care wait time averages under 2 minutes. You can connect directly through our encrypted HD telehealth video room or initiate an on-demand clinical chat with an on-duty attending physician.",
+      q: "Is the clinic open 24 hours or an emergency hospital?",
+      a: "No 24-hour or hospital-level service is represented here. Confirm the clinic's operating hours before visiting. For emergencies beyond outpatient clinic capability, go to an appropriately equipped hospital or contact local emergency services.",
     },
     {
-      q: "What payment methods are supported for memberships and services?",
-      a: "We support instant Telebirr SuperApp and USSD push payments, direct Commercial Bank of Ethiopia (CBE) and Awash / Dashen Bank transfers with 1-click reference slip verification, Chapa / Visa & Mastercard debit/credit cards, cash at hospital billing desks, and corporate direct insurance billing.",
+      q: "Which services require separate approval?",
+      a: "Laboratory testing, pharmacy or medicine dispensing, imaging, maternity procedures, and other ancillary services may require additional authorization, premises, equipment, or qualified staff. Ask the clinic to confirm what is currently licensed and available.",
     },
     {
-      q: "How does the AI Clinical Decision Support (CDSS) assist doctors?",
-      a: "Our Google Gemini 1.5 Pro medical AI engine assists clinicians by generating real-time differential diagnosis briefs, screening drug-drug interactions (DDI), analyzing ECG waveforms, calculating TIMI and GRACE risk metrics, and organizing patient symptom timelines — empowering clinicians to spend more quality time with you.",
+      q: "How do I confirm prices and payment options?",
+      a: "Contact the clinic directly for its current service fees and accepted payment methods. Prices and payment channels shown elsewhere in the app should be treated as unconfirmed until the clinic publishes its approved schedule.",
     },
     {
-      q: "Can I add family members, children, or elderly parents?",
-      a: "Yes. Our Multidisciplinary Family Shield plan covers up to 6 family members under a single unified dashboard. Primary account holders can manage appointments, view shared billing, and track medications for all dependents.",
+      q: "Can family members book outpatient visits?",
+      a: "Appointments may be requested for family members, subject to the clinic's confirmed services, available clinicians, and applicable consent requirements.",
     },
     {
-      q: "How are my health data and medical records protected?",
-      a: "All electronic medical records, clinical notes, and telemedicine sessions are protected under 21 CFR Part 11 and HIPAA compliant protocols. Every chart modification is cryptographically signed with an immutable SHA-256 hash ledger.",
+      q: "How are health records handled?",
+      a: "The clinic should explain its privacy practices, consent process, and records handling in line with applicable Ethiopian requirements. Ask the clinic how to access or request correction of your records.",
     },
   ];
 
