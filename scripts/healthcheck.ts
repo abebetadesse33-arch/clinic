@@ -50,17 +50,20 @@ async function run() {
     if (expectedShaFull) {
       const expectedSha = expectedShaFull.slice(0, 12);
       let liveSha = "unknown";
+      let liveTime = "unknown";
       try {
-        liveSha = (JSON.parse(body)?.buildSha as string) ?? "unknown";
+        const parsed = JSON.parse(body);
+        liveSha = (parsed?.buildSha as string) ?? "unknown";
+        liveTime = (parsed?.buildTime as string) ?? "unknown";
       } catch {}
       if (liveSha !== expectedSha) {
         throw new Error(
-          `Live server is running build "${liveSha}", expected "${expectedSha}". ` +
+          `Live server is running build "${liveSha}" (built: ${liveTime}), expected "${expectedSha}". ` +
             `The deployment step likely reported success without the running process ` +
             `actually picking up the new code (check Plesk Git deployment log / Passenger restart).`
         );
       }
-      console.log(`Build verified live: ${liveSha}`);
+      console.log(`Build verified live: ${liveSha} (${liveTime})`);
     }
 
     console.log(`Health check passed: HTTP ${response.status} ${body.slice(0, 300)}`);

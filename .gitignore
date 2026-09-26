@@ -19,6 +19,8 @@ yarn-error.log*
 .pnpm-debug.log*
 bun.lockb
 *.log
+plesk-prelude.js
+.plesk.startup.cjs
 
 # Local environment files
 .env*.local

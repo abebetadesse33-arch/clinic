@@ -78,9 +78,32 @@ done
 
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
 
+# Configure git safe.directory to prevent dubious ownership fatal errors
+if command -v git >/dev/null 2>&1; then
+  git config --global --add safe.directory "*" 2>/dev/null || true
+  git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
+fi
+
+# Clean up any stray Plesk auto-configure files that block Node.js startup
+rm -f .plesk.startup.cjs 2>/dev/null || true
+
 # Stamp this build with the commit it was actually built from, so
 # /api/health can prove (or disprove) that this deploy took effect.
-export NEXT_PUBLIC_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+NEXT_PUBLIC_BUILD_SHA="$(git rev-parse HEAD 2>/dev/null || true)"
+if [ -z "$NEXT_PUBLIC_BUILD_SHA" ] && [ -f .git/HEAD ]; then
+  HEAD_CONTENT="$(cat .git/HEAD 2>/dev/null || true)"
+  if [[ "$HEAD_CONTENT" =~ ^ref:\ (.*) ]]; then
+    REF_FILE=".git/${BASH_REMATCH[1]}"
+    if [ -f "$REF_FILE" ]; then
+      NEXT_PUBLIC_BUILD_SHA="$(tr -d '\r\n' < "$REF_FILE")"
+    elif [ -f .git/packed-refs ]; then
+      NEXT_PUBLIC_BUILD_SHA="$(grep "${BASH_REMATCH[1]}" .git/packed-refs 2>/dev/null | head -1 | cut -d' ' -f1 || true)"
+    fi
+  elif [ -n "$HEAD_CONTENT" ]; then
+    NEXT_PUBLIC_BUILD_SHA="$(echo "$HEAD_CONTENT" | tr -d '\r\n')"
+  fi
+fi
+export NEXT_PUBLIC_BUILD_SHA="${NEXT_PUBLIC_BUILD_SHA:-unknown}"
 echo "Building commit: ${NEXT_PUBLIC_BUILD_SHA}"
 
 if command -v bun >/dev/null 2>&1; then
@@ -107,27 +130,14 @@ if [ -f ".next/standalone/server.js" ]; then
   cp -Rf .next/static .next/standalone/.next/static 2>/dev/null || true
   cp -Rf public .next/standalone/public 2>/dev/null || true
 
-  # Passenger starts from the Plesk application root. Keep Next's generated
-  # server in its own module context and package the prelude beside the wrapper.
-  cp -f scripts/server-prelude.js plesk-prelude.js
-  cat > server.js <<'NODE_ENTRYPOINT'
-require('./plesk-prelude.js');
-try {
-  require('./.next/standalone/server.js');
-} catch (error) {
-  const fs = require('fs');
-  const message = `[${new Date().toISOString()}] Synchronous startup failure:\n${error?.stack || error}\n\n`;
-  try { fs.appendFileSync('./passenger-startup-error.log', message); } catch (_) {}
-  console.error(message);
-  throw error;
-}
-NODE_ENTRYPOINT
-  cp -f server.js app.js
-  # Do NOT touch .plesk.startup.cjs here: Plesk's own Node.js "auto-configure
-  # hosting" toolkit owns that filename and refuses to build/start the app at
-  # every stage the moment it finds a version it didn't generate itself. If
-  # the panel's Application startup file is set to .plesk.startup.cjs, let
-  # Plesk regenerate it; this script only needs to keep server.js/app.js current.
+  # Passenger starts from the Plesk application root.
+  # server.js and app.js are tracked in git and delegate to standalone server.js
+  # with scripts/server-prelude.js or plesk-prelude.js auto-loaded.
+  cp -f scripts/server-prelude.js plesk-prelude.js 2>/dev/null || true
+
+  # Keep git-tracked server.js and app.js clean so subsequent git pulls never encounter merge conflicts
+  git checkout -- server.js app.js 2>/dev/null || true
+  rm -f .plesk.startup.cjs 2>/dev/null || true
 else
   echo "ERROR: Next.js standalone server was not generated at .next/standalone/server.js." >&2
   exit 1
@@ -178,6 +188,10 @@ if command -v plesk >/dev/null 2>&1; then
     plesk bin nodejs --restart -domain "$DETECTED_DOMAIN" 2>&1 || true
   fi
 fi
+
+# Ensure repository working directory is left clean so future git pulls never collide
+git checkout -- server.js app.js package-lock.json bun.lock 2>/dev/null || true
+rm -f .plesk.startup.cjs 2>/dev/null || true
 
 echo "=== Plesk live deployment completed successfully! ==="
 echo "Deployed commit: ${NEXT_PUBLIC_BUILD_SHA}"
