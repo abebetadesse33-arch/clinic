@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     let totalLinked = 0;
     try {
       const [countRow] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`CAST(count(*) AS SIGNED)` })
         .from(telegramIntegrations);
       totalLinked = countRow?.count || 0;
     } catch { }

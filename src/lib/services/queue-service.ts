@@ -206,7 +206,7 @@ export class QueueService {
         and(
           inArray(queueEntries.status, ["waiting", "called"]),
           entry.providerId ? eq(queueEntries.providerId, entry.providerId) : sql`true`,
-          sql`${queueEntries.createdAt} < ${new Date(entry.createdAt).toISOString()}`
+          sql`${queueEntries.createdAt} < ${new Date(entry.createdAt)}`
         )
       );
 

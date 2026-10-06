@@ -170,7 +170,7 @@ export async function checkPatientEntitlement(
     if (!isUnlimited && totalQuota > 0) {
       const usageCountResult = await db
         .select({
-          totalConsumed: sql<number>`COALESCE(SUM(${subscriptionUsage.quantity}), 0)::int`,
+          totalConsumed: sql<number>`CAST(COALESCE(SUM(${subscriptionUsage.quantity}), 0) AS SIGNED)`,
         })
         .from(subscriptionUsage)
         .where(

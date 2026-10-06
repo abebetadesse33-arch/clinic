@@ -39,9 +39,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const serviceBreakdown = await db
       .select({
         serviceType: subscriptionUsage.serviceType,
-        totalQuantity: sql<number>`SUM(${subscriptionUsage.quantity})::int`,
-        totalCoveredAmount: sql<number>`SUM(${subscriptionUsage.coveredAmount})::numeric`,
-        totalCopayAmount: sql<number>`SUM(${subscriptionUsage.patientCopayAmount})::numeric`,
+        totalQuantity: sql<number>`CAST(SUM(${subscriptionUsage.quantity}) AS SIGNED)`,
+        totalCoveredAmount: sql<number>`CAST(SUM(${subscriptionUsage.coveredAmount}) AS DECIMAL(16,4))`,
+        totalCopayAmount: sql<number>`CAST(SUM(${subscriptionUsage.patientCopayAmount}) AS DECIMAL(16,4))`,
       })
       .from(subscriptionUsage)
       .where(eq(subscriptionUsage.subscriptionId, activeSub.id))
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     // Active employees count
     const [empCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`CAST(count(*) AS SIGNED)` })
       .from(subscriptionMembers)
       .where(and(eq(subscriptionMembers.subscriptionId, activeSub.id), eq(subscriptionMembers.isActive, true)));
 

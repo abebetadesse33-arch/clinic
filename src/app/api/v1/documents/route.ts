@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
         createdAt: clinicalFiles.createdAt,
         updatedAt: clinicalFiles.updatedAt,
         // Enriched patient & uploader data
-        patientName: sql<string>`${patients.firstName} || ' ' || ${patients.lastName}`,
+        patientName: sql<string>`CONCAT(${patients.firstName}, ' ', ${patients.lastName})`,
         patientMrn: patients.mrn,
         uploaderName: users.fullName,
         uploaderRole: users.role,

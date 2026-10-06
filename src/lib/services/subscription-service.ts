@@ -165,7 +165,7 @@ export class SubscriptionService {
 
     if (familySub && familySub.plan.maxMembers) {
       const currentMembers = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`CAST(count(*) AS SIGNED)` })
         .from(familyMembers)
         .where(and(eq(familyMembers.familyGroupId, params.familyGroupId), eq(familyMembers.isActive, true)));
 

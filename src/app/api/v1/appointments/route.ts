@@ -387,8 +387,8 @@ export async function POST(req: NextRequest) {
             eq(appointments.clinicianId, assignedClinicianId),
             eq(appointments.scheduledDate, validated.scheduledDate),
             inArray(appointments.status, ["scheduled", "confirmed", "checked_in"] as any),
-            sql`${appointments.scheduledTime}::time < (${validated.scheduledTime}::time + ${validated.durationMinutes} * interval '1 minute')`,
-            sql`(${appointments.scheduledTime}::time + ${appointments.durationMinutes} * interval '1 minute') > ${validated.scheduledTime}::time`,
+            sql`CAST(${appointments.scheduledTime} AS TIME) < DATE_ADD(CAST(${validated.scheduledTime} AS TIME), INTERVAL ${validated.durationMinutes} MINUTE)`,
+            sql`DATE_ADD(CAST(${appointments.scheduledTime} AS TIME), INTERVAL ${appointments.durationMinutes} MINUTE) > CAST(${validated.scheduledTime} AS TIME)`,
           ),
         )
         .limit(1);
