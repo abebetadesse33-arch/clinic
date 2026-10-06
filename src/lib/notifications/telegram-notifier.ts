@@ -351,8 +351,10 @@ export async function sendTelegramMessage(
 ): Promise<{ success: boolean; messageId?: number; error?: string }> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
-    console.log(`[TelegramBot Simulated] To ${chatId}: ${text.slice(0, 80)}`);
-    return { success: true };
+    // Loud on purpose: this used to log at info level and report success, which
+    // made a bot with no token look healthy while never answering anyone.
+    console.error(`[TelegramBot] TELEGRAM_BOT_TOKEN is not set — NOT sending to ${chatId}: ${text.slice(0, 80)}`);
+    return { success: false, error: "TELEGRAM_BOT_TOKEN is not configured" };
   }
 
   const body: Record<string, any> = {
@@ -360,13 +362,62 @@ export async function sendTelegramMessage(
     text,
     ...opts,
   };
+  if (body.reply_markup) {
+    body.reply_markup = sanitizeReplyMarkup(body.reply_markup);
+    if (!body.reply_markup) delete body.reply_markup;
+  }
 
   const res = await callTelegramApi("sendMessage", body);
+  if (!res.ok) {
+    console.error(`[TelegramBot] sendMessage to ${chatId} failed: ${res.description}`);
+  }
   return {
     success: Boolean(res.ok),
     messageId: res.result?.message_id,
     error: res.description,
   };
+}
+
+/**
+ * Telegram rejects the ENTIRE message (BUTTON_URL_INVALID) if any one button's
+ * URL is not a public https URL — so a misconfigured base URL (e.g. the
+ * http://localhost:3000 fallback) silently killed every bot reply that carried
+ * a Mini App button. Drop just the undeliverable buttons instead, so the user
+ * still gets the text.
+ */
+function isDeliverableUrl(raw: string | undefined, requireHttps: boolean): boolean {
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (requireHttps ? u.protocol !== "https:" : u.protocol !== "https:" && u.protocol !== "http:") return false;
+    return !/^(localhost|127\.|10\.|192\.168\.|0\.0\.0\.0|\[::1\])/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeReplyMarkup(markup: any): any {
+  if (!markup || !Array.isArray(markup.inline_keyboard)) return markup;
+  const rows = markup.inline_keyboard
+    .map((row: TelegramInlineButton[]) =>
+      row.filter((btn) => {
+        if (btn.web_app) return isDeliverableUrl(btn.web_app.url, true);
+        if (btn.url) return isDeliverableUrl(btn.url, false);
+        return true;
+      })
+    )
+    .filter((row: TelegramInlineButton[]) => row.length > 0);
+  return rows.length > 0 ? { ...markup, inline_keyboard: rows } : undefined;
+}
+
+/**
+ * Direct Bot API call for setup/diagnostics (setWebhook, getWebhookInfo, …).
+ */
+export async function telegramApi(
+  endpoint: string,
+  body: Record<string, any> = {}
+): Promise<{ ok: boolean; result?: any; description?: string }> {
+  return callTelegramApi(endpoint, body, 1);
 }
 
 /**

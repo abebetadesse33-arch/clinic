@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { telegramIntegrations, users, appointments, patients } from "@/db/schema";
-import { eq, and, or, gte, lte, desc } from "drizzle-orm";
+import { eq, ne, and, or } from "drizzle-orm";
 import {
   sendTelegramMessage,
   answerTelegramCallbackQuery,
   escapeTelegramHtml,
 } from "@/lib/notifications/telegram-notifier";
+import {
+  getBotToken,
+  resolveBaseUrl,
+  verifyLinkToken,
+  verifyWebhookSecret,
+} from "@/lib/notifications/telegram-security";
 
 export const dynamic = "force-dynamic";
+
+/** Clinic-local calendar date (YYYY-MM-DD); the clinic runs on Addis Ababa time, not UTC. */
+function clinicToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Addis_Ababa" }).format(new Date());
+}
 
 /**
  * POST /api/v1/telegram/webhook
@@ -23,9 +34,20 @@ export const dynamic = "force-dynamic";
  *  - callback_query   → Instant interactive button actions (toggle duty, refresh)
  */
 export async function POST(req: NextRequest) {
+  // Not configured: say so (503 shows up as last_error_message in getWebhookInfo)
+  // instead of acknowledging updates that can never be answered.
+  if (!getBotToken()) {
+    return NextResponse.json({ ok: false, error: "TELEGRAM_BOT_TOKEN is not configured" }, { status: 503 });
+  }
+  // Only Telegram knows the secret registered via /api/v1/telegram/setup. Without
+  // this check anyone could POST fake updates to a public URL.
+  if (!verifyWebhookSecret(req.headers.get("x-telegram-bot-api-secret-token"))) {
+    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = resolveBaseUrl(req);
     const miniAppUrl = `${baseUrl}/telegram/miniapp`;
 
     // ─── 1. HANDLE INLINE BUTTON CALLBACK QUERIES ─────────────────────────────
@@ -98,11 +120,13 @@ export async function POST(req: NextRequest) {
 
     const chatId: number = message.chat.id;
     const text: string = (message.text || "").trim();
+    // "/schedule@Ninimedbot extra" -> "/schedule" (Telegram appends @bot in groups and some clients)
+    const [rawCommand = "", ...commandArgs] = text.split(/\s+/);
+    const command = rawCommand.split("@")[0].toLowerCase();
 
     // ─── /start <token> ───────────────────────────────────────────────────────
-    if (text.startsWith("/start")) {
-      const parts = text.split(" ");
-      const token = parts[1];
+    if (command === "/start") {
+      const token = commandArgs[0];
 
       if (!token) {
         // Welcome message with Mini App button
@@ -131,11 +155,13 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const decoded = JSON.parse(Buffer.from(token, "base64url").toString());
-        if (!decoded.userId || (decoded.exp && decoded.exp < Date.now())) {
+        // Signed + expiring: a bare base64 JSON userId could be forged by anyone
+        // to subscribe their own chat to another user's clinical notifications.
+        const linkedUserId = verifyLinkToken(token);
+        if (!linkedUserId) {
           await sendTelegramMessage(
             chatId,
-            "⏱ <b>Connection Link Expired</b>\n\nPlease generate a fresh link from your NiniMed profile.",
+            "⏱ <b>Connection Link Invalid or Expired</b>\n\nPlease generate a fresh link from your NiniMed profile.",
             { parse_mode: "HTML" }
           );
           return NextResponse.json({ ok: true });
@@ -143,16 +169,38 @@ export async function POST(req: NextRequest) {
 
         // Fetch user name and role for customized greeting
         const [userData] = await db
-          .select({ fullName: users.fullName, role: users.role })
+          .select({ fullName: users.fullName, role: users.role, isActive: users.isActive })
           .from(users)
-          .where(eq(users.id, decoded.userId))
+          .where(eq(users.id, linkedUserId))
           .limit(1);
+
+        if (!userData || !userData.isActive) {
+          await sendTelegramMessage(
+            chatId,
+            "❌ This NiniMed account is no longer active. Please contact your administrator.",
+            { parse_mode: "HTML" }
+          );
+          return NextResponse.json({ ok: true });
+        }
+
+        // A chat can belong to one account and an account to one chat (both
+        // columns are UNIQUE). Re-linking a chat to a different account must
+        // free it first, otherwise the upsert below would update the *other*
+        // user's row and report success while linking nothing.
+        await db
+          .delete(telegramIntegrations)
+          .where(
+            and(
+              eq(telegramIntegrations.telegramChatId, String(chatId)),
+              ne(telegramIntegrations.userId, linkedUserId)
+            )
+          );
 
         // Upsert into telegram_integrations table
         await db
           .insert(telegramIntegrations)
           .values({
-            userId: decoded.userId,
+            userId: linkedUserId,
             telegramChatId: String(chatId),
             telegramUsername: message.from?.username || null,
             isNotificationsEnabled: true,
@@ -208,19 +256,19 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── /schedule ────────────────────────────────────────────────────────────
-    if (text === "/schedule") {
+    if (command === "/schedule") {
       await handleScheduleCommand(chatId, baseUrl, miniAppUrl);
       return NextResponse.json({ ok: true });
     }
 
     // ─── /queue ───────────────────────────────────────────────────────────────
-    if (text === "/queue") {
+    if (command === "/queue") {
       await handleQueueCommand(chatId, baseUrl, miniAppUrl);
       return NextResponse.json({ ok: true });
     }
 
     // ─── /status ──────────────────────────────────────────────────────────────
-    if (text === "/status") {
+    if (command === "/status") {
       const [link] = await db
         .select({
           id: telegramIntegrations.id,
@@ -269,7 +317,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ─── /help ────────────────────────────────────────────────────────────────
-    if (text === "/help" || text === "help") {
+    if (command === "/help" || text.toLowerCase() === "help") {
       await sendTelegramMessage(
         chatId,
         `🏥 <b>NiniMed Clinical Telegram Assistant</b>\n\n` +
@@ -332,43 +380,63 @@ export async function POST(req: NextRequest) {
 async function handleScheduleCommand(chatId: number, baseUrl: string, miniAppUrl: string) {
   try {
     const [linked] = await db
-      .select({ userId: telegramIntegrations.userId })
+      .select({
+        userId: telegramIntegrations.userId,
+        role: users.role,
+        email: users.email,
+        organizationId: users.organizationId,
+      })
       .from(telegramIntegrations)
+      .innerJoin(users, eq(users.id, telegramIntegrations.userId))
       .where(eq(telegramIntegrations.telegramChatId, String(chatId)))
       .limit(1);
 
     if (!linked) {
       await sendTelegramMessage(
         chatId,
-        "ℹ️ Please link your NiniMed account using <code>/start &lt;token&gt;</code> from your profile to view your schedule.",
+        "ℹ️ Please link your NiniMed account first: open your NiniMed profile and tap <b>Link Telegram Account</b>.",
         { parse_mode: "HTML" }
       );
       return;
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = clinicToday();
 
-    const todayAppts = await db
-      .select({
-        id: appointments.id,
-        scheduledTime: appointments.scheduledTime,
-        appointmentType: appointments.appointmentType,
-        status: appointments.status,
-        reason: appointments.reason,
-        specialty: appointments.specialty,
-      })
-      .from(appointments)
-      .where(
-        and(
-          or(
-            eq(appointments.clinicianId, linked.userId),
-            eq(appointments.patientId, linked.userId)
-          ),
-          eq(appointments.scheduledDate, todayStr)
-        )
-      )
-      .orderBy(appointments.scheduledTime)
-      .limit(8);
+    // Appointments reference patients.id, not users.id, so a patient's own
+    // schedule has to be resolved through their patient record.
+    let ownership;
+    if (linked.role === "patient") {
+      const [ownPatient] = await db
+        .select({ id: patients.id })
+        .from(patients)
+        .where(or(eq(patients.userId, linked.userId), eq(patients.email, linked.email)))
+        .limit(1);
+      ownership = ownPatient ? eq(appointments.patientId, ownPatient.id) : undefined;
+    } else {
+      ownership = eq(appointments.clinicianId, linked.userId);
+    }
+
+    const todayAppts = ownership
+      ? await db
+          .select({
+            id: appointments.id,
+            scheduledTime: appointments.scheduledTime,
+            appointmentType: appointments.appointmentType,
+            status: appointments.status,
+            reason: appointments.reason,
+            specialty: appointments.specialty,
+          })
+          .from(appointments)
+          .where(
+            and(
+              eq(appointments.tenantId, linked.organizationId),
+              ownership,
+              eq(appointments.scheduledDate, todayStr)
+            )
+          )
+          .orderBy(appointments.scheduledTime)
+          .limit(8)
+      : [];
 
     if (todayAppts.length === 0) {
       await sendTelegramMessage(
@@ -435,7 +503,33 @@ async function handleScheduleCommand(chatId: number, baseUrl: string, miniAppUrl
  */
 async function handleQueueCommand(chatId: number, baseUrl: string, miniAppUrl: string) {
   try {
-    const todayStr = new Date().toISOString().split("T")[0];
+    // The waiting-room queue is staff-only and tenant-scoped. This used to answer
+    // *any* chat — linked or not — with every tenant's queue.
+    const [linked] = await db
+      .select({ role: users.role, organizationId: users.organizationId })
+      .from(telegramIntegrations)
+      .innerJoin(users, eq(users.id, telegramIntegrations.userId))
+      .where(eq(telegramIntegrations.telegramChatId, String(chatId)))
+      .limit(1);
+
+    if (!linked) {
+      await sendTelegramMessage(
+        chatId,
+        "ℹ️ Please link your NiniMed account first: open your NiniMed profile and tap <b>Link Telegram Account</b>.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+    if (linked.role === "patient") {
+      await sendTelegramMessage(
+        chatId,
+        "🔒 The live waiting-room queue is available to clinic staff only. Use /schedule to see your own appointments.",
+        { parse_mode: "HTML" }
+      );
+      return;
+    }
+
+    const todayStr = clinicToday();
 
     const queueItems = await db
       .select({
@@ -448,6 +542,7 @@ async function handleQueueCommand(chatId: number, baseUrl: string, miniAppUrl: s
       .from(appointments)
       .where(
         and(
+          eq(appointments.tenantId, linked.organizationId),
           or(
             eq(appointments.status, "checked_in"),
             eq(appointments.status, "scheduled")

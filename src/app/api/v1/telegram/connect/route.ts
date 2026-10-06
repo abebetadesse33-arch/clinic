@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import crypto from "crypto";
 import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getTelegramBotInfo } from "@/lib/notifications/telegram-notifier";
+import { createLinkToken, getBotToken } from "@/lib/notifications/telegram-security";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +30,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
 
-    // Create a short-lived token (1 hour) — in production store in Redis/DB
-    const token = Buffer.from(
-      JSON.stringify({ userId: user.id, exp: Date.now() + 3600_000 })
-    ).toString("base64url");
+    if (!getBotToken()) {
+      return NextResponse.json(
+        { success: false, error: "The Telegram bot is not configured on the server (TELEGRAM_BOT_TOKEN is missing)." },
+        { status: 503 }
+      );
+    }
 
-    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "Ninimedbot";
+    // Signed, 1-hour, 45-char token (Telegram drops /start payloads over 64 chars).
+    const token = createLinkToken(user.id);
+    if (!token) {
+      return NextResponse.json({ success: false, error: "Could not issue a link token for this account." }, { status: 500 });
+    }
+
+    // Ask Telegram who the bot actually is rather than trusting a hand-set env
+    // var: a wrong username here produces a link that opens a stranger's bot.
+    const botInfo = await getTelegramBotInfo();
+    const botUsername = botInfo.botUsername || process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "Ninimedbot";
     const deepLink = `https://t.me/${botUsername}?start=${token}`;
 
     return NextResponse.json({
