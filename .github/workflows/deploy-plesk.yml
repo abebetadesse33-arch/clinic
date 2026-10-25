@@ -48,7 +48,7 @@ jobs:
           PLESK_HOST: ${{ secrets.PLESK_HOST }}
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
-          PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
+          PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY || secrets.PLESK_SSH_PRIVATE_KEY }}
           PLESK_SSH_PORT: ${{ secrets.PLESK_SSH_PORT }}
           PLESK_DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
@@ -276,7 +276,7 @@ jobs:
         env:
           PLESK_USERNAME: ${{ secrets.PLESK_USERNAME }}
           PLESK_PASSWORD: ${{ secrets.PLESK_PASSWORD }}
-          PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY }}
+          PLESK_SSH_KEY: ${{ secrets.PLESK_SSH_KEY || secrets.PLESK_SSH_PRIVATE_KEY }}
           PLESK_WEBHOOK_URL: ${{ secrets.PLESK_WEBHOOK_URL }}
           PLESK_FTP_HOST: ${{ secrets.PLESK_FTP_HOST }}
           PLESK_FTP_PORT: ${{ secrets.PLESK_FTP_PORT }}
@@ -284,14 +284,15 @@ jobs:
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
-          FORCE_METHOD: ${{ github.event.inputs.force_method }}
+          FORCE_METHOD: ${{ github.event.inputs.force_method || 'ssh' }}
         run: |
           set -euo pipefail
           DEPLOYED=false
 
           # ════════════════════════════════════════════════════════════════════
-          # METHOD 1 — Plesk Native Git Webhook (Zero-SSH, HTTPS, ~5 seconds)
-          # Set secret: PLESK_WEBHOOK_URL = https://your-host:8443/modules/git/public/web-hook.php?uuid=...
+          # METHOD 1 — Plesk Native Git Webhook (explicit fallback only)
+          # A successful webhook response only confirms receipt; it does not prove that
+          # the package built by this workflow was installed. SSH is the default.
           # ════════════════════════════════════════════════════════════════════
           if [ "${FORCE_METHOD:-}" != "ssh" ] && [ "${FORCE_METHOD:-}" != "ftp" ] && [ "${FORCE_METHOD:-}" != "api" ]; then
             if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
@@ -569,7 +570,15 @@ jobs:
 
           # Normalize base URL (strip trailing slash)
           APP_URL="${RAW_APP_URL%/}"
-          export HEALTHCHECK_URL="${APP_URL}/api/health"
+          if [[ -z "${APP_URL}" ]]; then
+            echo "NEXT_PUBLIC_APP_URL is required for the production health check." >&2
+            exit 1
+          fi
+          if [[ "${APP_URL}" == */health ]]; then
+            export HEALTHCHECK_URL="${APP_URL}/api/health"
+          else
+            export HEALTHCHECK_URL="${APP_URL}/health/api/health"
+          fi
           echo "Health check target: ${HEALTHCHECK_URL}"
           echo "Expecting build: ${EXPECTED_BUILD_SHA:0:12}"
 

@@ -79,7 +79,7 @@ export default function DownloadsPage() {
           </button>
 
           <a
-            href="/"
+            href="/health/"
             className="flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-2xl bg-white/10 border border-white/20 text-white font-bold text-sm hover:bg-white/15 transition-all"
           >
             <Chrome className="w-4 h-4" />

@@ -49,7 +49,8 @@ import {
 } from "lucide-react";
 
 export default function NavigationHeader() {
-  const pathname = usePathname();
+  const currentPathname = usePathname();
+  const pathname = currentPathname.replace(/^\/health(?=\/|$)/, "") || "/";
   const { t } = useTranslation();
   const {
     currentRole,
@@ -143,7 +144,7 @@ export default function NavigationHeader() {
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Logo & Brand */}
             <div className="flex items-center gap-4 shrink-0">
-              <Link href="/" className="flex items-center gap-2.5 group">
+              <Link href="/health/" className="flex items-center gap-2.5 group">
                 <div className="w-9 h-9 rounded-xl bg-[#075985] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                   <HeartPulse className="w-5 h-5" />
                 </div>
@@ -286,7 +287,7 @@ export default function NavigationHeader() {
                 <nav className="flex items-center gap-1">
                   {/* Top-Level Workstation */}
                   <Link
-                    href="/"
+                    href="/health/"
                     className={`px-3 py-2 rounded-full flex items-center gap-1.5 transition-colors ${
                       pathname === "/"
                         ? "bg-[#E8F4F0] dark:bg-emerald-950/60 text-[#005C4B] dark:text-emerald-300"
@@ -895,7 +896,7 @@ export default function NavigationHeader() {
                     Clinical Workstation
                   </span>
                   <Link
-                    href="/"
+                    href="/health/"
                     className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-[#FAF8F5] dark:hover:bg-slate-800 font-semibold text-[#33413C] dark:text-slate-200"
                   >
                     <Stethoscope className="w-4 h-4 text-[#005C4B]" />

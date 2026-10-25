@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Download, X, Smartphone, WifiOff, CheckCircle2, ShieldCheck } from "lucide-react";
+import { withBasePath } from "../../lib/base-path";
 
 export default function PwaRegistrar() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -10,7 +11,7 @@ export default function PwaRegistrar() {
   const [showInstallHint, setShowInstallHint] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
-  const androidApkUrl = "/downloads/ninimed.apk";
+  const androidApkUrl = withBasePath("/downloads/ninimed.apk");
 
   useEffect(() => {
     const isStandalone =
@@ -20,7 +21,7 @@ export default function PwaRegistrar() {
     // 1. Register Service Worker
     if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("/sw.js")
+        .register(withBasePath("/sw.js"))
         .then((reg) => {
           console.log("NiniMed PWA ServiceWorker registered with scope:", reg.scope);
           void reg.update();

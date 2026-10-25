@@ -51,6 +51,7 @@ function resolveBuildSha() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  trailingSlash: true,
   output: "standalone",
   poweredByHeader: false,
   compress: true,
@@ -103,5 +104,3 @@ const nextConfig = {
 };
 
 export default nextConfig;
-
-

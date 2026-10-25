@@ -29,7 +29,7 @@ function RegistrationContent() {
       {/* Breadcrumb & Navigation helper */}
       <div className="flex items-center justify-between">
         <Link
-          href="/"
+          href="/health/"
           className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-teal-400 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />

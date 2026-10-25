@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { withBasePath } from "../../../lib/base-path";
 
 /**
  * /downloads/ninimed.apk — redirect to the download page.
@@ -9,7 +10,7 @@ import { NextResponse } from "next/server";
  */
 export async function GET() {
   return NextResponse.redirect(
-    new URL("/downloads", process.env.NEXT_PUBLIC_APP_URL || "https://www.wisdomcourse.com.et"),
+    new URL(withBasePath("/downloads"), process.env.NEXT_PUBLIC_APP_URL || "https://www.wisdomcourse.com.et"),
     { status: 302 }
   );
 }

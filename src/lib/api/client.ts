@@ -3,6 +3,8 @@
  * Type-safe fetch wrapper with error handling and standardized response payloads.
  */
 
+import { withBasePath } from "../base-path";
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -21,7 +23,8 @@ export async function apiClient<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const path = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const url = withBasePath(path);
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",

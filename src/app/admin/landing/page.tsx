@@ -121,7 +121,7 @@ export default function AdminLandingPage() {
           </div>
 
           <div className="flex items-center space-x-3">
-            <Link href="/" target="_blank">
+            <Link href="/health/" target="_blank">
               <Button variant="outline" className="space-x-2">
                 <Eye className="w-4 h-4" />
                 <span>View Live Landing Page</span>

@@ -28,7 +28,7 @@ export function LandingNavbar() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-8 min-h-20 py-3 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href="/health/" className="flex items-center gap-2.5 group">
             <div className="w-10 h-10 rounded-2xl bg-sky-600 flex items-center justify-center text-white font-bold shadow-sm group-hover:scale-105 transition-transform">
               <HeartPulse className="w-5 h-5" />
             </div>

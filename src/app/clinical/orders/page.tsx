@@ -36,7 +36,7 @@ export default function ClinicalOrdersPage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="px-4 pt-4 sm:px-8 sm:pt-8"><Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-teal-300 hover:text-teal-200"><ArrowLeft className="w-4 h-4" /> Back to workspace</Link></div>
+      <div className="px-4 pt-4 sm:px-8 sm:pt-8"><Link href="/health/" className="inline-flex items-center gap-2 text-xs font-bold text-teal-300 hover:text-teal-200"><ArrowLeft className="w-4 h-4" /> Back to workspace</Link></div>
       {isLoadingPatient ? (
         <div className="mx-auto mt-12 max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center text-sm text-slate-400">Loading patient record...</div>
       ) : patient ? (

@@ -15,7 +15,8 @@ import {
 import { useClinic } from "@/context/ClinicContext";
 
 export default function MobileBottomNav() {
-  const pathname = usePathname();
+  const currentPathname = usePathname();
+  const pathname = currentPathname.replace(/^\/health(?=\/|$)/, "") || "/";
   const { currentUser } = useClinic();
 
   if (
@@ -29,7 +30,7 @@ export default function MobileBottomNav() {
   const NAV_ITEMS = [
     {
       label: "Home",
-      href: "/",
+      href: "/health/",
       icon: Home,
       isActive: pathname === "/",
     },

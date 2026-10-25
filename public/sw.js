@@ -1,15 +1,16 @@
-// NiniMed Mobile Service Worker v1.0.1
-const CACHE_NAME = "ninimed-mobile-v1-2";
-const OFFLINE_URL = "/offline.html";
+// NiniMed Mobile Service Worker v1.0.2
+const BASE_PATH = "/health";
+const CACHE_NAME = "ninimed-mobile-v1-3";
+const OFFLINE_URL = `${BASE_PATH}/offline.html`;
 
 const PRECACHE_ASSETS = [
-  "/",
-  "/manifest.webmanifest",
-  "/locations",
-  "/display/waiting-room",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
-  "/icons/icon-maskable.svg",
+  `${BASE_PATH}/`,
+  `${BASE_PATH}/manifest.webmanifest`,
+  `${BASE_PATH}/locations`,
+  `${BASE_PATH}/display/waiting-room`,
+  `${BASE_PATH}/icons/icon-192.svg`,
+  `${BASE_PATH}/icons/icon-512.svg`,
+  `${BASE_PATH}/icons/icon-maskable.svg`,
 ];
 
 // Install Event — Pre-cache critical application shell
@@ -30,7 +31,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((name) => {
-          if (name !== CACHE_NAME) {
+          if (name.startsWith("ninimed-mobile-") && name !== CACHE_NAME) {
             return caches.delete(name);
           }
         })
@@ -48,7 +49,7 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET requests, WebSocket / analytics, and SSE real-time streaming endpoints
   if (
     request.method !== "GET" ||
-    url.pathname.startsWith("/_next/webpack-hmr") ||
+    url.pathname.startsWith(`${BASE_PATH}/_next/webpack-hmr`) ||
     url.pathname.includes("/stream") ||
     request.headers.get("accept")?.includes("text/event-stream")
   ) {
@@ -56,7 +57,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   // API calls: Network-first with graceful offline JSON fallback
-  if (url.pathname.startsWith("/api/")) {
+  if (url.pathname.startsWith(`${BASE_PATH}/api/`) || url.pathname.startsWith("/api/")) {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -134,8 +135,8 @@ self.addEventListener("push", (event) => {
   let data = {
     title: "NiniMed Health Alert",
     body: "You have a new healthcare update from NiniMed Clinical Network.",
-    icon: "/icons/icon-192.svg",
-    badge: "/icons/icon-192.svg",
+    icon: `${BASE_PATH}/icons/icon-192.svg`,
+    badge: `${BASE_PATH}/icons/icon-192.svg`,
     url: "/patient/dashboard",
   };
 
@@ -149,8 +150,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: data.body,
-    icon: data.icon || "/icons/icon-192.svg",
-    badge: data.badge || "/icons/icon-192.svg",
+    icon: data.icon || `${BASE_PATH}/icons/icon-192.svg`,
+    badge: data.badge || `${BASE_PATH}/icons/icon-192.svg`,
     vibrate: [100, 50, 100, 50, 150],
     data: {
       url: data.url || "/patient/dashboard",
@@ -172,8 +173,8 @@ self.addEventListener("message", (event) => {
   event.waitUntil(
     self.registration.showNotification(notification.title || "NiniMed Notification", {
       body: notification.body || "You have a new healthcare update.",
-      icon: "/icons/icon-192.svg",
-      badge: "/icons/icon-192.svg",
+      icon: `${BASE_PATH}/icons/icon-192.svg`,
+      badge: `${BASE_PATH}/icons/icon-192.svg`,
       tag: `ninimed-${notification.id || notification.title || "notification"}`,
       requireInteraction: notification.priority === "critical",
       data: { url: notification.url || "/" },
