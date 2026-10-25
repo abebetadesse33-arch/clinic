@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const HEALTH_PREFIX = "/health";
+const INTERNAL_REWRITE_HEADER = "x-wisdomcourse-internal-rewrite";
 
 const appHosts: Record<string, string> = {
   "/school": "https://school.wisdomcourse.com.et",
@@ -11,6 +12,11 @@ const appHosts: Record<string, string> = {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Prevent public-path redirects from running again on an internal rewrite.
+  if (request.headers.get(INTERNAL_REWRITE_HEADER) === "1") {
+    return NextResponse.next();
+  }
 
   // 1. Direct API routes and health checks must never be redirected to /health
   if (pathname.startsWith("/api/")) {
@@ -32,7 +38,9 @@ export function middleware(request: NextRequest) {
     const internalPath = pathname.slice(HEALTH_PREFIX.length);
     const url = request.nextUrl.clone();
     url.pathname = internalPath;
-    return NextResponse.rewrite(url);
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(INTERNAL_REWRITE_HEADER, "1");
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
   // 4. /health/ or /health/<path> rewrites to internal application pages
@@ -40,7 +48,9 @@ export function middleware(request: NextRequest) {
     const internalPath = pathname.slice(HEALTH_PREFIX.length) || "/";
     const url = request.nextUrl.clone();
     url.pathname = internalPath === "/" ? "/ninimed-home" : internalPath;
-    return NextResponse.rewrite(url);
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(INTERNAL_REWRITE_HEADER, "1");
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
   // 5. External portal services redirect to their subdomains

@@ -155,7 +155,9 @@ The workflow is triggered by pushes to `main` and can also be started manually w
 5. In Plesk, confirm the `www` Node.js application root points to `current` and the startup file
    is `server.js`.
 6. Open `https://www.wisdomcourse.com.et/health/api/health` and
-   `https://www.wisdomcourse.com.et/health/`.
+   `https://www.wisdomcourse.com.et/health/`. The health URL returns JSON with a
+   `buildSha`; confirm it matches the deployed commit. The dedicated health route
+   and rewrite marker prevent Next.js middleware from redirecting its own internal rewrites.
 
 The workflow builds on GitHub, packages `.next/standalone`, `.next/static`, and `public`, then uses bounded native SSH streams to upload the package and [scripts/plesk-release.sh](scripts/plesk-release.sh) to create the release, switch the `current` symlink, and restart the application. The GitHub runner installs `sshpass`; the Plesk SSH user must have `tar`, `node`, and permission to write the deployment path.
 
