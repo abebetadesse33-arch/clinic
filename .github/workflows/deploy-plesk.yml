@@ -284,7 +284,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.PLESK_DEPLOY_PATH }}
           PLESK_DOMAIN: ${{ secrets.PLESK_DOMAIN }}
           RELEASE_ID: ${{ github.sha }}
-          FORCE_METHOD: ${{ github.event.inputs.force_method || 'ssh' }}
+          FORCE_METHOD: ${{ github.event.inputs.force_method }}
         run: |
           set -euo pipefail
           DEPLOYED=false
