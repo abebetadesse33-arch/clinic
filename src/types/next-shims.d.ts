@@ -8,8 +8,18 @@ declare namespace NodeJS {
 }
 
 declare module "next/server" {
+  type MiddlewareResponseInit = ResponseInit & {
+    request?: {
+      headers?: Headers;
+    };
+  };
+
+  export interface NextURL extends URL {
+    clone(): NextURL;
+  }
+
   export class NextRequest extends Request {
-    readonly nextUrl: URL;
+    readonly nextUrl: NextURL;
     readonly cookies: any;
     readonly ip?: string;
     readonly geo?: any;
@@ -18,8 +28,8 @@ declare module "next/server" {
   export class NextResponse<Body = any> extends Response {
     static json<JsonBody>(body: JsonBody, init?: ResponseInit): NextResponse<JsonBody>;
     static redirect(url: string | URL, init?: number | ResponseInit): NextResponse<never>;
-    static rewrite(destination: string | URL, init?: ResponseInit): NextResponse<never>;
-    static next(init?: ResponseInit): NextResponse<never>;
+    static rewrite(destination: string | URL, init?: MiddlewareResponseInit): NextResponse<never>;
+    static next(init?: MiddlewareResponseInit): NextResponse<never>;
     readonly cookies: any;
   }
 }

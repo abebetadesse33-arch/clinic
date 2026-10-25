@@ -12,19 +12,38 @@ const appHosts: Record<string, string> = {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 1. Direct API routes and health checks must never be redirected to /health
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
+  // 2. Trailing-slash normalization for /health
   if (pathname === HEALTH_PREFIX) {
-    const url = new URL(request.url);
+    const url = request.nextUrl.clone();
     url.pathname = `${HEALTH_PREFIX}/`;
     return NextResponse.redirect(url);
   }
 
-  if (pathname === HEALTH_PREFIX || pathname.startsWith(`${HEALTH_PREFIX}/`)) {
+  // 3. /health/api/ routes: allow /health/api/health directly, rewrite all other /health/api/v1/ to /api/
+  if (pathname.startsWith(`${HEALTH_PREFIX}/api/`)) {
+    if (pathname === `${HEALTH_PREFIX}/api/health` || pathname === `${HEALTH_PREFIX}/api/health/`) {
+      return NextResponse.next();
+    }
+    const internalPath = pathname.slice(HEALTH_PREFIX.length);
+    const url = request.nextUrl.clone();
+    url.pathname = internalPath;
+    return NextResponse.rewrite(url);
+  }
+
+  // 4. /health/ or /health/<path> rewrites to internal application pages
+  if (pathname === `${HEALTH_PREFIX}/` || pathname.startsWith(`${HEALTH_PREFIX}/`)) {
     const internalPath = pathname.slice(HEALTH_PREFIX.length) || "/";
-    const url = new URL(request.url);
+    const url = request.nextUrl.clone();
     url.pathname = internalPath === "/" ? "/ninimed-home" : internalPath;
     return NextResponse.rewrite(url);
   }
 
+  // 5. External portal services redirect to their subdomains
   for (const [prefix, host] of Object.entries(appHosts)) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
       const url = new URL(`${host}${pathname.slice(prefix.length) || "/"}`);
@@ -33,15 +52,26 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname !== "/") {
-    const url = new URL(request.url);
-    url.pathname = `${HEALTH_PREFIX}${pathname}`;
+  // 6. Wisdom Course Portal homepage
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
+  // 7. If someone accesses /ninimed-home directly, redirect to /health/
+  if (pathname === "/ninimed-home" || pathname === "/ninimed-home/") {
+    const url = request.nextUrl.clone();
+    url.pathname = `${HEALTH_PREFIX}/`;
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // 8. Redirect all other direct NiniMed page routes to /health/...
+  const url = request.nextUrl.clone();
+  url.pathname = `${HEALTH_PREFIX}${pathname}`;
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|sw\\.js|icons/|icon\\.svg).*)",
+  ],
 };

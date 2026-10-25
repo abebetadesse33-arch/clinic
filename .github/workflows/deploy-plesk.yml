@@ -574,11 +574,8 @@ jobs:
             echo "NEXT_PUBLIC_APP_URL is required for the production health check." >&2
             exit 1
           fi
-          if [[ "${APP_URL}" == */health ]]; then
-            export HEALTHCHECK_URL="${APP_URL}/api/health"
-          else
-            export HEALTHCHECK_URL="${APP_URL}/health/api/health"
-          fi
+          BASE_URL="${APP_URL%/health}"
+          export HEALTHCHECK_URL="${BASE_URL}/api/health"
           echo "Health check target: ${HEALTHCHECK_URL}"
           echo "Expecting build: ${EXPECTED_BUILD_SHA:0:12}"
 
