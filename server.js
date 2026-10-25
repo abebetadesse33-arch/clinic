@@ -68,6 +68,18 @@ if (standaloneServerPath) {
       }
     }
 
+    // Health checks in fallback mode
+    if (req.url === '/api/health' || req.url === '/health/api/health' || req.url === '/api/health/' || req.url === '/health/api/health/') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        status: 'degraded',
+        message: 'NiniMed fallback server is active. Build is compiling or missing standalone files.',
+        commit: process.env.NEXT_PUBLIC_BUILD_SHA || 'unknown',
+        timestamp: new Date().toISOString()
+      }));
+      return;
+    }
+
     res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(`<!DOCTYPE html>
 <html>

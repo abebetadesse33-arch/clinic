@@ -186,22 +186,11 @@ jobs:
           cp -Rf public release/public 2>/dev/null || true
           touch release/tmp/restart.txt
 
-          # Package the auto-dotenv prelude beside a stable Passenger entrypoint.
-          if [ -f scripts/server-prelude.js ]; then
-            cp -f scripts/server-prelude.js release/plesk-prelude.js
-            cat > release/server.js <<'NODE_ENTRYPOINT'
-          require('./plesk-prelude.js');
-          try {
-            require('./.next/standalone/server.js');
-          } catch (error) {
-            const fs = require('fs');
-            const message = `[${new Date().toISOString()}] Synchronous startup failure:\n${error?.stack || error}\n\n`;
-            try { fs.appendFileSync('./passenger-startup-error.log', message); } catch (_) {}
-            console.error(message);
-            throw error;
-          }
-          NODE_ENTRYPOINT
-          fi
+          # Copy server.js and pre-requisites
+          cp -f server.js release/server.js
+          cp -f scripts/server-prelude.js release/plesk-prelude.js 2>/dev/null || true
+          mkdir -p release/scripts
+          cp -f scripts/server-prelude.js release/scripts/server-prelude.js 2>/dev/null || true
           cp -f release/server.js release/app.js 2>/dev/null || true
           # Deliberately NOT shipping .plesk.startup.cjs: Plesk's own Node.js
           # "auto-configure hosting" toolkit owns that filename and refuses to
