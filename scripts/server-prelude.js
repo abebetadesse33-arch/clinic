@@ -24,6 +24,9 @@ if (targetPort) {
 
     console.log(`[Passenger Prelude] Delegating server.listen to target port/socket: ${targetPort}`);
     if (isSocketPath) {
+      if (typeof listenTarget === 'string' && fs.existsSync(listenTarget)) {
+        try { fs.unlinkSync(listenTarget); } catch (_) {}
+      }
       if (callback) return originalListen.call(this, listenTarget, callback);
       return originalListen.call(this, listenTarget);
     } else {
