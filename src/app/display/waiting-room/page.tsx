@@ -73,6 +73,26 @@ interface ToastNotification {
   timestamp: number;
 }
 
+/**
+ * A display screen is paired once with the secret token from Admin → Waiting Room
+ * (open /display/waiting-room?token=...). The token is then remembered locally so
+ * the unattended TV keeps working after a reload or power cycle.
+ */
+const PAIRED_TOKEN_KEY = "ninimed_display_token";
+function readPairedToken(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("token");
+    if (fromUrl) {
+      window.localStorage.setItem(PAIRED_TOKEN_KEY, fromUrl);
+      return fromUrl;
+    }
+    return window.localStorage.getItem(PAIRED_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 export default function WaitingRoomDisplayPage() {
   // Screen state
   const [activeScreen, setActiveScreen] = useState<DisplayScreen>("now_serving");
@@ -127,7 +147,7 @@ export default function WaitingRoomDisplayPage() {
   const [isLiveConnected, setIsLiveConnected] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("");
-  const [displayToken, setDisplayToken] = useState<string>("");
+  const [displayToken, setDisplayToken] = useState<string>(readPairedToken);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
 
@@ -243,6 +263,7 @@ export default function WaitingRoomDisplayPage() {
     const connectSSE = () => {
       try {
         const streamUrl = new URL("/api/v1/display/waiting-room/stream", window.location.href);
+        if (displayToken) streamUrl.searchParams.set("token", displayToken);
         eventSource = new EventSource(streamUrl.toString());
 
         eventSource.onopen = () => {

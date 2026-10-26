@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
     }
 
     const updated = await WaitingRoomService.updateHeartbeat(token);
+    if (!updated) {
+      return NextResponse.json({ success: false, error: "Unknown display token" }, { status: 401 });
+    }
 
     return NextResponse.json({
       success: true,

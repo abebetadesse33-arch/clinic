@@ -10,6 +10,7 @@ import {
 } from "@/db/schema";
 import { eq, and, inArray, desc, asc, sql } from "drizzle-orm";
 import { EventEmitter } from "events";
+import { randomBytes } from "crypto";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 // Global Waiting Room Display Event Bus for SSE broadcasting
@@ -87,7 +88,7 @@ export class WaitingRoomService {
     }
 
     // Auto-create initial default display
-    const token = `disp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const token = `disp_${randomBytes(24).toString("hex")}`;
     const [created] = await insertReturning(db, waitingRoomDisplays, {
         tenantId: orgId,
         name: "Main Waiting Room Screen",

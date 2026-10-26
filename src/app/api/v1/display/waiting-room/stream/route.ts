@@ -1,12 +1,15 @@
 import { NextRequest } from "next/server";
 import { waitingRoomEventBus } from "@/lib/services/waiting-room-service";
+import { authorizeDisplay } from "@/lib/security/display-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const displayId = searchParams.get("displayId");
-  const tenantId = searchParams.get("tenantId");
+  const access = await authorizeDisplay(req);
+  if ("response" in access) return access.response;
+
+  const displayId = access.displayId;
+  const tenantId = access.tenantId;
 
   const stream = new ReadableStream({
     start(controller) {

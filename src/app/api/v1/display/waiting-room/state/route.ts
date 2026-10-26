@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { WaitingRoomService } from "@/lib/services/waiting-room-service";
+import { authorizeDisplay } from "@/lib/security/display-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const access = await authorizeDisplay(req);
+  if ("response" in access) return access.response;
+
   try {
-    const { searchParams } = new URL(req.url);
-    const displayId = searchParams.get("displayId") || undefined;
-    const token = searchParams.get("token") || req.headers.get("x-display-token") || undefined;
-    const tenantId = searchParams.get("tenantId") || undefined;
+    const displayId = access.displayId || undefined;
+    const token = access.token || undefined;
+    const tenantId = access.tenantId;
 
     const state = await WaitingRoomService.getDisplayState({
       displayId,
