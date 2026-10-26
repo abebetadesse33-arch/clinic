@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, or } from "drizzle-orm";
 import { db } from "@/db";
-import { cases, encounters, patients } from "@/db/schema";
+import { cases, companies, companyAdmins, encounters, familyGroups, patients } from "@/db/schema";
 import {
   AuthenticatedUser,
+  isAdminUser,
   requireAuthenticatedUser,
   resolveAuthorizedPatient,
 } from "@/lib/security/auth-session";
@@ -83,4 +84,77 @@ export async function requireCaseAccess(
     return { response: notFound("Case") };
   }
   return { user: auth.user, row };
+}
+
+/** The patient record that belongs to a patient-role user, or null. */
+export async function findOwnPatient(user: AuthenticatedUser) {
+  const [own] = await db
+    .select()
+    .from(patients)
+    .where(or(eq(patients.userId, user.id), eq(patients.email, user.email)))
+    .limit(1);
+  return own || null;
+}
+
+/**
+ * Company access: administrators of the company's organization, or the company's
+ * own portal admins (owners and HR managers may change things, finance viewers
+ * are read-only).
+ */
+export async function requireCompanyAccess(
+  req: NextRequest,
+  companyId: string,
+  mode: "read" | "write"
+): Promise<{ user: AuthenticatedUser; company: typeof companies.$inferSelect } | { response: NextResponse }> {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth;
+
+  const [company] = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+  if (!company || company.tenantId !== auth.user.organizationId) return { response: notFound("Company") };
+
+  if (isAdminUser(auth.user)) return { user: auth.user, company };
+
+  const [membership] = await db
+    .select({ role: companyAdmins.role })
+    .from(companyAdmins)
+    .where(and(eq(companyAdmins.companyId, companyId), eq(companyAdmins.userId, auth.user.id)))
+    .limit(1);
+  const allowed = membership && (mode === "read" || membership.role !== "finance_viewer");
+  if (!allowed) {
+    return {
+      response: NextResponse.json(
+        { success: false, error: "Forbidden: you are not an administrator of this company." },
+        { status: 403 }
+      ),
+    };
+  }
+  return { user: auth.user, company };
+}
+
+/**
+ * Family group access: staff in the same organization, or a patient who is the
+ * group's primary member. Members who are not the primary cannot manage the group.
+ */
+export async function requireFamilyGroupAccess(
+  req: NextRequest,
+  groupId: string
+): Promise<{ user: AuthenticatedUser; group: typeof familyGroups.$inferSelect } | { response: NextResponse }> {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth;
+
+  const [group] = await db.select().from(familyGroups).where(eq(familyGroups.id, groupId)).limit(1);
+  if (!group || group.tenantId !== auth.user.organizationId) return { response: notFound("Family group") };
+
+  if (auth.user.role === "patient") {
+    const own = await findOwnPatient(auth.user);
+    if (!own || own.id !== group.primaryPatientId) {
+      return {
+        response: NextResponse.json(
+          { success: false, error: "Access denied: only the primary member can manage a family group." },
+          { status: 403 }
+        ),
+      };
+    }
+  }
+  return { user: auth.user, group };
 }
