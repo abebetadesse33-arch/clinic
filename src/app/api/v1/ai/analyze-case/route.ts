@@ -3,10 +3,14 @@ import { callGeminiRest } from "@/lib/ai/gemini-rest-client";
 import { db } from "@/db";
 import { cases } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { caseId, personal, complaint, history, symptoms, fileNames, fileTypes } = body;

@@ -3,14 +3,21 @@ import { db } from "@/db";
 import { staffAttendance, staffProfiles, users } from "@/db/schema";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
+import { resolveStaffScope } from "@/lib/security/staff-scope";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/hr/attendance?staffId=&date=&startDate=&endDate=
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const staffId = searchParams.get("staffId");
+    const scope = await resolveStaffScope(auth.user, searchParams.get("staffId"));
+    if ("response" in scope) return scope.response;
+    const staffId = scope.staffId;
     const attendanceDate = searchParams.get("date");
 
     const records = await db
@@ -56,9 +63,16 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/hr/attendance — clock in or clock out
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { action, staffId, shiftId, verificationMethod, recordedBy } = body;
+    const { action, shiftId, verificationMethod } = body;
+    const scope = await resolveStaffScope(auth.user, body.staffId);
+    if ("response" in scope) return scope.response;
+    const staffId = scope.staffId;
+    const recordedBy = auth.user.id;
 
     if (!staffId || !action) {
       return NextResponse.json({ success: false, error: "staffId and action required" }, { status: 400 });

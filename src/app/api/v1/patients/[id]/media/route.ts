@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const patientId = params.id;
     const body = await request.json();

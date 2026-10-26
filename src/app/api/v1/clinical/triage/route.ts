@@ -9,11 +9,15 @@ import {
 } from "@/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/clinical/triage — patients not yet in active journey (available for intake)
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const search = searchParams.get("search") || "";
@@ -92,6 +96,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/clinical/triage — register patient into triage stage
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

@@ -3,8 +3,12 @@ import { db } from "@/db";
 import { subscriptionPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [plan] = await db
       .select()
@@ -22,6 +26,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
 
@@ -48,6 +55,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [deactivatedPlan] = await updateReturning(db, subscriptionPlans, { isActive: false, updatedAt: new Date() }, eq(subscriptionPlans.id, params.id));
 

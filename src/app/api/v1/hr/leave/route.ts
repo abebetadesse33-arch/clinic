@@ -3,16 +3,23 @@ import { db } from "@/db";
 import { leaveRequests, staffProfiles, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, requireAdminUser, STAFF_ROLES } from "@/lib/security/auth-session";
+import { resolveStaffScope } from "@/lib/security/staff-scope";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/hr/leave?staffId=&status=&tenantId=
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const staffId = searchParams.get("staffId");
+    const scope = await resolveStaffScope(auth.user, searchParams.get("staffId"));
+    if ("response" in scope) return scope.response;
+    const staffId = scope.staffId;
     const status = searchParams.get("status");
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
 
     const data = await db
       .select({
@@ -52,9 +59,16 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/hr/leave — submit a new leave request
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { staffId, tenantId, leaveType, startDate, endDate, totalDays, reason, supportingDocumentUrl } = body;
+    const scope = await resolveStaffScope(auth.user, body.staffId);
+    if ("response" in scope) return scope.response;
+    const staffId = scope.staffId;
+    const tenantId = auth.user.organizationId;
+    const { leaveType, startDate, endDate, totalDays, reason, supportingDocumentUrl } = body;
 
     if (!staffId || !tenantId || !leaveType || !startDate || !endDate || !totalDays || !reason) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
@@ -77,9 +91,13 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/v1/hr/leave — HOD or HR approve/reject
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { leaveId, action, approvedBy, rejectionReason } = body;
+    const { leaveId, action, rejectionReason } = body;
+    const approvedBy = auth.user.id;
 
     if (!leaveId || !action) {
       return NextResponse.json({ success: false, error: "leaveId and action are required." }, { status: 400 });

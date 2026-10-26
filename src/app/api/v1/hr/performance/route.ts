@@ -3,14 +3,18 @@ import { db } from "@/db";
 import { staffPerformanceReviews, staffProfiles, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const staffId = searchParams.get("staffId");
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
 
     const reviews = await db
       .select({
@@ -54,6 +58,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

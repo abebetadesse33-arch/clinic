@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { telemedicineSessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { roomId: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { transcriptText, consultationNotes, chiefComplaint, patientAge, diagnosis } = body;

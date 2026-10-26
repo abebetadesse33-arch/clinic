@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { servicePricingCatalog, systemPaymentSettings, auditLogs } from "@/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/admin/pricing
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [catalog, settingsList] = await Promise.all([
       db.select().from(servicePricingCatalog).orderBy(asc(servicePricingCatalog.category), asc(servicePricingCatalog.name)),
@@ -40,6 +44,9 @@ export async function GET(req: NextRequest) {
 
 // PATCH /api/v1/admin/pricing - Update global payment settings
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { globalFreeMode, registrationValidityDays, gracePeriodDays, allowCashReconciliation } = body;
@@ -94,6 +101,9 @@ export async function PATCH(req: NextRequest) {
 
 // POST /api/v1/admin/pricing - Create new custom service item
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { serviceCode, category, name, description, basePrice, currency = "ETB", isFree = false, validityDays } = body;

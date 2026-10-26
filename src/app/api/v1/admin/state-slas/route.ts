@@ -4,11 +4,15 @@ import { stateSlas, stateSlaViolations } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { DEFAULT_STATE_SLAS } from "@/lib/services/central-state-machine";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
 
     const configuredSlas = tenantId
       ? await db.select().from(stateSlas).where(eq(stateSlas.tenantId, tenantId))
@@ -31,9 +35,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { tenantId, workflow, state, maxDurationSeconds, escalationAction, escalationTargetRole } = body;
+    const { workflow, state, maxDurationSeconds, escalationAction, escalationTargetRole } = body;
+    const tenantId = auth.user.organizationId;
 
     if (!tenantId || !workflow || !state || !maxDurationSeconds) {
       return NextResponse.json(

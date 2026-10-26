@@ -3,14 +3,18 @@ import { db } from "@/db";
 import { vendorInvoices, invoices, payments } from "@/db/schema";
 import { eq, desc, and, lt, gte } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/finance/ar-ap?tenantId=&view=ar|ap|aging
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
     const view = searchParams.get("view") || "ap";
 
     if (!tenantId) {
@@ -92,6 +96,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/finance/ar-ap — create vendor invoice or process payout
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action } = body;

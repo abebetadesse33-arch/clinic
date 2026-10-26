@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db";
-import { patients } from "@/db/schema";
+import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  let patientId = searchParams.get("patient");
-
-  if (!patientId) {
-    const [p] = await db.select({ id: patients.id }).from(patients).limit(1);
-    patientId = p?.id || "pat-active";
+  const access = await resolveAuthorizedPatient(request, new URL(request.url).searchParams.get("patient"));
+  if ("response" in access) return access.response;
+  if (!access.patient || access.patient.tenantId !== access.user.organizationId) {
+    return NextResponse.json({ success: false, error: "A valid patient reference in your organization is required." }, { status: 400 });
   }
+  const patientId: string = access.patient.id;
 
   const mediaBundle = {
     resourceType: "Bundle",

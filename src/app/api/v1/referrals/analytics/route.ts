@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   const analytics = {
     summary: {
       totalReferrals: 142,

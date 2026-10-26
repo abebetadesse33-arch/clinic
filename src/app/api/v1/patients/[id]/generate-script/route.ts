@@ -5,11 +5,15 @@ import { generatePatientVideoScript, ScriptGenerationParams } from "@/lib/ai/vid
 import { buildScenesFromScript } from "@/lib/video/animation-engine";
 import { VisualGraphicType } from "@/lib/video/animation-engine";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

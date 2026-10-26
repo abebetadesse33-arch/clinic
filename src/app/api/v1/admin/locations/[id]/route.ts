@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { clinicLocations, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdminUser(_req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [found] = await db
       .select()
@@ -39,6 +43,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
     const body = await req.json();
@@ -140,6 +147,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
 

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PaymentGateService, EnterprisePaymentSettings } from "@/lib/services/payment-gate-service";
+import { requireAuthenticatedUser, requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
-    const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenantId") || "00000000-0000-0000-0000-000000000001";
+    const tenantId = auth.user.organizationId;
     const settings = await PaymentGateService.getSettings(tenantId);
     return NextResponse.json({ success: true, data: settings });
   } catch (error: any) {
@@ -13,9 +16,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { tenantId, adminId, globalPolicy, gates, telebirrMerchantId, telebirrShortCode, cbeAccountNumber, cbeAccountName, awashAccountNumber, awashAccountName } = body;
+    const { globalPolicy, gates, telebirrMerchantId, telebirrShortCode, cbeAccountNumber, cbeAccountName, awashAccountNumber, awashAccountName } = body;
 
     const updated = await PaymentGateService.updateSettings(
       {
@@ -28,8 +34,8 @@ export async function PATCH(req: NextRequest) {
         ...(awashAccountNumber ? { awashAccountNumber } : {}),
         ...(awashAccountName ? { awashAccountName } : {}),
       },
-      tenantId || "00000000-0000-0000-0000-000000000001",
-      adminId
+      auth.user.organizationId,
+      auth.user.id
     );
 
     return NextResponse.json({

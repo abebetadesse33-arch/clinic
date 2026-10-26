@@ -6,16 +6,20 @@ import {
 } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/finance/claims?status=&payerId=&tenantId=
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const status = searchParams.get("status");
     const payerId = searchParams.get("payerId");
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
 
     const claims = await db
       .select({
@@ -64,6 +68,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/finance/claims — file a new claim
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
@@ -106,6 +113,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/v1/finance/claims — adjudicate claim
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

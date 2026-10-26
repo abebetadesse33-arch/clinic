@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { QueueService } from "@/lib/services/queue-service";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
@@ -12,10 +15,10 @@ export async function POST(req: NextRequest) {
       servicePoint = "Consultation Room 1",
       department,
       providerId,
-      tenantId,
     } = body;
+    const tenantId = auth.user.organizationId;
 
-    const callerUserId = await getAuthenticatedSessionUserId(req) || undefined;
+    const callerUserId = auth.user.id;
 
     let result;
     if (queueId) {

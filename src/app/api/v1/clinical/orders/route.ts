@@ -5,6 +5,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { logPatientActivity } from "@/lib/audit/activity-logger";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,9 @@ const DEPARTMENT_ROLE_MAP: Record<string, string> = {
 };
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRoles(request, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get("patientId");
@@ -89,6 +93,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const {

@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { dutyRosters, staffShifts, staffProfiles, users } from "@/db/schema";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, requireAdminUser, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/hr/roster?department=&startDate=&endDate=
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const department = searchParams.get("department");
@@ -55,6 +59,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/hr/roster — create roster or assign shift
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action } = body;
@@ -154,6 +161,9 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/v1/hr/roster — approve/reject shift swap
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { shiftId, swapDecision, approvedBy } = body;

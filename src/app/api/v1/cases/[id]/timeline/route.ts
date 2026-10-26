@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cases } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireCaseAccess } from "@/lib/security/tenant-resource";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const access = await requireCaseAccess(req, params.id);
+  if ("response" in access) return access.response;
+
   try {
     const { id } = params;
 

@@ -6,11 +6,15 @@ import {
 } from "@/db/schema";
 import { eq, and, isNull } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/finance/pos?patientId= — aggregate all billable items
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const patientId = searchParams.get("patientId");
@@ -66,6 +70,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/finance/pos — process POS payment with split payment support
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

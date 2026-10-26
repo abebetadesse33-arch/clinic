@@ -4,11 +4,15 @@ import { patientEducationVideos } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { generatePatientVideoScript } from "@/lib/ai/video-script-generator";
 import { buildScenesFromScript } from "@/lib/video/animation-engine";
+import { requirePatientAccess } from "@/lib/security/tenant-resource";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const access = await requirePatientAccess(_req, params.id);
+  if ("response" in access) return access.response;
+
   try {
     const videos = await db
       .select()

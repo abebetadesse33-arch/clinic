@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { referrals, patients, users, notifications } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { executeWorkflowsForTrigger } from "@/lib/workflow/workflow-executor";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUserId, requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +60,9 @@ const SEED_REFERRALS = [
 ] as any[];
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRoles(request, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const patientId = searchParams.get("patientId");
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest) {
       })
       .from(referrals)
       .leftJoin(patients, eq(referrals.patientId, patients.id))
+      .where(eq(referrals.organizationId, auth.user.organizationId))
       .orderBy(desc(referrals.createdAt));
 
     const dbRows = await query;
@@ -170,6 +174,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const sessionUserId = await getAuthenticatedSessionUserId(request);
     if (!sessionUserId) {
@@ -221,7 +228,7 @@ export async function POST(request: NextRequest) {
     const resolvedWard = targetWard || (receivingRole ? receivingRole.replace(/_/g, " ").toUpperCase() : "Specialty Ward");
 
     const [newReferral] = await insertReturning(db, referrals, {
-        organizationId: DEFAULT_TENANT_ID,
+        organizationId: auth.user.organizationId,
         patientId: targetPatientId,
         type: (type as any) || "internal",
         source: (source as any) || "manual",
@@ -258,7 +265,7 @@ export async function POST(request: NextRequest) {
 
       for (const receiver of receivers) {
         await db.insert(notifications).values({
-          organizationId: DEFAULT_TENANT_ID,
+          organizationId: auth.user.organizationId,
           recipientUserId: receiver.id,
           senderUserId: targetUserId,
           type: "consult_request",
@@ -275,7 +282,7 @@ export async function POST(request: NextRequest) {
       const [pat] = await db.select({ userId: patients.userId }).from(patients).where(eq(patients.id, targetPatientId)).limit(1);
       if (pat?.userId) {
         await db.insert(notifications).values({
-          organizationId: DEFAULT_TENANT_ID,
+          organizationId: auth.user.organizationId,
           recipientUserId: pat.userId,
           type: "system_alert",
           title: "Specialist Referral Created",
@@ -312,6 +319,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const sessionUserId = await getAuthenticatedSessionUserId(request);
     if (!sessionUserId) {
@@ -332,13 +342,13 @@ export async function PATCH(request: NextRequest) {
         updatedAt: now,
         ...(status === "accepted" || status === "approved" ? { acceptedAt: now } : {}),
         ...(status === "completed" ? { completedAt: now } : {}),
-      }, eq(referrals.id, id));
+      }, and(eq(referrals.id, id), eq(referrals.organizationId, auth.user.organizationId)));
 
     // If referral updated, notify referring doctor and patient
     if (updated?.referringUserId) {
       try {
         await db.insert(notifications).values({
-          organizationId: DEFAULT_TENANT_ID,
+          organizationId: auth.user.organizationId,
           recipientUserId: updated.referringUserId,
           type: "system_alert",
           title: `Referral Status: ${status.toUpperCase()}`,

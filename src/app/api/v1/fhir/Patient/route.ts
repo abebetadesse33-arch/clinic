@@ -1,13 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
-    const dbPatients = await db.select().from(patients).orderBy(desc(patients.createdAt)).limit(50);
+    const dbPatients = await db
+      .select()
+      .from(patients)
+      .where(eq(patients.tenantId, auth.user.organizationId))
+      .orderBy(desc(patients.createdAt))
+      .limit(50);
 
     const fhirBundle = {
       resourceType: "Bundle",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { referrals, patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(_request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
 

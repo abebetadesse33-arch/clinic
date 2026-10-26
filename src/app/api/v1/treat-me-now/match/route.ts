@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ProviderMatchingService } from "@/lib/services/provider-matching-service";
+import { enforceRateLimit, clientIp } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const limited = enforceRateLimit("treat-me-now/match", [{ key: `ip:${clientIp(req)}`, limit: 15, windowMs: 15 * 60 * 1000 }]);
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const { specialty, urgency = "urgent", language } = body;

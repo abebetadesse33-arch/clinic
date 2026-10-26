@@ -4,15 +4,19 @@ import { displayAnnouncements } from "@/db/schema";
 import { WaitingRoomService } from "@/lib/services/waiting-room-service";
 import { desc, eq, and } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID;
+    const tenantId = auth.user.organizationId;
 
     const list = await db
       .select()
@@ -39,6 +43,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
@@ -90,6 +97,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

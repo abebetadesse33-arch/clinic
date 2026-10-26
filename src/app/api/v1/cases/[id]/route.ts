@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { cases, notifications, users } from "@/db/schema";
 import { resolveAuthorizedPatient } from "@/lib/security/auth-session";
+import { requireCaseAccess } from "@/lib/security/tenant-resource";
 import { eq, or } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
 
@@ -12,6 +13,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const { id } = params;
+
+  const access = await requireCaseAccess(_request, id);
+  if ("response" in access) return access.response;
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -108,6 +112,13 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const access = await requireCaseAccess(request, params.id);
+  if ("response" in access) return access.response;
+  // Clinical fields (status, notes, AI analysis) are staff-only; patients use the messages endpoint.
+  if (access.user.role === "patient") {
+    return NextResponse.json({ success: false, error: "Forbidden: only clinical staff can update a case." }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const { status, handlerNote, conferenceNotes, aiSummary, aiRecommendations, aiAnalysis } = body;

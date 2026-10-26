@@ -3,14 +3,18 @@ import { db } from "@/db";
 import { cashDrawers, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/finance/cash-drawer?tenantId=&cashierId=&status=
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
     const cashierId = searchParams.get("cashierId");
     const status = searchParams.get("status");
 
@@ -58,9 +62,13 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/finance/cash-drawer — open or close drawer session
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { action, tenantId, cashierId, shiftLabel, openingCashEtb } = body;
+    const { action, cashierId, shiftLabel, openingCashEtb } = body;
+    const tenantId = auth.user.organizationId;
 
     if (action === "open") {
       if (!tenantId || !cashierId || !shiftLabel) {

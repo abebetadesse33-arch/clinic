@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,9 @@ const DEPARTMENTS = [
 ] as const;
 
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   return NextResponse.json({ success: true, data: DEPARTMENTS });
 }

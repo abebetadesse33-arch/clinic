@@ -5,6 +5,7 @@ import { clinicalCatalogProtocols } from "@/db/schema";
 import { CLINICAL_ORDER_SETS } from "@/lib/services/clinical-order-sets";
 import { LABORATORY_PROTOCOLS_CATALOGUE } from "@/lib/catalogue/laboratory-protocols-catalogue";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,9 @@ function fallbackProtocols() {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRoles(request, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(request.url);
   const kind = searchParams.get("kind");
   const departmentId = searchParams.get("departmentId");
@@ -95,6 +99,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   const body = await request.json();
   if (!canManageCatalog(request, body)) {
     return NextResponse.json({ success: false, error: "Catalog management requires system_admin, lab_technician, or pharmacist." }, { status: 403 });
@@ -124,6 +131,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   const body = await request.json();
   if (!canManageCatalog(request, body)) {
     return NextResponse.json({ success: false, error: "Catalog management requires system_admin, lab_technician, or pharmacist." }, { status: 403 });

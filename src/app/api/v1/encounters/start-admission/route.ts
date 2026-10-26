@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { startAdmissionEncounter, checkDuplicatePatients } from "@/lib/services/admission-workflow-service";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

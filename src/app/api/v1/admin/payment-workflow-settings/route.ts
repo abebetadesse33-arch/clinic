@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { systemPaymentSettings, auditLogs } from "@/db/schema";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export const dynamic = "force-dynamic";
  * Returns the full lab/pharmacy payment gate and notification config
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [settings] = await db.select().from(systemPaymentSettings).limit(1);
 
@@ -53,6 +57,9 @@ export async function GET(req: NextRequest) {
  * Admin updates lab/pharmacy payment gate toggles, notification routing, and role permissions.
  */
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { adminId, ...updates } = body;

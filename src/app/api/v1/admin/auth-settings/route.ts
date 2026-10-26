@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { systemAuthSettings, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
  * Returns current verification requirements and security settings
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [settings] = await db.select().from(systemAuthSettings).limit(1);
 
@@ -46,6 +50,9 @@ export async function GET(req: NextRequest) {
  * Allows Admins to enable/disable Email Verification, SMS Verification, and 2FA
  */
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { adminId, ...updates } = body;

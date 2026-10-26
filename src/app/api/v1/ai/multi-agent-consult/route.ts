@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runMultiAgentOrchestration, PatientClinicalBundle } from "@/lib/ai/multi-agent-orchestrator";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const bundle: PatientClinicalBundle = {
