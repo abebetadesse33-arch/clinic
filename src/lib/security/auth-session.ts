@@ -126,12 +126,18 @@ export async function revokeAllSessionsForUser(userId: string): Promise<void> {
   await db.delete(authSessions).where(eq(authSessions.userId, userId));
 }
 
+// On a domain shared with other apps, set NINIMED_COOKIE_PATH to this app's
+// prefix so the browser does not send the session cookie to the others.
+function sessionCookiePath(): string {
+  return process.env.NINIMED_COOKIE_PATH || "/";
+}
+
 export function setSessionCookie(response: NextResponse, token: string): void {
   response.cookies.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production" && process.env.NINIMED_INSECURE_COOKIE !== "true",
     sameSite: "lax",
-    path: "/",
+    path: sessionCookiePath(),
     maxAge: SESSION_TTL_SECONDS,
   });
 }
@@ -141,7 +147,7 @@ export function clearSessionCookie(response: NextResponse): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production" && process.env.NINIMED_INSECURE_COOKIE !== "true",
     sameSite: "lax",
-    path: "/",
+    path: sessionCookiePath(),
     maxAge: 0,
   });
 }
