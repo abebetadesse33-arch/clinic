@@ -279,11 +279,13 @@ jobs:
           DEPLOYED=false
 
           # ════════════════════════════════════════════════════════════════════
-          # METHOD 1 — Plesk Native Git Webhook (explicit fallback only)
+          # METHOD 1 — Plesk Native Git Webhook (only when force_method=webhook)
           # A successful webhook response only confirms receipt; it does not prove that
-          # the package built by this workflow was installed. SSH is the default.
+          # the package built by this workflow was installed or that the app restarted.
+          # SSH (Method 2) is the default; the webhook is also tried as a last resort
+          # after SSH fails (see "Last-resort webhook" below).
           # ════════════════════════════════════════════════════════════════════
-          if [ "${FORCE_METHOD:-}" != "ssh" ] && [ "${FORCE_METHOD:-}" != "ftp" ] && [ "${FORCE_METHOD:-}" != "api" ]; then
+          if [ "${FORCE_METHOD:-}" = "webhook" ]; then
             if [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
               echo ">>> [Method 1] Triggering Plesk Native Git Webhook..."
 
@@ -392,6 +394,20 @@ jobs:
             fi
           fi
 
+          if [ "$DEPLOYED" = "true" ]; then exit 0; fi
+
+          # Last-resort webhook: SSH was unavailable or failed, so ask Plesk Git to pull.
+          # This only confirms receipt, so the health step below must still verify the
+          # live build before the deployment counts as good.
+          if [ -z "${FORCE_METHOD:-}" ] && [ -n "${PLESK_WEBHOOK_URL:-}" ]; then
+            echo ">>> [Fallback] SSH did not deploy; triggering Plesk Git webhook..."
+            response=$(curl -k -sS -o /dev/null -w "%{http_code}" -X POST --connect-timeout 20 --max-time 60 "$PLESK_WEBHOOK_URL" 2>/dev/null || true)
+            echo "  Webhook POST → HTTP ${response:-000}"
+            if [ "${response:-000}" -ge 200 ] && [ "${response:-000}" -lt 400 ] 2>/dev/null; then
+              echo "⚠️  Webhook accepted, but the new build is NOT confirmed until the health check passes."
+              DEPLOYED=true
+            fi
+          fi
           if [ "$DEPLOYED" = "true" ]; then exit 0; fi
 
           # ════════════════════════════════════════════════════════════════════
