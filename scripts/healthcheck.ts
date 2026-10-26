@@ -55,17 +55,18 @@ async function run() {
   }
 
   try {
-    let lastError: Error | null = null;
+    // Keep every candidate's outcome. Reporting only the last one hid a stale build
+    // behind a harmless 404 from a later fallback URL.
+    const failures: string[] = [];
     let succeeded = false;
+    const brief = (text: string) => text.replace(/\s+/g, " ").slice(0, 400);
 
     for (const targetUrl of allCandidateUrls) {
       try {
         const { response, body } = await tryFetchUrl(targetUrl, fetchOptions);
 
         if (!response.ok) {
-          lastError = new Error(
-            `Health check returned HTTP ${response.status}: ${body.slice(0, 500)}`
-          );
+          failures.push(`${targetUrl} -> HTTP ${response.status}: ${brief(body)}`);
           continue;
         }
 
@@ -96,12 +97,14 @@ async function run() {
         succeeded = true;
         break;
       } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
+        failures.push(`${targetUrl} -> ${brief(err instanceof Error ? err.message : String(err))}`);
       }
     }
 
-    if (!succeeded && lastError) {
-      throw lastError;
+    if (!succeeded) {
+      throw new Error(
+        `no health URL passed (${failures.length} tried):\n  - ${failures.join("\n  - ")}`
+      );
     }
   } finally {
     clearTimeout(timeout);
