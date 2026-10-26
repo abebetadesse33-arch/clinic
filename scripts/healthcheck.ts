@@ -83,14 +83,30 @@ async function run() {
             liveSha = (parsed?.buildSha as string) ?? "unknown";
             liveTime = (parsed?.buildTime as string) ?? "unknown";
           } catch {}
-          if (liveSha !== expectedSha) {
+          // Builds made by Plesk's own Git deployment have no .git directory, so they
+          // cannot report a commit and say "unknown". That is still proof of a fresh
+          // deploy when the build was produced after this deployment started, so accept
+          // it then; an older "unknown" build (a stale process) is still rejected.
+          const startedAtMs = Date.parse(process.env.DEPLOY_STARTED_AT || "");
+          const builtAtMs = Date.parse(liveTime);
+          const freshUnknownBuild =
+            liveSha === "unknown" && !Number.isNaN(startedAtMs) && !Number.isNaN(builtAtMs) && builtAtMs >= startedAtMs;
+
+          if (liveSha !== expectedSha && !freshUnknownBuild) {
             throw new Error(
               `Live server is running build "${liveSha}" (built: ${liveTime}), expected "${expectedSha}". ` +
                 `The deployment step likely reported success without the running process ` +
                 `actually picking up the new code (check Plesk Git deployment log / Passenger restart).`
             );
           }
-          console.log(`Build verified live: ${liveSha} (${liveTime}) via ${targetUrl}`);
+          if (freshUnknownBuild && liveSha !== expectedSha) {
+            console.log(
+              `Fresh build verified by build time (commit unknown to the server): built ${liveTime}, ` +
+                `deployment started ${process.env.DEPLOY_STARTED_AT} via ${targetUrl}`
+            );
+          } else {
+            console.log(`Build verified live: ${liveSha} (${liveTime}) via ${targetUrl}`);
+          }
         }
 
         console.log(`Health check passed: HTTP ${response.status} via ${targetUrl} ${body.slice(0, 300)}`);
