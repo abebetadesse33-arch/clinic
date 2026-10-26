@@ -89,10 +89,13 @@ const pool = mysql.createPool({
 
 // Auto-run schema & seed check asynchronously at runtime (not during Next.js static build)
 // Delay the first attempt by 10s to give database containers time to become ready.
+// Set NINIMED_AUTO_MIGRATE=false when the schema is managed explicitly
+// (scripts/db-migrate.ts), e.g. on a database shared with other applications.
 if (
   typeof window === "undefined" &&
   process.env.NEXT_PHASE !== "phase-production-build" &&
-  !process.env.NEXT_IS_EXPORTING
+  !process.env.NEXT_IS_EXPORTING &&
+  process.env.NINIMED_AUTO_MIGRATE !== "false"
 ) {
   const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
   delay(10_000)

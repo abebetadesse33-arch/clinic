@@ -53,8 +53,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
-  // 5. External portal services redirect to their subdomains
-  for (const [prefix, host] of Object.entries(appHosts)) {
+  // 5. External portal services redirect to their subdomains. Disabled with
+  // NINIMED_LEGACY_APP_REDIRECTS=false where the web server routes these
+  // prefixes itself (service.echat.et).
+  const legacyRedirects = process.env.NINIMED_LEGACY_APP_REDIRECTS !== "false";
+  for (const [prefix, host] of legacyRedirects ? Object.entries(appHosts) : []) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`)) {
       const url = new URL(`${host}${pathname.slice(prefix.length) || "/"}`);
       url.search = request.nextUrl.search;
