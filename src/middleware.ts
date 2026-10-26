@@ -35,6 +35,9 @@ const PUBLIC_API_ANY = [
   "/api/v1/telegram/webhook",
   "/api/v1/telegram/miniapp/auth",
   "/api/v1/notifications/reminder-cron",
+  // The TV page posts its display token in the request body, which the gate cannot see;
+  // the route rejects a missing or unknown token itself.
+  "/api/v1/display/waiting-room/heartbeat",
   "/api/v1/patient/shared-record",
   "/api/v1/patients/register-with-triage",
   "/api/v1/treat-me-now",

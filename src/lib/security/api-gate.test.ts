@@ -56,6 +56,11 @@ test("public website content is read-only without a session", () => {
   assert.equal(call("/api/v1/landing-sections", { method: "POST" }).status, 401);
 });
 
+test("the waiting-room heartbeat reaches its route, which checks the body token itself", () => {
+  assert.notEqual(call("/api/v1/display/waiting-room/heartbeat", { method: "POST" }).status, 401);
+  assert.notEqual(call("/health/api/v1/display/waiting-room/heartbeat/", { method: "POST" }).status, 401);
+});
+
 test("waiting-room screens may present a display token instead of a session", () => {
   assert.equal(call("/api/v1/display/waiting-room/state").status, 401);
   assert.notEqual(call("/api/v1/display/waiting-room/state?token=disp_abc").status, 401);
