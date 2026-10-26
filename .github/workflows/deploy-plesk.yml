@@ -259,6 +259,11 @@ jobs:
       # ────────────────────────────────────────────────────────────────────────
       # STEP 5: Deploy (4 methods, first success wins)
       # ────────────────────────────────────────────────────────────────────────
+      - name: Record deployment start time
+        if: inputs.migration_only != true
+        shell: bash
+        run: echo "DEPLOY_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$GITHUB_ENV"
+
       - name: Deploy to Live Plesk
         if: inputs.migration_only != true
         shell: bash
