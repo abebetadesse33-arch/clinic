@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { referrals, patients, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(_request, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
 
@@ -69,6 +73,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(request, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
     const body = await request.json();

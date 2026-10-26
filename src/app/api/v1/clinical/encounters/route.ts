@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { encounters, patients } from "@/db/schema";
-import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
@@ -18,7 +18,7 @@ const encounterSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAuthenticatedUser(req);
+  const auth = await requireRoles(req, STAFF_ROLES);
   if ("response" in auth) return auth.response;
 
   const patientId = new URL(req.url).searchParams.get("patientId");
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAuthenticatedUser(req);
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
   if ("response" in auth) return auth.response;
 
   try {

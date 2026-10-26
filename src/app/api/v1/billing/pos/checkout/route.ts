@@ -7,6 +7,7 @@ import {
 } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -27,6 +28,9 @@ function generateInvoiceNumber(): string {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildMedicationReview } from "@/lib/services/medication-education-service";
 import { getSideEffects } from "@/lib/services/medication-education-service";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { medications, geneVariants, language = "en" } = body;
@@ -39,6 +43,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
   const drug = searchParams.get("drug");
   if (!drug) return NextResponse.json({ error: "drug param required" }, { status: 400 });

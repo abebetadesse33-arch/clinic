@@ -5,10 +5,8 @@ import { createPatientSchema } from "@/lib/validations/schemas";
 import { desc, eq, like, or, and, count } from "drizzle-orm";
 import { z } from "zod";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
-import { getAuthenticatedSessionUser } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUser, requireRoles, CLINICIAN_ROLES, STAFF_ROLES } from "@/lib/security/auth-session";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +46,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search")?.trim() || "";
     const patientId = searchParams.get("patientId")?.trim() || "";
     const priority = searchParams.get("priority");
-    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID;
+    const tenantId = currentUser.organizationId;
 
     const conditions = [eq(patients.tenantId, tenantId)];
 
@@ -106,6 +104,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/patients
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createPatientSchema.parse(body);
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
     const mrn = `MRN-${Math.floor(10000 + Math.random() * 90000)}`;
 
     const [newPatient] = await insertReturning(db, patients, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         mrn,
         firstName: validated.firstName,
         lastName: validated.lastName,
@@ -131,7 +132,7 @@ export async function POST(req: NextRequest) {
 
     // Append to immutable audit log
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "PATIENT_CREATED",
       entityType: "patients",
       entityId: newPatient.id,

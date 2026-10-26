@@ -3,6 +3,7 @@ import { SubscriptionService } from "@/lib/services/subscription-service";
 import { db } from "@/db";
 import { familyGroups, familyMembers, patients } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireFamilyGroupAccess } from "@/lib/security/tenant-resource";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {

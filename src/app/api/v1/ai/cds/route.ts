@@ -3,9 +3,13 @@ import { db } from "@/db";
 import { medications, labResults, geneticProfiles, patients } from "@/db/schema";
 import { checkClinicalSafety } from "@/lib/safety/drug-checker";
 import { eq } from "drizzle-orm";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // POST /api/v1/ai/cds - Clinical Decision Support Service
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { candidateDrug, patientId, weightKg, age } = body;

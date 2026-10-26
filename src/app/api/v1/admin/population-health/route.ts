@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdminUser } from "@/lib/security/auth-session";
 import { getPopulationHealthMetrics } from "@/lib/analytics/population-health-service";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const summary = getPopulationHealthMetrics();
     return NextResponse.json({ success: true, summary });

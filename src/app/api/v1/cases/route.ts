@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
     const { personal, complaint, history, symptoms, filesCount, fileNames, fileTypes, patientId: passedPatientId } = body;
 
     const auth = await resolveAuthorizedPatient(request, passedPatientId);
+    if ("response" in auth) return auth.response;
     let resolvedPatientGuid: string | null = null;
     let effectivePatientId: string | null = passedPatientId && passedPatientId.length === 36 ? passedPatientId : null;
 
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
     const [insertedCase] = await insertReturning(db, cases, {
         caseId,
         caseNumber: caseId,
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         patientId: effectivePatientId,
         status: "pending_ai_analysis",
         chiefComplaint: resolvedComplaint.chiefComplaint,
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
         if (!resolvedPatientGuid) throw new Error("No valid patient found");
 
         const [encounter] = await insertReturning(db, encounters, {
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: auth.user.organizationId,
             patientId: resolvedPatientGuid,
             clinicianId: resolvedClinicianGuid,
             encounterType: "telehealth",
@@ -164,9 +165,9 @@ export async function POST(request: NextRequest) {
             chiefComplaint: resolvedComplaint.chiefComplaint,
           });
 
-        const urgentRoomId = `urgent-${DEFAULT_TENANT_ID.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        const urgentRoomId = `urgent-${auth.user.organizationId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const [urgentSession] = await insertReturning(db, telemedicineSessions, {
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: auth.user.organizationId,
             encounterId: encounter.id,
             patientId: resolvedPatientGuid,
             doctorId: resolvedClinicianGuid,
@@ -207,7 +208,7 @@ export async function POST(request: NextRequest) {
     if (handler.id && handler.id.length === 36) {
       try {
         await db.insert(notifications).values({
-          organizationId: DEFAULT_TENANT_ID,
+          organizationId: auth.user.organizationId,
           recipientUserId: handler.id,
           type: "consult_request",
           title: `🚨 ${resolvedComplaint.seekingUrgent ? "URGENT" : "New"} Case Assigned: ${caseId}`,
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
         const [patientRec] = await db.select().from(patients).where(eq(patients.id, passedPatientId)).limit(1);
         if (patientRec?.userId) {
           await db.insert(notifications).values({
-            organizationId: DEFAULT_TENANT_ID,
+            organizationId: auth.user.organizationId,
             recipientUserId: patientRec.userId,
             senderUserId: handler.id && handler.id.length === 36 ? handler.id : undefined,
             type: "system_alert",
@@ -275,18 +276,17 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "50");
 
     const auth = await resolveAuthorizedPatient(request, explicitPatientId);
-    if ("response" in auth && request.cookies.get("Nini_session")) {
-      return auth.response;
-    }
+    if ("response" in auth) return auth.response;
 
     const conditions: any[] = [];
     if (status) conditions.push(eq(cases.status, status as any));
     if (handlerId) conditions.push(eq(cases.assignedHandlerId, handlerId));
 
-    if (!("response" in auth) && auth.isPatient) {
+    if (auth.isPatient) {
       conditions.push(eq(cases.patientId, auth.patient.id));
-    } else if (explicitPatientId) {
-      conditions.push(eq(cases.patientId, explicitPatientId));
+    } else {
+      conditions.push(eq(cases.tenantId, auth.user.organizationId));
+      if (explicitPatientId) conditions.push(eq(cases.patientId, explicitPatientId));
     }
 
     let query = db.select().from(cases);

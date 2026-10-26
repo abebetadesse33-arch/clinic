@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { SubscriptionService } from "@/lib/services/subscription-service";
 import { db } from "@/db";
 import { organizations } from "@/db/schema";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const filterType = searchParams.get("type") as "individual" | "family" | "company" | undefined;
 
     // Default or query tenant
     const [org] = await db.select().from(organizations).limit(1);
-    const tenantId = searchParams.get("tenantId") || org?.id;
+    const tenantId = auth.user.organizationId || org?.id;
 
     if (!tenantId) {
       return NextResponse.json({ success: false, error: "Tenant not found" }, { status: 400 });
@@ -24,10 +28,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const [org] = await db.select().from(organizations).limit(1);
-    const tenantId = body.tenantId || org?.id;
+    const tenantId = auth.user.organizationId;
 
     if (!tenantId) {
       return NextResponse.json({ success: false, error: "Tenant not specified" }, { status: 400 });

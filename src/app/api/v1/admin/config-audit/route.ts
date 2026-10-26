@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { configAuditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,10 @@ const INITIAL_AUDITS = [
   },
 ];
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     let rows = await db
       .select({
@@ -105,7 +109,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { entityType, entityId, action, oldValue, newValue, reason, adminId, adminName } = body;

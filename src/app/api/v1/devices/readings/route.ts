@@ -5,14 +5,24 @@ import { createDeviceReadingSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
+import { requirePatientAccess } from "@/lib/security/tenant-resource";
 
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/devices/readings?patientId=...
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const patientId = searchParams.get("patientId");
+    let patientId = searchParams.get("patientId");
+    if (auth.user.role === "patient" || patientId) {
+      const access = await requirePatientAccess(req, patientId || "");
+      if ("response" in access) return access.response;
+      if (!access.patient) return NextResponse.json({ success: true, data: [] });
+      patientId = access.patient.id;
+    }
     const deviceId = searchParams.get("deviceId");
 
     if (patientId) {
@@ -57,6 +67,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createDeviceReadingSchema.parse(body);
 
+    // Readings are filed against one patient: their own, or (for staff) one in the same organization.
+    const access = await requirePatientAccess(req, validated.patientId);
+    if ("response" in access) return access.response;
+    if (!access.patient) {
+      return NextResponse.json({ success: false, error: "Patient not found" }, { status: 404 });
+    }
+    validated.patientId = access.patient.id;
+    const tenantId = access.user.organizationId;
+
     let isAnomaly = false;
     let anomalySeverity: "normal" | "warning" | "critical" = "normal";
 
@@ -87,7 +106,7 @@ export async function POST(req: NextRequest) {
     }
 
     const [newReading] = await insertReturning(db, deviceReadings, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         deviceId: validated.deviceId,
         patientId: validated.patientId,
         metricType: validated.metricType,
@@ -106,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     if (isAnomaly) {
       await db.insert(auditLogs).values({
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId,
         action: "DEVICE_ANOMALY_DETECTED",
         entityType: "device_readings",
         entityId: newReading.id,

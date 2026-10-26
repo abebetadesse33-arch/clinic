@@ -3,10 +3,14 @@ import { db } from "@/db";
 import { posCashierShifts, posTransactions, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const view = searchParams.get("view") || "active";
@@ -82,6 +86,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action } = body;

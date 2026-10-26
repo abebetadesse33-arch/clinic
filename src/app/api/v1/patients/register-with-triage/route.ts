@@ -7,12 +7,16 @@ import { ProviderMatchingService } from "@/lib/services/provider-matching-servic
 import { CaseWorkflowService } from "@/lib/services/case-workflow-service";
 import { QueueService } from "@/lib/services/queue-service";
 import { insertReturning } from "@/lib/db/returning";
+import { enforceRateLimit, clientIp } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function POST(req: NextRequest) {
+  const limited = enforceRateLimit("patients/register-with-triage", [{ key: `ip:${clientIp(req)}`, limit: 15, windowMs: 15 * 60 * 1000 }]);
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const {

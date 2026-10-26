@@ -3,10 +3,14 @@ import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { enforceRateLimit, clientIp } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit("public/register/submit", [{ key: `ip:${clientIp(request)}`, limit: 15, windowMs: 15 * 60 * 1000 }]);
+  if (limited) return limited;
+
   try {
     const body = await request.json();
     const { registrationId, registrationData } = body;

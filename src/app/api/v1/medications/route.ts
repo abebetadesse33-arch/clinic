@@ -5,11 +5,13 @@ import { createMedicationSchema } from "@/lib/validations/schemas";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // GET /api/v1/medications
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
@@ -39,12 +41,15 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/medications
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createMedicationSchema.parse(body);
 
     const [newMed] = await insertReturning(db, medications, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         patientId: validated.patientId,
         name: validated.name,
         dosage: validated.dosage,
@@ -57,7 +62,7 @@ export async function POST(req: NextRequest) {
       });
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "MEDICATION_ADDED",
       entityType: "medications",
       entityId: newMed.id,

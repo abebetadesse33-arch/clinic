@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientActivities } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { logPatientActivity } from "@/lib/audit/activity-logger";
+import { requirePatientAccess } from "@/lib/security/tenant-resource";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const access = await requirePatientAccess(req, params.id);
+  if ("response" in access) return access.response;
+
   try {
     const patientId = params.id;
 

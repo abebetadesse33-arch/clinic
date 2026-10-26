@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { labInstruments, labQcRuns } from "@/db/schema";
 import { desc } from "drizzle-orm";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/lis/instruments
 export async function GET(_req: NextRequest) {
+  const auth = await requireRoles(_req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const [instruments, qcRuns] = await Promise.all([
       db.select().from(labInstruments).orderBy(desc(labInstruments.createdAt)),

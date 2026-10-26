@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CentralStateMachineService } from "@/lib/services/central-state-machine";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const replayUpToEventId = searchParams.get("replayUpTo");

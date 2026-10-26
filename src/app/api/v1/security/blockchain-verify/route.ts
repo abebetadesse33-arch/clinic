@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { anchorAuditLogsToBlockchain, verifyAuditLogIntegrity } from "@/lib/security/blockchain-anchor";
+import { requireRoles, requireAdminUser } from "@/lib/security/auth-session";
 
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function ensureUuid(val: any, fallback: string): string {
-  if (typeof val === "string" && UUID_REGEX.test(val)) {
-    return val;
-  }
-  return fallback;
-}
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, ["auditor"]);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
-  const rawTenantId = searchParams.get("tenantId");
-  const tenantId = ensureUuid(rawTenantId, DEFAULT_TENANT_ID);
+  const tenantId = auth.user.organizationId;
 
   try {
     const verification = await verifyAuditLogIntegrity(tenantId);
@@ -26,9 +22,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const tenantId = ensureUuid(body?.tenantId, DEFAULT_TENANT_ID);
+    const tenantId = auth.user.organizationId;
 
     const anchor = await anchorAuditLogsToBlockchain(tenantId);
     return NextResponse.json({ success: true, anchor });

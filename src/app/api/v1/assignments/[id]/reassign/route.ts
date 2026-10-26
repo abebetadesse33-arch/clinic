@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { patientAssignments, cases, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { CaseWorkflowService } from "@/lib/services/case-workflow-service";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
     const body = await req.json();

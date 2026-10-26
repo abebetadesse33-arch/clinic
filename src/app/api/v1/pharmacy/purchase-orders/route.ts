@@ -5,11 +5,15 @@ import { createPurchaseOrderSchema } from "@/lib/validations/schemas";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/pharmacy/purchase-orders
 export async function GET(_req: NextRequest) {
+  const auth = await requireRoles(_req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const data = await db
       .select()
@@ -28,6 +32,9 @@ export async function GET(_req: NextRequest) {
 
 // POST /api/v1/pharmacy/purchase-orders
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createPurchaseOrderSchema.parse(body);
@@ -35,7 +42,7 @@ export async function POST(req: NextRequest) {
     const poNumber = `PO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const [newPO] = await insertReturning(db, purchaseOrders, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         supplierId: validated.supplierId,
         poNumber,
         status: "submitted",
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
       });
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       userId: "11111111-1111-1111-1111-111111111104",
       action: "PURCHASE_ORDER_SUBMITTED",
       entityType: "purchase_orders",

@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { carePlans, auditLogs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // PATCH /api/v1/care-plans/[id]
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { interventions, goals, status } = body;
@@ -20,7 +22,7 @@ export async function PATCH(
         goals: goals || undefined,
         status: status || undefined,
         updatedAt: new Date(),
-      }, eq(carePlans.id, params.id));
+      }, and(eq(carePlans.id, params.id), eq(carePlans.tenantId, auth.user.organizationId)));
 
     if (!updated) {
       return NextResponse.json(
@@ -30,7 +32,7 @@ export async function PATCH(
     }
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "CARE_PLAN_UPDATED",
       entityType: "care_plans",
       entityId: updated.id,

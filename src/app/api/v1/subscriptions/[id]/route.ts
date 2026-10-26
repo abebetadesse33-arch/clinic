@@ -14,8 +14,12 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { BillingAutomationService } from "@/lib/services/billing-automation-service";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const [sub] = await db
       .select({
@@ -30,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       .leftJoin(companies, eq(subscriptions.companyId, companies.id))
       .where(eq(subscriptions.id, params.id));
 
-    if (!sub) {
+    if (!sub || sub.subscription.tenantId !== auth.user.organizationId) {
       return NextResponse.json({ success: false, error: "Subscription not found" }, { status: 404 });
     }
 
@@ -85,6 +89,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { newPlanId, newSeatCount } = body;
@@ -98,7 +105,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       .innerJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
       .where(eq(subscriptions.id, params.id));
 
-    if (!sub) {
+    if (!sub || sub.subscription.tenantId !== auth.user.organizationId) {
       return NextResponse.json({ success: false, error: "Subscription not found" }, { status: 404 });
     }
 
@@ -171,6 +178,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const cancelImmediately = searchParams.get("immediate") === "true";
@@ -180,7 +190,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       .from(subscriptions)
       .where(eq(subscriptions.id, params.id));
 
-    if (!sub) {
+    if (!sub || sub.tenantId !== auth.user.organizationId) {
       return NextResponse.json({ success: false, error: "Subscription not found" }, { status: 404 });
     }
 

@@ -4,6 +4,7 @@ import { translations } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { broadcastConfigChange } from "@/lib/services/config-events";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { key, language, value, isActive } = body;
@@ -95,6 +99,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { id, ...updates } = body;
@@ -122,6 +129,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

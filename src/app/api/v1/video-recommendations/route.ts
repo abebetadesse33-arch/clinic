@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getVideoRecommendations } from "@/lib/services/video-recommendation-service";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
 
   const icd10Raw = searchParams.get("icd10");

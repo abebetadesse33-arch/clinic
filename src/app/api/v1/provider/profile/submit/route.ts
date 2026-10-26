@@ -3,15 +3,20 @@ import { db } from "@/db";
 import { providerProfiles, notifications, users, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // POST /api/v1/provider/profile/submit
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { userId } = body;
+    // A provider submits their own profile for HR review.
+    const userId = auth.user.id;
 
     if (!userId) {
       return NextResponse.json({ success: false, error: "userId is required" }, { status: 400 });

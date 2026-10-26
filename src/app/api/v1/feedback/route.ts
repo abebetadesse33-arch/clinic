@@ -4,14 +4,18 @@ import { feedbackRecords, organizations, users } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { analyzeFeedbackNLP } from "@/lib/ai/feedback-nlp";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser, requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/feedback — list and filter feedback records
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
     const sentiment = searchParams.get("sentiment");
     const urgencyLevel = searchParams.get("urgencyLevel");
     const resolutionStatus = searchParams.get("resolutionStatus");
@@ -87,12 +91,13 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/feedback — submit new feedback with real-time NLP analysis
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
-      tenantId,
-      submitterType = "patient",
-      submitterUserId,
+      submitterType = auth.user.role === "patient" ? "patient" : "staff",
       submitterName,
       submitterContact,
       encounterId,
@@ -106,12 +111,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "feedbackText is required." }, { status: 400 });
     }
 
-    // Resolve tenant ID fallback if not provided
-    let resolvedTenantId = tenantId;
-    if (!resolvedTenantId) {
-      const [firstOrg] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-      resolvedTenantId = firstOrg?.id;
-    }
+    // Feedback is filed under the submitter's own organization and identity.
+    const resolvedTenantId = auth.user.organizationId;
+    const submitterUserId = auth.user.id;
 
     if (!resolvedTenantId) {
       return NextResponse.json({ success: false, error: "No organization tenant found." }, { status: 400 });
@@ -161,6 +163,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/v1/feedback — update resolution status or assign admin
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { id, resolutionStatus, assignedAdminId, resolutionNotes } = body;

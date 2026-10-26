@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, organizations, patients, systemAuthSettings, clinicLocations } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
-import { randomInt } from "crypto";
+import { users, organizations, patients, systemAuthSettings, clinicLocations, authVerificationCodes } from "@/db/schema";
+import { and, desc, eq, gt, or } from "drizzle-orm";
+import { createHash, randomInt } from "crypto";
+import { enforceRateLimit, clientIp } from "@/lib/security/rate-limit";
 import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { hashPassword } from "@/lib/security/password";
 import { createSession, ensureAuthSchema, setSessionCookie } from "@/lib/security/auth-session";
@@ -12,7 +13,48 @@ const MIN_PASSWORD_LENGTH = 8;
 
 export const dynamic = "force-dynamic";
 
+const VERIFICATION_TOKEN_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * A verification token is only valid if verify-otp issued it for this email/phone
+ * recently. The token is consumed on use so it cannot register a second account.
+ * Development-only demo tokens are accepted outside production.
+ */
+async function redeemVerificationToken(token: string, identifiers: string[]): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production" && token.startsWith("vtoken_demo_")) return true;
+  if (!token.startsWith("vtoken_") || identifiers.length === 0) return false;
+
+  const tokenHash = createHash("sha256").update(token, "utf8").digest("hex");
+  const since = new Date(Date.now() - VERIFICATION_TOKEN_TTL_MS);
+  const rows = await db
+    .select()
+    .from(authVerificationCodes)
+    .where(
+      and(
+        eq(authVerificationCodes.status, "verified"),
+        gt(authVerificationCodes.verifiedAt, since),
+        or(...identifiers.map((id) => eq(authVerificationCodes.identifier, id.toLowerCase())))
+      )
+    )
+    .orderBy(desc(authVerificationCodes.verifiedAt))
+    .limit(20);
+
+  const match = rows.find((r) => (r.metadata as any)?.tokenHash === tokenHash);
+  if (!match) return false;
+
+  await db
+    .update(authVerificationCodes)
+    .set({ metadata: { ...((match.metadata as object) || {}), tokenHash: null, redeemedAt: new Date().toISOString() } })
+    .where(eq(authVerificationCodes.id, match.id));
+  return true;
+}
+
 export async function POST(req: NextRequest) {
+  const limited = enforceRateLimit("signup", [
+    { key: `ip:${clientIp(req)}`, limit: 10, windowMs: 60 * 60 * 1000 },
+  ]);
+  if (limited) return limited;
+
   try {
     const body = await req.json();
     const {
@@ -78,6 +120,16 @@ export async function POST(req: NextRequest) {
         },
         { status: 200 }
       );
+    }
+
+    if (requireEmail || requireSms) {
+      const tokenOk = await redeemVerificationToken(String(verificationToken), [normalizedEmail, normalizedPhone].filter(Boolean) as string[]);
+      if (!tokenOk) {
+        return NextResponse.json(
+          { success: false, error: "Verification expired or invalid. Please verify your email or phone again." },
+          { status: 403 }
+        );
+      }
     }
 
     const [existingUser] = await db

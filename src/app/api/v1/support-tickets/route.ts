@@ -5,11 +5,13 @@ import { createSupportTicketSchema } from "@/lib/validations/schemas";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, STAFF_ROLES, requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 // GET /api/v1/support-tickets
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -32,6 +34,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/support-tickets
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createSupportTicketSchema.parse(body);
@@ -39,7 +44,7 @@ export async function POST(req: NextRequest) {
     const ticketNumber = `TICK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const [newTicket] = await insertReturning(db, supportTickets, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         ticketNumber,
         category: validated.category,
         priority: validated.priority,
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
       });
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "SUPPORT_TICKET_RAISED",
       entityType: "support_tickets",
       entityId: newTicket.id,

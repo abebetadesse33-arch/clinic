@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { authVerificationCodes, systemAuthSettings, users } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
+import { enforceRateLimit, clientIp } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 function sha256Hex(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
 }
+
+/** Demo codes are a development convenience only; they must never work in production. */
+const DEMO_CODES_ALLOWED = process.env.NODE_ENV !== "production";
 
 /**
  * POST /api/v1/auth/verify-otp
@@ -30,8 +34,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanIdentifier = identifier.trim().toLowerCase();
-    const cleanCode = code.trim();
+    const cleanIdentifier = String(identifier).trim().toLowerCase();
+    const cleanCode = String(code).trim();
+
+    const limited = enforceRateLimit("verify-otp", [
+      { key: `ip:${clientIp(req)}`, limit: 20, windowMs: 15 * 60 * 1000 },
+      { key: `id:${cleanIdentifier}`, limit: 10, windowMs: 15 * 60 * 1000 },
+    ]);
+    if (limited) return limited;
 
     // 1. Fetch system auth settings
     const [settings] = await db.select().from(systemAuthSettings).limit(1);
@@ -53,11 +63,11 @@ export async function POST(req: NextRequest) {
 
     if (!record) {
       // Check if sandbox / demo code 123456 or 000000 is allowed
-      if (settings?.allowDemoBypass && (cleanCode === "123456" || cleanCode === "000000" || cleanCode === "849201")) {
+      if (DEMO_CODES_ALLOWED && settings?.allowDemoBypass && (cleanCode === "123456" || cleanCode === "000000" || cleanCode === "849201")) {
         return NextResponse.json({
           success: true,
           verified: true,
-          verificationToken: `vtoken_${sha256Hex(cleanIdentifier + "_verified")}`,
+          verificationToken: `vtoken_demo_${sha256Hex(cleanIdentifier + "_verified")}`,
           message: "Demo verification bypass accepted.",
         });
       }
@@ -99,7 +109,7 @@ export async function POST(req: NextRequest) {
     const isMatch =
       codeHash === record.codeHash ||
       cleanCode === record.rawCode ||
-      (settings?.allowDemoBypass && (cleanCode === "123456" || cleanCode === "000000"));
+      (DEMO_CODES_ALLOWED && settings?.allowDemoBypass && (cleanCode === "123456" || cleanCode === "000000"));
 
     if (!isMatch) {
       // Increment attempt counter
@@ -121,16 +131,16 @@ export async function POST(req: NextRequest) {
 
     // 6. Mark as Verified
     const verifiedAt = new Date();
+    // 7. Issue an unguessable one-time token; only its hash is stored, and signup redeems it.
+    const verificationToken = `vtoken_${randomBytes(24).toString("hex")}`;
     await db
       .update(authVerificationCodes)
       .set({
         status: "verified",
         verifiedAt,
+        metadata: { ...((record.metadata as object) || {}), tokenHash: sha256Hex(verificationToken) },
       })
       .where(eq(authVerificationCodes.id, record.id));
-
-    // 7. Generate Signed Verification Token
-    const verificationToken = `vtoken_${sha256Hex(cleanIdentifier + "_" + verifiedAt.getTime())}`;
 
     return NextResponse.json({
       success: true,

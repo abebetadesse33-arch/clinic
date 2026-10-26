@@ -9,15 +9,19 @@ import {
   organizations,
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const subscriptionId = searchParams.get("subscriptionId");
     const status = searchParams.get("status") as any;
 
     const [org] = await db.select().from(organizations).limit(1);
-    const tenantId = searchParams.get("tenantId") || org?.id;
+    const tenantId = auth.user.organizationId || org?.id;
 
     if (!tenantId) {
       return NextResponse.json({ success: false, error: "Tenant not found" }, { status: 400 });

@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { clinicalRounds, patients, users, organizations } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/clinical/rounds — query ward round notes, vital summaries & critical alerts
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const wardDepartment = searchParams.get("wardDepartment");
@@ -70,6 +74,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/clinical/rounds — record round assessment or execute rapid action
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
@@ -139,6 +146,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH /api/v1/clinical/rounds — acknowledge alert or update round note
 export async function PATCH(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { roundId, action, acknowledgedBy, resolutionNotes } = body;

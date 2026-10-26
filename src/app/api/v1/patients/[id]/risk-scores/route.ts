@@ -8,11 +8,15 @@ import {
 import { calculateNEWS2 } from "@/lib/analytics/early-warning-system";
 import { db } from "@/db";
 import { riskScores } from "@/db/schema";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const age = parseInt(searchParams.get("age") || "54", 10);

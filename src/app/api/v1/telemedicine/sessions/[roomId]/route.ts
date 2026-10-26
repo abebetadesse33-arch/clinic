@@ -3,10 +3,39 @@ import { db } from "@/db";
 import { telemedicineSessions, encounters, prescriptions, notifications, auditLogs, appointments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser, isAdminUser, AuthenticatedUser, CLINICIAN_ROLES } from "@/lib/security/auth-session";
+import { patients } from "@/db/schema";
+import { or } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+/**
+ * A session is reachable by clinical staff in the same organization and by the
+ * patient it belongs to. Anyone else gets a 404 so room ids cannot be probed.
+ */
+async function loadAuthorizedSession(
+  req: NextRequest,
+  roomId: string
+): Promise<{ user: AuthenticatedUser; session: typeof telemedicineSessions.$inferSelect } | { response: NextResponse }> {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth;
+
+  const [session] = await db.select().from(telemedicineSessions).where(eq(telemedicineSessions.roomId, roomId)).limit(1);
+  const notFound = { response: NextResponse.json({ error: "Session not found" }, { status: 404 }) };
+  if (!session) return notFound;
+
+  if (auth.user.role === "patient") {
+    const [own] = await db
+      .select({ id: patients.id })
+      .from(patients)
+      .where(or(eq(patients.userId, auth.user.id), eq(patients.email, auth.user.email)))
+      .limit(1);
+    if (!own || own.id !== session.patientId) return notFound;
+  } else if (session.tenantId !== auth.user.organizationId) {
+    return notFound;
+  }
+  return { user: auth.user, session };
+}
 
 // ─── GET /api/v1/telemedicine/sessions/[roomId] ───────────────────────────────
 export async function GET(
@@ -14,15 +43,9 @@ export async function GET(
   { params }: { params: { roomId: string } }
 ) {
   try {
-    const [session] = await db
-      .select()
-      .from(telemedicineSessions)
-      .where(eq(telemedicineSessions.roomId, params.roomId))
-      .limit(1);
-
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
-    }
+    const access = await loadAuthorizedSession(_req, params.roomId);
+    if ("response" in access) return access.response;
+    const { session } = access;
 
     return NextResponse.json({ session });
   } catch (error: any) {
@@ -37,6 +60,11 @@ export async function PATCH(
   { params }: { params: { roomId: string } }
 ) {
   try {
+    const access = await loadAuthorizedSession(req, params.roomId);
+    if ("response" in access) return access.response;
+    const { user } = access;
+    const isPatient = user.role === "patient";
+
     const body = await req.json();
     const {
       status,
@@ -49,14 +77,21 @@ export async function PATCH(
       prescriptionsToOrder,
     } = body;
 
-    const [existing] = await db
-      .select()
-      .from(telemedicineSessions)
-      .where(eq(telemedicineSessions.roomId, params.roomId))
-      .limit(1);
+    const existing = access.session;
 
-    if (!existing) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    // Patients can join or leave a call (status/timing) but cannot write clinical content.
+    const wantsClinicalWrite =
+      Boolean(consultationNotes || aiConsultationSummary || diagnosis) ||
+      (Array.isArray(prescriptionsToOrder) && prescriptionsToOrder.length > 0);
+    if (isPatient && wantsClinicalWrite) {
+      return NextResponse.json({ error: "Forbidden: clinical documentation is staff-only" }, { status: 403 });
+    }
+    // Prescriptions are signed under the session doctor, so only that doctor (or an admin) may issue them.
+    if (Array.isArray(prescriptionsToOrder) && prescriptionsToOrder.length > 0) {
+      const isSessionDoctor = existing.doctorId === user.id && CLINICIAN_ROLES.includes(user.role as any);
+      if (!isSessionDoctor && !isAdminUser(user)) {
+        return NextResponse.json({ error: "Forbidden: only the session clinician can issue prescriptions" }, { status: 403 });
+      }
     }
 
     const updateFields: Record<string, any> = {};
@@ -134,7 +169,7 @@ export async function PATCH(
       // Audit Log
       try {
         await db.insert(auditLogs).values({
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: existing.tenantId,
           action: "TELEMEDICINE_CONSULT_COMPLETED",
           entityType: "telemedicine_sessions",
           entityId: updated.id,
@@ -149,7 +184,7 @@ export async function PATCH(
       for (const rx of prescriptionsToOrder) {
         try {
           await db.insert(prescriptions).values({
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: existing.tenantId,
             patientId: existing.patientId,
             doctorId: existing.doctorId,
             medicationName: rx.name || rx.medicationName || "Prescription",

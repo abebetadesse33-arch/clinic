@@ -280,6 +280,47 @@ export async function requireAdminUser(
   return auth;
 }
 
+/** Every authenticated role except patients (clinical, operational and audit staff). */
+export const STAFF_ROLES = [
+  "system_admin", "tenant_admin", "physician", "nurse_practitioner", "nurse",
+  "pharmacist", "physiotherapist", "occupational_therapist", "dietitian",
+  "social_worker", "radiologist", "pathologist", "lab_technician",
+  "genetic_counselor", "respiratory_therapist", "psychologist", "biologist",
+  "care_coordinator", "auditor",
+] as const;
+
+/** Roles that may prescribe, diagnose or otherwise exercise clinical judgement. */
+export const CLINICIAN_ROLES = STAFF_ROLES.filter((r) => r !== "auditor");
+
+export function isAdminUser(user: AuthenticatedUser): boolean {
+  return (
+    user.role === "system_admin" ||
+    (user.role === "tenant_admin" && user.isAdminGrantedBySuperAdmin)
+  );
+}
+
+/**
+ * Guard for routes open to a specific set of roles. Administrators always
+ * pass; everyone else must hold one of `roles`. Returns the verified user or
+ * a ready-to-return 401/403 response.
+ */
+export async function requireRoles(
+  req: NextRequest,
+  roles: readonly string[]
+): Promise<{ user: AuthenticatedUser } | { response: NextResponse }> {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth;
+
+  if (isAdminUser(auth.user) || roles.includes(auth.user.role)) return auth;
+
+  return {
+    response: NextResponse.json(
+      { success: false, error: "Forbidden: your role is not permitted to perform this action." },
+      { status: 403 }
+    ),
+  };
+}
+
 export function isAuthorizedForRole(
   userRole: string,
   allowedRoles: string[]

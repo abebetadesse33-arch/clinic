@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { patientJourneyEvents, patients, users, organizations } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/clinical/patient-journey — live patient flow status across 6 stages
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const stage = searchParams.get("stage");
@@ -82,6 +86,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/clinical/patient-journey — transition patient to a new stage
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

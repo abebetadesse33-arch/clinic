@@ -12,6 +12,7 @@ import {
   invoices,
 } from "@/db/schema";
 import { eq, desc, and, or, inArray, sql } from "drizzle-orm";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 
@@ -20,6 +21,9 @@ const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 // Returns all active queue items with patient & Rx details
 // ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -109,6 +113,9 @@ export async function GET(req: NextRequest) {
 // Actions: dispense | dispatch_to_nurse | cancel | acknowledge
 // ──────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action, queueItemId, pharmacistId, nurseId, wardId, bedNumber, deliveryMethod, notes } = body;

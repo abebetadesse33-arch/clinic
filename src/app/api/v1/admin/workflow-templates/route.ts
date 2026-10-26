@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { workflowTemplates } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const organizationId = searchParams.get("organizationId") || searchParams.get("tenantId");
+    const organizationId = searchParams.get("organizationId") || auth.user.organizationId;
 
     const templates = organizationId
       ? await db
@@ -25,6 +29,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

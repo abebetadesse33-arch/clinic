@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { patientRegistrations, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_ORGANIZATION_ID = "00000000-0000-0000-0000-000000000001";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { email, phone, firstName, lastName, invitedByUserId } = body;

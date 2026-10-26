@@ -12,12 +12,11 @@ import {
   users,
 } from "@/db/schema";
 import { updatePatientSchema } from "@/lib/validations/schemas";
-import { resolveAuthorizedPatient, requireAuthenticatedUser } from "@/lib/security/auth-session";
-import { eq, desc } from "drizzle-orm";
+import { requireAdminUser } from "@/lib/security/auth-session";
+import { requirePatientAccess } from "@/lib/security/tenant-resource";
+import { and, eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning, updateReturning, deleteReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/patients/[id] - Complete 360 Patient Profile
 export async function GET(
@@ -25,7 +24,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await resolveAuthorizedPatient(req, params.id);
+    const auth = await requirePatientAccess(req, params.id);
     if ("response" in auth) {
       return auth.response;
     }
@@ -115,7 +114,7 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await resolveAuthorizedPatient(req, params.id);
+    const auth = await requirePatientAccess(req, params.id);
     if ("response" in auth) {
       return auth.response;
     }
@@ -127,7 +126,7 @@ export async function PUT(
     const [updated] = await updateReturning(db, patients, {
         ...validated,
         updatedAt: new Date(),
-      }, eq(patients.id, patientId));
+      }, and(eq(patients.id, patientId), eq(patients.tenantId, auth.user.organizationId)));
 
     if (!updated) {
       return NextResponse.json(
@@ -137,7 +136,7 @@ export async function PUT(
     }
 
     await insertReturning(db, auditLogs, {
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "PATIENT_UPDATED",
       entityType: "patients",
       entityId: patientId,
@@ -171,19 +170,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const auth = await requireAuthenticatedUser(req);
+    // Deleting a patient record is an administrative action.
+    const auth = await requireAdminUser(req);
     if ("response" in auth) {
       return auth.response;
     }
-    if (auth.user.role === "patient") {
-      return NextResponse.json(
-        { success: false, error: "Patients are not authorized to delete patient records." },
-        { status: 403 }
-      );
-    }
     const patientId = params.id;
 
-    const [deleted] = await deleteReturning(db, patients, eq(patients.id, patientId));
+    const [deleted] = await deleteReturning(db, patients, and(eq(patients.id, patientId), eq(patients.tenantId, auth.user.organizationId)));
 
     if (!deleted) {
       return NextResponse.json(
@@ -193,7 +187,7 @@ export async function DELETE(
     }
 
     await insertReturning(db, auditLogs, {
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "PATIENT_ARCHIVED",
       entityType: "patients",
       entityId: patientId,

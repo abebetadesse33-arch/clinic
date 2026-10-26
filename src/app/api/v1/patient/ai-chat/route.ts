@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processPatientChatMessage, ChatMessage } from "@/lib/ai/patient-chatbot-guardrails";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { messages, language = "en" } = body;

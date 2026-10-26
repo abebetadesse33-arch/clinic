@@ -2,23 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { carePlans, auditLogs } from "@/db/schema";
 import { createCarePlanSchema } from "@/lib/validations/schemas";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireAuthenticatedUser, requireRoles, resolveAuthorizedPatient, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // GET /api/v1/care-plans
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const patientId = searchParams.get("patientId");
+    let patientId = searchParams.get("patientId");
+
+    // Patients only ever see their own plans; the unfiltered list is for staff.
+    if (auth.user.role === "patient") {
+      const access = await resolveAuthorizedPatient(req, patientId);
+      if ("response" in access) return access.response;
+      patientId = access.patient.id;
+    }
 
     if (patientId) {
       const data = await db
         .select()
         .from(carePlans)
-        .where(eq(carePlans.patientId, patientId))
+        .where(and(eq(carePlans.patientId, patientId), eq(carePlans.tenantId, auth.user.organizationId)))
         .orderBy(desc(carePlans.createdAt));
       return NextResponse.json({ success: true, data });
     }
@@ -26,6 +35,7 @@ export async function GET(req: NextRequest) {
     const data = await db
       .select()
       .from(carePlans)
+      .where(eq(carePlans.tenantId, auth.user.organizationId))
       .orderBy(desc(carePlans.createdAt))
       .limit(50);
 
@@ -41,14 +51,17 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/care-plans
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createCarePlanSchema.parse(body);
 
     const [newPlan] = await insertReturning(db, carePlans, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         patientId: validated.patientId,
-        createdBy: "11111111-1111-1111-1111-111111111101",
+        createdBy: auth.user.id,
         primaryDiagnosis: validated.primaryDiagnosis,
         goals: validated.goals || [],
         interventions: validated.interventions || [],
@@ -56,7 +69,7 @@ export async function POST(req: NextRequest) {
       });
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "CARE_PLAN_CREATED",
       entityType: "care_plans",
       entityId: newPlan.id,

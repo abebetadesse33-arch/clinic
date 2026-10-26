@@ -14,15 +14,34 @@ import { createPaymentSchema } from "@/lib/validations/schemas";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser, requireRoles, resolveAuthorizedPatient, CLINICIAN_ROLES, STAFF_ROLES } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/payments
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const invoiceId = searchParams.get("invoiceId");
-    const patientId = searchParams.get("patientId");
+    let patientId = searchParams.get("patientId");
+
+    // Patients can only ever see their own payments; the unfiltered ledger is staff-only.
+    if (auth.user.role === "patient") {
+      const access = await resolveAuthorizedPatient(req, patientId);
+      if ("response" in access) return access.response;
+      patientId = access.patient.id;
+      if (invoiceId) {
+        const [inv] = await db.select({ patientId: invoices.patientId }).from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+        if (!inv || inv.patientId !== patientId) {
+          return NextResponse.json({ success: false, error: "Access denied." }, { status: 403 });
+        }
+      }
+    } else if (!patientId && !invoiceId && !STAFF_ROLES.includes(auth.user.role as any)) {
+      return NextResponse.json({ success: false, error: "Forbidden." }, { status: 403 });
+    }
 
     if (invoiceId) {
       const data = await db
@@ -60,6 +79,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/payments
 export async function POST(req: NextRequest) {
+  // Recording a payment as completed credits an invoice; only staff may do that.
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createPaymentSchema.parse(body);
@@ -68,7 +91,7 @@ export async function POST(req: NextRequest) {
     const receiptNumber = `RCPT-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const [newPayment] = await insertReturning(db, payments, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         invoiceId: validated.invoiceId,
         patientId: validated.patientId,
         paymentNumber,

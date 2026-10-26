@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { clinicalOrders, encounters, auditLogs, patients } from "@/db/schema";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUserId, requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
+import { assertEncounterInTenant } from "@/lib/security/tenant-resource";
 import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { evaluateOrderCDS } from "@/lib/cds/order-cds-engine";
@@ -20,6 +21,11 @@ const createOrderSchema = z.object({
 
 // GET /api/v1/encounters/[id]/orders - Fetch all orders scoped strictly to this encounter
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+  const denied = await assertEncounterInTenant(params.id, auth.user.organizationId);
+  if (denied) return denied;
+
   try {
     const sessionUserId = await getAuthenticatedSessionUserId(req);
     if (!sessionUserId) {
@@ -45,6 +51,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 // POST /api/v1/encounters/[id]/orders - Create order strictly bound to encounter & session doctor
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+  const denied = await assertEncounterInTenant(params.id, auth.user.organizationId);
+  if (denied) return denied;
+
   try {
     const encounterId = params.id;
 

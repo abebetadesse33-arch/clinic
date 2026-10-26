@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
   const topic = searchParams.get("topic") || "hypertension";
 

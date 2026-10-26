@@ -4,14 +4,18 @@ import { waitingRoomDisplays } from "@/db/schema";
 import { WaitingRoomService, DEFAULT_DISPLAY_SETTINGS } from "@/lib/services/waiting-room-service";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const displayId = searchParams.get("displayId");
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
 
     const display = await WaitingRoomService.getOrCreateDefaultDisplay(tenantId || undefined);
 
@@ -37,6 +41,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { displayId, name, location, settings } = body;

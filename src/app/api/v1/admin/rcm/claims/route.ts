@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAndValidateBillingClaim, getTenantClaims, ClaimInput } from "@/lib/services/rcm-claim-engine";
 import { db } from "@/db";
 import { patients, encounters } from "@/db/schema";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +17,12 @@ function ensureUuid(val: any, fallback: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
-  const rawTenantId = searchParams.get("tenantId");
-  const tenantId = ensureUuid(rawTenantId, DEFAULT_TENANT_ID);
+  const rawTenantId = auth.user.organizationId;
+  const tenantId = auth.user.organizationId;
 
   try {
     const claims = await getTenantClaims(tenantId);
@@ -30,6 +34,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
 
@@ -46,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     const input: ClaimInput = {
-      tenantId: ensureUuid(body.tenantId, DEFAULT_TENANT_ID),
+      tenantId: auth.user.organizationId,
       patientId: resolvedPatientId,
       encounterId: resolvedEncounterId,
       payerName: body.payerName || "National Health Insurance / Chapa Health",

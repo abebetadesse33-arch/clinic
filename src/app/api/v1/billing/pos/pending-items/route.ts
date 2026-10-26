@@ -2,10 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { prescriptions, labOrders, patients, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 const TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");

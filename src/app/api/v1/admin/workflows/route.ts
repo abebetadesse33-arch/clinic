@@ -11,6 +11,7 @@ import { INTENSIVE_WORKFLOW_TEMPLATES } from "@/lib/workflow/workflow-templates-
 import { INTENSIVE_WORKFLOW_TEMPLATES_PT2 } from "@/lib/workflow/workflow-templates-intensive-pt2";
 import { REFERRAL_LABORATORY_WORKFLOW_TEMPLATES } from "@/lib/workflow/workflow-templates-referral-laboratory";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,9 @@ const ALL_WORKFLOW_TEMPLATES = [
 ];
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const view = searchParams.get("view") || "all";
@@ -193,6 +197,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action } = body;

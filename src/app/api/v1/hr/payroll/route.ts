@@ -5,6 +5,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,12 @@ function calculatePAYE(grossMonthly: number): number {
 
 // GET /api/v1/hr/payroll?tenantId=&status=
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
     const status = searchParams.get("status");
 
     const runs = await db
@@ -52,9 +56,14 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/hr/payroll — compute or approve a payroll run
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { action, tenantId, periodMonth, periodYear, processedBy } = body;
+    const { action, periodMonth, periodYear } = body;
+    const tenantId = auth.user.organizationId;
+    const processedBy = auth.user.id;
 
     if (action === "compute") {
       if (!tenantId || !periodMonth || !periodYear) {
@@ -152,14 +161,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "approve") {
-      const { runId, approvedBy } = body;
-      const [updated] = await updateReturning(db, payrollRuns, { status: "approved", approvedBy, approvedAt: new Date() }, eq(payrollRuns.id, runId));
+      const { runId } = body;
+      const [updated] = await updateReturning(db, payrollRuns, { status: "approved", approvedBy: auth.user.id, approvedAt: new Date() }, and(eq(payrollRuns.id, runId), eq(payrollRuns.tenantId, tenantId)));
       return NextResponse.json({ success: true, data: updated });
     }
 
     if (action === "disburse") {
       const { runId } = body;
-      const [updated] = await updateReturning(db, payrollRuns, { status: "disbursed", disbursedAt: new Date() }, eq(payrollRuns.id, runId));
+      const [updated] = await updateReturning(db, payrollRuns, { status: "disbursed", disbursedAt: new Date() }, and(eq(payrollRuns.id, runId), eq(payrollRuns.tenantId, auth.user.organizationId)));
       return NextResponse.json({ success: true, data: updated });
     }
 
@@ -172,6 +181,9 @@ export async function POST(req: NextRequest) {
 
 // PATCH — fetch payroll items for a given run
 export async function PATCH(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { runId } = await req.json();
     const items = await db
@@ -194,7 +206,7 @@ export async function PATCH(req: NextRequest) {
       .from(payrollItems)
       .innerJoin(staffProfiles, eq(payrollItems.staffId, staffProfiles.id))
       .innerJoin(users, eq(staffProfiles.userId, users.id))
-      .where(eq(payrollItems.payrollRunId, runId));
+      .where(and(eq(payrollItems.payrollRunId, runId), eq(staffProfiles.tenantId, auth.user.organizationId)));
 
     return NextResponse.json({ success: true, data: items });
   } catch (error: any) {

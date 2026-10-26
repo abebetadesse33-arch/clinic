@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { adminAuditLogs, users } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { verifyAuditChainIntegrity } from "@/lib/security/e2ee-crypto";
+import { requireRoles } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/admin/audit-logs — query admin audit logs and verify cryptographic chain integrity
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, ["auditor"]);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const actorRole = searchParams.get("actorRole");

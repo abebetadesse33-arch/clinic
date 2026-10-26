@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit, clientIp } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const limited = enforceRateLimit("treat-me-now/start", [{ key: `ip:${clientIp(req)}`, limit: 15, windowMs: 15 * 60 * 1000 }]);
+  if (limited) return limited;
+
   try {
     const sessionId = `tmn-sess-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 

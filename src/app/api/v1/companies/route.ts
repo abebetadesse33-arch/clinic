@@ -7,14 +7,16 @@ import {
   companyAdmins,
   organizations,
 } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
+import { requireAuthenticatedUser, requireAdminUser, isAdminUser } from "@/lib/security/auth-session";
 import { SubscriptionService } from "@/lib/services/subscription-service";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
-    const { searchParams } = new URL(req.url);
-    const [org] = await db.select().from(organizations).limit(1);
-    const tenantId = searchParams.get("tenantId") || org?.id;
+    const tenantId = auth.user.organizationId;
 
     if (!tenantId) {
       return NextResponse.json({ success: false, error: "Tenant not found" }, { status: 400 });
@@ -29,7 +31,23 @@ export async function GET(req: NextRequest) {
       .from(companies)
       .leftJoin(subscriptions, eq(subscriptions.companyId, companies.id))
       .leftJoin(subscriptionPlans, eq(subscriptions.planId, subscriptionPlans.id))
-      .where(eq(companies.tenantId, tenantId))
+      .where(
+        isAdminUser(auth.user)
+          ? eq(companies.tenantId, tenantId)
+          : and(
+              eq(companies.tenantId, tenantId),
+              // Company portal admins only see the companies they administer.
+              inArray(
+                companies.id,
+                (
+                  await db
+                    .select({ id: companyAdmins.companyId })
+                    .from(companyAdmins)
+                    .where(eq(companyAdmins.userId, auth.user.id))
+                ).map((r) => r.id).concat("__none__")
+              )
+            )
+      )
       .orderBy(desc(companies.createdAt));
 
     return NextResponse.json({ success: true, data: companyList });
@@ -39,10 +57,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const [org] = await db.select().from(organizations).limit(1);
-    const tenantId = body.tenantId || org?.id;
+    const tenantId = auth.user.organizationId;
 
     if (!tenantId) {
       return NextResponse.json({ success: false, error: "Tenant not found" }, { status: 400 });

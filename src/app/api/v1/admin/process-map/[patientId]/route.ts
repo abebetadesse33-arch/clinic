@@ -3,6 +3,7 @@ import { ProcessMapNode, ProcessMapEdge } from "@/lib/types/clinical";
 import { db } from "@/db";
 import { patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,9 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { patientId: string } }
 ) {
+  const auth = await requireAdminUser(_request);
+  if ("response" in auth) return auth.response;
+
   const { patientId } = params;
 
   let patientDisplayName = "Clinical Patient";

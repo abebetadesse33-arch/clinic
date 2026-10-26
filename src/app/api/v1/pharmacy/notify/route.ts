@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { eq, and, sql, desc } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 
@@ -20,9 +21,12 @@ const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 // Returns in-app notifications for a specific user
 // ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const recipientId = searchParams.get("recipientId");
+    const recipientId = auth.user.id; // users only read their own notifications
     const role = searchParams.get("role");
     const unreadOnly = searchParams.get("unreadOnly") === "true";
 
@@ -56,6 +60,9 @@ export async function GET(req: NextRequest) {
 // Also called automatically on prescription sign to push notifications
 // ──────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action } = body;
@@ -97,7 +104,7 @@ export async function POST(req: NextRequest) {
 
       if (rx.patientUserId) {
         notifs.push({
-          tenantId: DEFAULT_TENANT,
+          tenantId: auth.user.organizationId,
           prescriptionId,
           recipientId: rx.patientUserId,
           recipientRole: "patient" as const,
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest) {
 
       // Notify doctor with expected payment
       notifs.push({
-        tenantId: DEFAULT_TENANT,
+        tenantId: auth.user.organizationId,
         prescriptionId,
         recipientId: rx.doctorId,
         recipientRole: "doctor" as const,
@@ -166,7 +173,7 @@ export async function POST(req: NextRequest) {
 
       for (const ph of pharmacists) {
         await db.insert(pharmacyNotifications).values({
-          tenantId: DEFAULT_TENANT,
+          tenantId: auth.user.organizationId,
           prescriptionId,
           queueItemId: queueItemId ?? null,
           recipientId: ph.id,
@@ -181,7 +188,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: "Pharmacists notified of payment" });
 
     } else if (action === "mark_read") {
-      const { notificationId, recipientId } = body;
+      const { notificationId } = body;
+      const recipientId = auth.user.id;
       await db
         .update(pharmacyNotifications)
         .set({ readAt: new Date() })
@@ -194,7 +202,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: "Marked as read" });
 
     } else if (action === "mark_all_read") {
-      const { recipientId } = body;
+      const recipientId = auth.user.id;
       await db
         .update(pharmacyNotifications)
         .set({ readAt: new Date() })
@@ -209,7 +217,7 @@ export async function POST(req: NextRequest) {
     } else if (action === "send_custom") {
       const { recipientId, recipientRole, title, body: msgBody, eventType, metadata, prescriptionId, queueItemId } = body;
       const [notif] = await insertReturning(db, pharmacyNotifications, {
-          tenantId: DEFAULT_TENANT,
+          tenantId: auth.user.organizationId,
           recipientId,
           recipientRole,
           eventType: eventType ?? "prescription_signed",

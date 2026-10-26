@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { subscriptions, subscriptionMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireCompanyAccess } from "@/lib/security/tenant-resource";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string; patientId: string } }
 ) {
+  const access = await requireCompanyAccess(req, params.id, "write");
+  if ("response" in access) return access.response;
+
   try {
     const [sub] = await db
       .select()

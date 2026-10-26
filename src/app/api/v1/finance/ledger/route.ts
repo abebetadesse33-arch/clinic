@@ -5,14 +5,18 @@ import {
 } from "@/db/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/finance/ledger?tenantId=&type=accounts|transactions|balance_sheet|pl
 export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
-    const tenantId = searchParams.get("tenantId");
+    const tenantId = auth.user.organizationId;
     const type = searchParams.get("type") || "accounts";
 
     if (!tenantId) {
@@ -140,9 +144,14 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/finance/ledger — manual journal entry
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { tenantId, description, referenceType, entryDate, lines, postedBy } = body;
+    const { description, referenceType, entryDate, lines } = body;
+    const tenantId = auth.user.organizationId;
+    const postedBy = auth.user.id;
 
     if (!tenantId || !lines || lines.length < 2) {
       return NextResponse.json({ success: false, error: "tenantId and at least 2 journal lines required." }, { status: 400 });

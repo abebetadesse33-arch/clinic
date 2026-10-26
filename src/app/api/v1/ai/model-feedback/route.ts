@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordClinicianFeedback, calculateModelMetrics } from "@/lib/ai/continuous-learning";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
@@ -40,6 +44,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
   const tenantId = searchParams.get("tenantId");
 

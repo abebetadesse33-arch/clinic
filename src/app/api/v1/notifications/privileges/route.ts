@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { notificationPrivileges, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireRoles, STAFF_ROLES, requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,9 @@ const NOTIFICATION_CATEGORIES = [
 
 // GET /api/v1/notifications/privileges
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const existing = await db.select().from(notificationPrivileges);
 
@@ -70,6 +74,9 @@ export async function GET(req: NextRequest) {
 
 // PUT /api/v1/notifications/privileges - Admin updates a specific privilege
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { role, category, isEnabled, channels } = body;

@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { mobileClinicSessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // ─── GET /api/v1/mobile-clinic-sessions ──────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
+  const tenantId = auth.user.organizationId;
 
   if (!tenantId) {
     return NextResponse.json({ error: "tenantId required" }, { status: 400 });
@@ -30,10 +34,13 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/v1/mobile-clinic-sessions ─────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
+    const tenantId = auth.user.organizationId;
     const {
-      tenantId,
       sessionName,
       name,
       locationName,

@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { eq, and, desc, asc, sql, lt, lte, gte } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 
@@ -19,6 +20,9 @@ const DEFAULT_TENANT = "00000000-0000-0000-0000-000000000001";
 // Returns drug catalog with stock levels, batches, alerts
 // ──────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const view = searchParams.get("view") ?? "catalog"; // catalog | batches | suppliers | purchase_orders | alerts
@@ -163,10 +167,13 @@ export async function GET(req: NextRequest) {
 // Actions: add_drug | add_batch | add_supplier | create_po | receive_po | ack_alert
 // ──────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { action } = body;
-    const tenantId = body.tenantId ?? DEFAULT_TENANT;
+    const tenantId = auth.user.organizationId;
 
     if (action === "add_drug") {
       const [drug] = await insertReturning(db, drugCatalog, {

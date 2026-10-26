@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { externalProviders } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +64,10 @@ const INITIAL_EXTERNAL_PROVIDERS = [
   },
 ];
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     let rows = await db
       .select()
@@ -84,7 +88,10 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { name, specialty, facilityName, address, email, phone, fax, npi, fhirEndpoint, preferredTransport } = body;
@@ -121,7 +128,10 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await request.json();
     const { id, name, specialty, facilityName, address, email, phone, fax, npi, fhirEndpoint, preferredTransport, isActive } = body;
@@ -169,7 +179,10 @@ export async function PATCH(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

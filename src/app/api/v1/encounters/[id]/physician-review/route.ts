@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { completePhysicianWorkup } from "@/lib/services/admission-workflow-service";
 import { getOrderSetById } from "@/lib/services/clinical-order-sets";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
+import { assertEncounterInTenant } from "@/lib/security/tenant-resource";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
+  const denied = await assertEncounterInTenant(params.id, auth.user.organizationId);
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const {

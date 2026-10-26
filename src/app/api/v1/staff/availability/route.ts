@@ -2,15 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, queueEntries } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const tenantId = searchParams.get("tenantId") || DEFAULT_TENANT_ID;
+    const tenantId = auth.user.organizationId;
 
     // Fetch active healthcare professionals
     const activeStaff = await db

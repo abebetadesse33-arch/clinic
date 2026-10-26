@@ -3,14 +3,16 @@ import { db } from "@/db";
 import { tasks, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // PATCH /api/v1/tasks/[id]
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { status } = body;
@@ -28,7 +30,7 @@ export async function PATCH(
     }
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "TASK_STATUS_UPDATED",
       entityType: "tasks",
       entityId: updated.id,

@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { invoices, invoiceItems, patientRegistrationPasses, auditLogs, patients } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/v1/checkout/process-payment
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
@@ -37,6 +41,15 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Invoice record not found." },
         { status: 404 }
       );
+    }
+
+    // The invoice must belong to the caller's organization, and patients may only pay their own.
+    if (invoice.tenantId !== auth.user.organizationId) {
+      return NextResponse.json({ success: false, error: "Invoice record not found." }, { status: 404 });
+    }
+    if (auth.user.role === "patient") {
+      const access = await resolveAuthorizedPatient(req, invoice.patientId);
+      if ("response" in access) return access.response;
     }
 
     const items = await db

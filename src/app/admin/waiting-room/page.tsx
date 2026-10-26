@@ -383,6 +383,15 @@ export default function AdminWaitingRoomPage() {
               </span>
               <span>Last Heartbeat: {displayInfo?.lastHeartbeatAt ? new Date(displayInfo.lastHeartbeatAt).toLocaleTimeString() : "Just now"}</span>
             </div>
+            {displayInfo?.token && (
+              <p className="mt-2 text-[11px] text-gray-500 break-all">
+                Pair a TV by opening{" "}
+                <code className="text-cyan-400 font-mono">
+                  {typeof window !== "undefined" ? window.location.origin : ""}/display/waiting-room?token={displayInfo.token}
+                </code>{" "}
+                once; the screen remembers it.
+              </p>
+            )}
           </div>
 
           {/* Quick Metrics */}

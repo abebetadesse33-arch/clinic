@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { servicePricingCatalog, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // PATCH /api/v1/admin/pricing/[id]
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
     const body = await req.json();
@@ -63,6 +67,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
 // DELETE /api/v1/admin/pricing/[id]
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { id } = params;
 

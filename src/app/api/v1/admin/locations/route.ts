@@ -3,11 +3,15 @@ import { db } from "@/db";
 import { clinicLocations, auditLogs } from "@/db/schema";
 import { desc, asc, eq } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/admin/locations - List all clinic branches (active & inactive)
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const list = await db
       .select()
@@ -30,6 +34,9 @@ export async function GET() {
 
 // POST /api/v1/admin/locations - Add and integrate a new clinic location
 export async function POST(req: NextRequest) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

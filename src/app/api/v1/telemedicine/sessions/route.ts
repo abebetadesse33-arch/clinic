@@ -1,25 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { telemedicineSessions } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { telemedicineSessions, encounters, patients } from "@/db/schema";
+import { and, eq, desc } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser, requireRoles, resolveAuthorizedPatient, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // ─── GET /api/v1/telemedicine/sessions ───────────────────────────────────────
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(req.url);
-  const tenantId = searchParams.get("tenantId");
-  const patientId = searchParams.get("patientId");
+  let patientId = searchParams.get("patientId");
   const status = searchParams.get("status");
 
-  if (!tenantId) {
-    return NextResponse.json({ error: "tenantId required" }, { status: 400 });
-  }
-
   try {
+    // Patients only ever see their own sessions.
+    if (auth.user.role === "patient") {
+      const access = await resolveAuthorizedPatient(req, patientId);
+      if ("response" in access) return access.response;
+      patientId = access.patient.id;
+    }
+
     const sessions = await db
       .select()
       .from(telemedicineSessions)
-      .where(eq(telemedicineSessions.tenantId, tenantId))
+      .where(eq(telemedicineSessions.tenantId, auth.user.organizationId))
       .orderBy(desc(telemedicineSessions.createdAt))
       .limit(50);
 
@@ -40,24 +46,36 @@ export async function GET(req: NextRequest) {
 // Note: telemedicineSessions requires encounterId and doctorId.
 // For scheduled sessions without an encounter yet, a temp encounter must be pre-created.
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const {
-      tenantId,
-      patientId,
-      doctorId,
-      clinicianId,
-      encounterId,
-      scheduledAt,
-    } = body;
+    const { patientId, doctorId, clinicianId, encounterId, scheduledAt } = body;
+    const tenantId = auth.user.organizationId;
 
-    const resolvedDoctorId = doctorId || clinicianId;
+    const resolvedDoctorId = doctorId || clinicianId || auth.user.id;
 
-    if (!tenantId || !patientId || !resolvedDoctorId || !encounterId) {
+    if (!patientId || !encounterId) {
       return NextResponse.json(
-        { error: "tenantId, patientId, doctorId (or clinicianId), and encounterId are required" },
+        { error: "patientId and encounterId are required" },
         { status: 400 }
       );
+    }
+
+    // The patient and encounter must both belong to the caller's organization.
+    const [patient] = await db
+      .select({ id: patients.id })
+      .from(patients)
+      .where(and(eq(patients.id, patientId), eq(patients.tenantId, tenantId)))
+      .limit(1);
+    const [encounter] = await db
+      .select({ id: encounters.id })
+      .from(encounters)
+      .where(and(eq(encounters.id, encounterId), eq(encounters.tenantId, tenantId)))
+      .limit(1);
+    if (!patient || !encounter) {
+      return NextResponse.json({ error: "Patient or encounter not found in your organization" }, { status: 404 });
     }
 
     const roomId = `room-${tenantId.slice(0, 8)}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

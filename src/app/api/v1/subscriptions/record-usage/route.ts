@@ -3,8 +3,12 @@ import { recordSubscriptionUsage } from "@/lib/services/entitlement-service";
 import { db } from "@/db";
 import { subscriptions, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { subscriptionId, patientId, serviceType, serviceId, quantity, nominalPrice, coveredAmount, patientCopayAmount } = body;
@@ -14,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.id, subscriptionId));
-    if (!sub) {
+    if (!sub || sub.tenantId !== auth.user.organizationId) {
       return NextResponse.json({ success: false, error: "Subscription not found" }, { status: 404 });
     }
 

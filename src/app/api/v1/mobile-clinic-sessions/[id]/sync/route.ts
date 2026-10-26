@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { mobileClinicEncounters } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // ─── POST /api/v1/mobile-clinic-sessions/[id]/sync ────────────────────────────
 // Receives offline encounter batches from PWA, merges idempotently
@@ -11,6 +12,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import type { DashboardWidgetConfig, WidgetId } from "@/lib/types/clinical";
 import type { Role } from "@/lib/types/clinical";
+import { requireAuthenticatedUser, isAdminUser } from "@/lib/security/auth-session";
 
 // ==========================================
 // WIDGET DEFINITIONS PER ROLE
@@ -209,9 +210,16 @@ const ROLE_DEFAULT_LAYOUTS: Record<string, WidgetId[]> = {
 };
 
 export async function GET(
-  _request: Request,
+  _request: NextRequest,
   { params }: { params: { role: string } }
 ) {
+  const auth = await requireAuthenticatedUser(_request);
+  if ("response" in auth) return auth.response;
+  // Layouts are per role; you can only load your own role's dashboard (admins may preview any).
+  if (auth.user.role !== params.role && !isAdminUser(auth.user)) {
+    return NextResponse.json({ success: false, error: "Forbidden: not your dashboard role." }, { status: 403 });
+  }
+
   const role = params.role as Role;
   const widgetIds = ROLE_DEFAULT_LAYOUTS[role] ?? ["my_patients"];
 

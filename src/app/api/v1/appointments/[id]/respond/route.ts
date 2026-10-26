@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { appointments, notifications, patients, users, telemedicineSessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -9,6 +10,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const appointmentId = params.id;
     const body = await req.json();
@@ -26,7 +30,7 @@ export async function PATCH(
 
     // Fetch the appointment
     const [appt] = await db.select().from(appointments).where(eq(appointments.id, appointmentId)).limit(1);
-    if (!appt) {
+    if (!appt || appt.tenantId !== auth.user.organizationId) {
       return NextResponse.json({ success: false, error: "Appointment not found" }, { status: 404 });
     }
 

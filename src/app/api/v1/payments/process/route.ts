@@ -5,14 +5,22 @@ import { CentralStateMachineService } from "@/lib/services/central-state-machine
 import { PaymentGateService } from "@/lib/services/payment-gate-service";
 import { eq, or } from "drizzle-orm";
 import { dispatchParticipantNotification } from "@/lib/notifications/notification-service";
-import { getAuthenticatedSessionUserId } from "@/lib/security/auth-session";
+import { getAuthenticatedSessionUserId, requireAuthenticatedUser, resolveAuthorizedPatient } from "@/lib/security/auth-session";
 import { insertReturning } from "@/lib/db/returning";
 
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
-
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
+
+    // A patient can only pay on their own record.
+    if (auth.user.role === "patient") {
+      const access = await resolveAuthorizedPatient(req, body?.patientId);
+      if ("response" in access) return access.response;
+      body.patientId = access.patient.id;
+    }
     const {
       serviceType, // 'registration' | 'appointment' | 'telehealth' | 'bed_admission' | 'lab_analysis' | 'medication_dispense' | 'case_intake'
       patientId,
@@ -33,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid payment amount" }, { status: 400 });
     }
 
-    const settings = await PaymentGateService.getSettings(DEFAULT_TENANT_ID);
+    const settings = await PaymentGateService.getSettings(auth.user.organizationId);
     const gate = settings.gates[serviceType as keyof typeof settings.gates];
 
     // Determine status: Bank transfers might require admin approval if configured
@@ -58,7 +66,7 @@ export async function POST(req: NextRequest) {
       const invNumber = `INV-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
       try {
         const [newInv] = await insertReturning(db, invoices, {
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: auth.user.organizationId,
             patientId,
             encounterId: encounterId || null,
             invoiceNumber: invNumber,
@@ -104,7 +112,7 @@ export async function POST(req: NextRequest) {
     try {
       if (finalInvoiceId && resolvedPatientId) {
         const [p] = await insertReturning(db, payments, {
-            tenantId: DEFAULT_TENANT_ID,
+            tenantId: auth.user.organizationId,
             invoiceId: finalInvoiceId,
             patientId: resolvedPatientId,
             paymentNumber,
@@ -151,7 +159,7 @@ export async function POST(req: NextRequest) {
     if (encounterId && paymentStatus === "completed") {
       try {
         await CentralStateMachineService.dispatchEvent({
-          tenantId: DEFAULT_TENANT_ID,
+          tenantId: auth.user.organizationId,
           encounterId,
           eventName: "PAYMENT_CONFIRMED",
           actorRole: "system",
@@ -169,7 +177,7 @@ export async function POST(req: NextRequest) {
     // Record Audit Log
     try {
       await db.insert(auditLogs).values({
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         action: "PAYMENT_TRANSACTION_COMPLETED",
         entityType: "payment",
         entityId: newPayment?.id || paymentNumber,

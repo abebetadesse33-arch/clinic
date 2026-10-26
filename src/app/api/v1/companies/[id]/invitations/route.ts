@@ -8,8 +8,12 @@ import {
   companyEmployeeInvitations,
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { requireCompanyAccess } from "@/lib/security/tenant-resource";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const access = await requireCompanyAccess(req, params.id, "write");
+  if ("response" in access) return access.response;
+
   try {
     const body = await req.json();
     const { email, phone, employeeIdNumber, department } = body;
