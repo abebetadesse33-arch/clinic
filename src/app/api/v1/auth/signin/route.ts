@@ -4,6 +4,7 @@ import { users } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "@/lib/security/password";
 import { createSession, ensureAuthSchema, setSessionCookie } from "@/lib/security/auth-session";
+import { enforceRateLimit, clientIp, resetRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const ipKey = clientIp(req);
+  const idKey = identifier.toLowerCase();
+  const limited = enforceRateLimit("signin", [
+    { key: `ip:${ipKey}`, limit: 30, windowMs: 15 * 60 * 1000 },
+    { key: `id:${idKey}`, limit: 8, windowMs: 15 * 60 * 1000 },
+  ]);
+  if (limited) return limited;
+
   try {
     await ensureAuthSchema();
 
@@ -99,6 +108,8 @@ export async function POST(req: NextRequest) {
     if (!verification.ok) {
       return NextResponse.json({ success: false, error: INVALID_CREDENTIALS }, { status: 401 });
     }
+
+    resetRateLimit(`signin:id:${idKey}`);
 
     if (!dbUser.isActive) {
       return NextResponse.json(

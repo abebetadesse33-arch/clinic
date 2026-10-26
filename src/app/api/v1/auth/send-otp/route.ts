@@ -4,6 +4,7 @@ import { authVerificationCodes, systemAuthSettings, users } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { createHash, randomInt } from "crypto";
 import { insertReturning } from "@/lib/db/returning";
+import { enforceRateLimit, clientIp, resetRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,12 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanIdentifier = identifier.trim().toLowerCase();
+    const limited = enforceRateLimit("send-otp", [
+      { key: `ip:${clientIp(req)}`, limit: 10, windowMs: 15 * 60 * 1000 },
+      { key: `id:${cleanIdentifier}`, limit: 3, windowMs: 10 * 60 * 1000 },
+    ]);
+    if (limited) return limited;
+
     const isEmail = cleanIdentifier.includes("@");
     const resolvedChannel = isEmail ? "email" : "sms";
 
