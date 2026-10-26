@@ -126,22 +126,15 @@ export function middleware(request: NextRequest) {
     if (pathname === `${HEALTH_PREFIX}/api/health` || pathname === `${HEALTH_PREFIX}/api/health/`) {
       return NextResponse.next();
     }
-    const internalPath = pathname.slice(HEALTH_PREFIX.length);
-    const url = request.nextUrl.clone();
-    url.pathname = internalPath;
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set(INTERNAL_REWRITE_HEADER, "1");
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    // The /health/api/* -> /api/* mapping is a rewrite in next.config.mjs (see there for why
+    // it is not done with NextResponse.rewrite here).
+    return NextResponse.next();
   }
 
   // 4. /health/ or /health/<path> rewrites to internal application pages
   if (pathname === `${HEALTH_PREFIX}/` || pathname.startsWith(`${HEALTH_PREFIX}/`)) {
-    const internalPath = pathname.slice(HEALTH_PREFIX.length) || "/";
-    const url = request.nextUrl.clone();
-    url.pathname = internalPath === "/" ? "/ninimed-home" : internalPath;
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set(INTERNAL_REWRITE_HEADER, "1");
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    // Mapped to the internal pages by the rewrites in next.config.mjs.
+    return NextResponse.next();
   }
 
   // 5. External portal services redirect to their subdomains. Disabled with

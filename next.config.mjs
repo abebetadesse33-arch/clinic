@@ -71,6 +71,22 @@ const nextConfig = {
     NEXT_PUBLIC_BUILD_SHA: resolveBuildSha(),
     NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
   },
+  // /health is the public prefix of this app; the pages live at the root internally.
+  // These are config rewrites rather than NextResponse.rewrite in the middleware: behind a web
+  // server that sends "X-Forwarded-Proto: https" to this plain-HTTP process, the middleware
+  // rewrite made Next try to proxy to https://localhost:<port>, and every /health page and API
+  // call answered 500. Config rewrites are resolved inside the server and do not depend on the
+  // forwarded scheme.
+  async rewrites() {
+    return {
+      beforeFiles: [{ source: "/health", destination: "/ninimed-home" }],
+      afterFiles: [
+        // /health/api/health is a real route and is served before these apply.
+        { source: "/health/api/:path*", destination: "/api/:path*" },
+        { source: "/health/:path*", destination: "/:path*" },
+      ],
+    };
+  },
   async redirects() {
     return [
       // /system-admin is an alias that was circulating in bookmarks and
