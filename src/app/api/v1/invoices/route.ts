@@ -2,24 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { invoices, auditLogs } from "@/db/schema";
 import { createInvoiceSchema } from "@/lib/validations/schemas";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser, requireRoles, resolveAuthorizedPatient, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/invoices
 export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const patientId = searchParams.get("patientId");
+    let patientId = searchParams.get("patientId");
+
+    // Patients only ever see their own invoices.
+    if (auth.user.role === "patient") {
+      const access = await resolveAuthorizedPatient(req, patientId);
+      if ("response" in access) return access.response;
+      patientId = access.patient.id;
+    }
+    const inTenant = eq(invoices.tenantId, auth.user.organizationId);
     const status = searchParams.get("status");
 
     if (patientId) {
       const data = await db
         .select()
         .from(invoices)
-        .where(eq(invoices.patientId, patientId))
+        .where(and(eq(invoices.patientId, patientId), inTenant))
         .orderBy(desc(invoices.createdAt));
       return NextResponse.json({ success: true, data });
     }
@@ -28,7 +39,7 @@ export async function GET(req: NextRequest) {
       const data = await db
         .select()
         .from(invoices)
-        .where(eq(invoices.status, status as any))
+        .where(and(eq(invoices.status, status as any), inTenant))
         .orderBy(desc(invoices.createdAt));
       return NextResponse.json({ success: true, data });
     }
@@ -36,6 +47,7 @@ export async function GET(req: NextRequest) {
     const data = await db
       .select()
       .from(invoices)
+      .where(inTenant)
       .orderBy(desc(invoices.createdAt))
       .limit(100);
 
@@ -51,6 +63,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/invoices
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createInvoiceSchema.parse(body);
@@ -58,7 +73,7 @@ export async function POST(req: NextRequest) {
     const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
 
     const [newInvoice] = await insertReturning(db, invoices, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         patientId: validated.patientId,
         encounterId: validated.encounterId,
         invoiceNumber,
@@ -74,7 +89,7 @@ export async function POST(req: NextRequest) {
       });
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "INVOICE_GENERATED",
       entityType: "invoices",
       entityId: newInvoice.id,

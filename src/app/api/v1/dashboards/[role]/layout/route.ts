@@ -1,10 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuthenticatedUser, requireAdminUser } from "@/lib/security/auth-session";
 
 // PUT /api/v1/dashboards/[role]/layout - Tenant Admin only: update widget layout
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: { role: string } }
 ) {
+  const auth = await requireAdminUser(request);
+  if ("response" in auth) return auth.response;
+
   try {
     const role = params.role;
     const body = await request.json();
@@ -58,9 +62,12 @@ export async function PUT(
 
 // GET /api/v1/dashboards/[role]/layout - Retrieve saved layout for a role
 export async function GET(
-  _request: Request,
+  _request: NextRequest,
   { params }: { params: { role: string } }
 ) {
+  const auth = await requireAuthenticatedUser(_request);
+  if ("response" in auth) return auth.response;
+
   const role = params.role;
 
   // In production: query dashboard_layouts table for this org+role

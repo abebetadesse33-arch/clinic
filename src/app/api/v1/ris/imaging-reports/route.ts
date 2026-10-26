@@ -5,17 +5,19 @@ import { createImagingReportSchema } from "@/lib/validations/schemas";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // POST /api/v1/ris/imaging-reports
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createImagingReportSchema.parse(body);
 
     const [newReport] = await insertReturning(db, imagingReports, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         studyId: validated.studyId,
         technique: validated.technique,
         findings: validated.findings,
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
       .where(eq(imagingStudies.id, validated.studyId));
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "IMAGING_REPORT_SIGNED",
       entityType: "imaging_reports",
       entityId: newReport.id,

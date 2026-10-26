@@ -3,10 +3,14 @@ import { db } from "@/db";
 import { patientAssignments, users, patients, cases } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { CaseWorkflowService } from "@/lib/services/case-workflow-service";
+import { requireRoles, STAFF_ROLES, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const providerId = searchParams.get("providerId");
@@ -58,6 +62,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

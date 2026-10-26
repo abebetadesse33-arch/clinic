@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 // In production this would query user_roles table joined with users.
 // Here we return the full role catalogue from the seed dataset.
@@ -25,7 +26,10 @@ const ALL_ROLES = [
   { role: "auditor", displayName: "Compliance Auditor", isPrimary: false },
 ];
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const auth = await requireAuthenticatedUser(request);
+  if ("response" in auth) return auth.response;
+
   const { searchParams } = new URL(request.url);
   const activeRole = searchParams.get("activeRole") ?? "physician";
 

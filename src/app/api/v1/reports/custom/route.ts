@@ -9,11 +9,15 @@ import {
   labOrders,
 } from "@/db/schema";
 import { desc, count, sql } from "drizzle-orm";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/reports/custom
 export async function GET(_req: NextRequest) {
+  const auth = await requireAdminUser(_req);
+  if ("response" in auth) return auth.response;
+
   try {
     const [savedReports, patCount, encCount, invSum, rxCount, labCount] = await Promise.all([
       db.select().from(customReports).orderBy(desc(customReports.createdAt)),

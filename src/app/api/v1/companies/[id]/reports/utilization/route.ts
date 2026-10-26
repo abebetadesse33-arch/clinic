@@ -7,8 +7,12 @@ import {
   subscriptionUsage,
 } from "@/db/schema";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
+import { requireCompanyAccess } from "@/lib/security/tenant-resource";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const access = await requireCompanyAccess(req, params.id, "read");
+  if ("response" in access) return access.response;
+
   try {
     const [company] = await db
       .select()

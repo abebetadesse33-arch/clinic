@@ -6,10 +6,14 @@ import {
   searchPharmacyCatalogue,
   searchLaboratoryProtocols,
 } from "@/lib/catalogue";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRoles(request, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type") || "all"; // 'all' | 'pharmacy' | 'laboratory' | 'supplies'

@@ -3,15 +3,19 @@ import { db } from "@/db";
 import { patientWayfindingNotifications, patients, organizations } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, CLINICIAN_ROLES, STAFF_ROLES } from "@/lib/security/auth-session";
+import { requirePatientAccess } from "@/lib/security/tenant-resource";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/v1/patient-flow/notify — dispatch dynamic queue wayfinding alert
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {
-      tenantId,
       patientId,
       encounterId,
       ticketNumber,
@@ -31,11 +35,13 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Resolve tenant ID fallback
-    let resolvedTenantId = tenantId;
-    if (!resolvedTenantId) {
-      const [firstOrg] = await db.select({ id: organizations.id }).from(organizations).limit(1);
-      resolvedTenantId = firstOrg?.id;
+    const resolvedTenantId = auth.user.organizationId;
+
+    // The patient being notified must belong to this organization.
+    const access = await requirePatientAccess(req, patientId);
+    if ("response" in access) return access.response;
+    if (!access.patient) {
+      return NextResponse.json({ success: false, error: "Patient not found" }, { status: 404 });
     }
 
     // Compose Wayfinding Message Content
@@ -76,6 +82,9 @@ export async function POST(req: NextRequest) {
 
 // GET /api/v1/patient-flow/notify — query recent wayfinding notifications
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = req.nextUrl;
     const patientId = searchParams.get("patientId");

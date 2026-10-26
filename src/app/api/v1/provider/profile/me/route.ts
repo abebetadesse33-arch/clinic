@@ -3,15 +3,24 @@ import { db } from "@/db";
 import { providerProfiles, providerSchedules, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { insertReturning, updateReturning } from "@/lib/db/returning";
+import { requireRoles, STAFF_ROLES, isAdminUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
 // GET /api/v1/provider/profile/me?userId=...
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    // Providers read their own profile; only administrators may open someone else's.
+    const requested = searchParams.get("userId");
+    if (requested && requested !== auth.user.id && !isAdminUser(auth.user)) {
+      return NextResponse.json({ success: false, error: "Forbidden: you can only view your own profile." }, { status: 403 });
+    }
+    const userId = requested || auth.user.id;
 
     // If no userId passed, grab first physician / user or default
     let resolvedUserId = userId;
@@ -104,8 +113,15 @@ export async function GET(req: NextRequest) {
 
 // PUT /api/v1/provider/profile/me
 export async function PUT(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
+    if (body.userId && body.userId !== auth.user.id && !isAdminUser(auth.user)) {
+      return NextResponse.json({ success: false, error: "Forbidden: you can only edit your own profile." }, { status: 403 });
+    }
+    body.userId = body.userId || auth.user.id;
     const {
       userId,
       bio,

@@ -10,6 +10,8 @@ import {
 } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requirePatientAccess } from "@/lib/security/tenant-resource";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 const isValidUUID = (id?: string | null) =>
   Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
@@ -26,6 +28,11 @@ export async function GET(req: NextRequest) {
     if (!isValidUUID(patientId)) {
       return NextResponse.json({ success: true, data: null });
     }
+
+    // Patients may only look up their own family; staff are limited to their organization.
+    const access = await requirePatientAccess(req, patientId);
+    if ("response" in access) return access.response;
+    if (!access.patient) return NextResponse.json({ success: true, data: null });
 
     // Find the family group this patient belongs to (either as primary or dependent)
     const [membership] = await db
@@ -78,12 +85,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { primaryPatientId, name, tenantId } = body;
+    const { primaryPatientId, name } = body;
+    const resolvedTenantId = auth.user.organizationId;
 
-    const [org] = await db.select().from(organizations).limit(1);
-    const resolvedTenantId = tenantId || org?.id;
+    // A patient can only found a family group around their own record.
+    if (auth.user.role === "patient") {
+      const access = await requirePatientAccess(req, primaryPatientId);
+      if ("response" in access) return access.response;
+    }
 
     if (!primaryPatientId || !name) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });

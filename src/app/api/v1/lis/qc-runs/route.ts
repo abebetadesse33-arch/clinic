@@ -4,11 +4,13 @@ import { labQcRuns, auditLogs } from "@/db/schema";
 import { createLabQcRunSchema } from "@/lib/validations/schemas";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 // POST /api/v1/lis/qc-runs - Record QC Run & Evaluate Tolerance
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createLabQcRunSchema.parse(body);
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
     const passed = Math.abs(zScore) <= 2.0;
 
     const [newRun] = await insertReturning(db, labQcRuns, {
-        tenantId: DEFAULT_TENANT_ID,
+        tenantId: auth.user.organizationId,
         instrumentId: validated.instrumentId,
         analyte: validated.analyte,
         level: validated.level,
@@ -33,7 +35,7 @@ export async function POST(req: NextRequest) {
       });
 
     await db.insert(auditLogs).values({
-      tenantId: DEFAULT_TENANT_ID,
+      tenantId: auth.user.organizationId,
       action: "LAB_QC_LOGGED",
       entityType: "lab_qc_runs",
       entityId: newRun.id,

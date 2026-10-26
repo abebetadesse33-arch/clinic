@@ -8,20 +8,25 @@ import {
   generateAuditEntryHash,
   EncryptedPayload,
 } from "@/lib/security/e2ee-crypto";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // POST /api/v1/security/e2ee — authenticated field encryption / decryption with audit trail
 export async function POST(req: NextRequest) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
+    // Who is acting, with which role, in which organization, comes from the session only.
+    const actorUserId = auth.user.id;
+    const actorRole = auth.user.role;
+    const tenantId = auth.user.organizationId;
     const {
       operation, // 'encrypt' | 'decrypt'
       plaintext,
       encryptedPayload,
-      actorUserId,
-      actorRole,
-      tenantId,
       targetResourceType,
       targetResourceId,
       reason,

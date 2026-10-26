@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { imagingStudies, imagingTemplates, patients } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/v1/ris/imaging-studies
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");

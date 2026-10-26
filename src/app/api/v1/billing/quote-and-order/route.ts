@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { insertReturning } from "@/lib/db/returning";
+import { requireRoles, CLINICIAN_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,9 @@ const DEFAULT_MED_PRICES: Record<string, number> = {
 // POST /api/v1/billing/quote-and-order
 // Dynamically generates price quotes, calculates total price, and creates pending invoices for Lab & Pharmacy
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, CLINICIAN_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const {

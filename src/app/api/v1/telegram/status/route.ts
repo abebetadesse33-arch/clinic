@@ -6,6 +6,7 @@ import {
   getTelegramBotInfo,
   getTelegramBotTelemetry,
 } from "@/lib/notifications/telegram-notifier";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,9 @@ export const dynamic = "force-dynamic";
  * Diagnostic and health-check endpoint for the Telegram notification engine.
  */
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const botInfo = await getTelegramBotInfo();
     const telemetry = getTelegramBotTelemetry();

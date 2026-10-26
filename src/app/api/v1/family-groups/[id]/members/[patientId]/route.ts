@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { familyMembers, familyGroups } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { updateReturning } from "@/lib/db/returning";
+import { requireFamilyGroupAccess } from "@/lib/security/tenant-resource";
 
 export async function DELETE(
   req: NextRequest,

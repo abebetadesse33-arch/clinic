@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SagaOrchestrator } from "@/lib/services/saga-orchestrator";
+import { requireAdminUser } from "@/lib/security/auth-session";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAdminUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const { reason = "Manual administrator compensation rollback" } = body;

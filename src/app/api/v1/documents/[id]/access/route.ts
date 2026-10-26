@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { documentAccessLogs } from "@/db/schema";
 import { insertReturning } from "@/lib/db/returning";
+import { requireAuthenticatedUser } from "@/lib/security/auth-session";
 
 export const dynamic = "force-dynamic";
 
@@ -10,13 +11,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireAuthenticatedUser(req);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
-    const { userId, accessType } = body;
-
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "userId is required" }, { status: 400 });
-    }
+    const { accessType } = body;
+    // The audit trail records the signed-in user, never a client-supplied id.
+    const userId = auth.user.id;
 
     const [log] = await insertReturning(db, documentAccessLogs, {
         fileId: params.id,

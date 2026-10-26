@@ -5,11 +5,13 @@ import { createAuditLogSchema } from "@/lib/validations/schemas";
 import { desc, eq, like, or, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { insertReturning } from "@/lib/db/returning";
-
-const DEFAULT_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { requireRoles, STAFF_ROLES } from "@/lib/security/auth-session";
 
 // GET /api/v1/audit-logs
 export async function GET(req: NextRequest) {
+  const auth = await requireRoles(req, ["auditor"]);
+  if ("response" in auth) return auth.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search")?.trim() || "";
@@ -19,7 +21,7 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("endDate");
     const limit = parseInt(searchParams.get("limit") || "100", 10);
 
-    const conditions: any[] = [eq(auditLogs.tenantId, DEFAULT_TENANT_ID)];
+    const conditions: any[] = [eq(auditLogs.tenantId, auth.user.organizationId)];
 
     if (action && action !== "all") {
       conditions.push(eq(auditLogs.action, action));
@@ -99,13 +101,16 @@ export async function GET(req: NextRequest) {
 
 // POST /api/v1/audit-logs
 export async function POST(req: NextRequest) {
+  const auth = await requireRoles(req, STAFF_ROLES);
+  if ("response" in auth) return auth.response;
+
   try {
     const body = await req.json();
     const validated = createAuditLogSchema.parse(body);
 
     const [newLog] = await insertReturning(db, auditLogs, {
-        tenantId: DEFAULT_TENANT_ID,
-        userId: body.userId || "11111111-1111-1111-1111-111111111101",
+        tenantId: auth.user.organizationId,
+        userId: auth.user.id,
         action: validated.action,
         entityType: validated.entityType,
         entityId: validated.entityId,
