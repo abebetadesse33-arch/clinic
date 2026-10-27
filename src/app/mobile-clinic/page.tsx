@@ -36,6 +36,7 @@ import {
   type OfflineEncounter,
   type MobileInventoryItem,
 } from "@/lib/mobile-clinic/sync-engine";
+import { getCurrentDevicePosition } from "@/lib/mobile/geolocation";
 
 type AppView = "home" | "new_session" | "encounter" | "inventory" | "sync";
 
@@ -68,6 +69,7 @@ function MobileClinicContent() {
   const [isOnline, setIsOnline] = useState(true);
   const [view, setView] = useState<AppView>("home");
   const [gps, setGps] = useState<GpsPosition | null>(null);
+  const [gpsError, setGpsError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [syncSummary, setSyncSummary] = useState<SyncSummary>({ pending: 0, synced: 0, failed: 0 });
   const [isSyncing, setIsSyncing] = useState(false);
@@ -121,21 +123,18 @@ function MobileClinicContent() {
     }
   };
 
-  const acquireGPS = () => {
+  const acquireGPS = async () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-        setIsLocating(false);
-      },
-      (err) => {
-        console.error("GPS error:", err);
-        // Fallback coordinates for Addis Ababa
-        setGps({ lat: 9.0232, lng: 38.7469, accuracy: 100 });
-        setIsLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    setGpsError(null);
+    try {
+      const position = await getCurrentDevicePosition();
+      setGps({ lat: position.latitude, lng: position.longitude, accuracy: position.accuracy });
+    } catch (error) {
+      console.error("GPS error:", error);
+      setGpsError(error instanceof Error ? error.message : "Unable to access this device's location.");
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const createSession = async () => {
@@ -320,6 +319,7 @@ function MobileClinicContent() {
               ) : (
                 <p className="text-xs text-gray-500">Tap "Get GPS" to confirm your field location before starting sessions.</p>
               )}
+              {gpsError && <p role="alert" className="mt-2 text-xs text-red-400">{gpsError}</p>}
             </div>
 
             {/* Quick Stats */}

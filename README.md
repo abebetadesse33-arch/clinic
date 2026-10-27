@@ -126,6 +126,12 @@ bun run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Mobile app installation
+
+For Android APK builds, iOS setup, and mobile-browser/PWA installation, see
+[MOBILE_APP_GUIDE.md](MOBILE_APP_GUIDE.md). Native builds use the deployed
+NiniMed site by default; set `CAPACITOR_SERVER_URL` to override it.
+
 ### CI and Database Commands
 
 ```bash
