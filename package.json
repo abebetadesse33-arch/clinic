@@ -21,13 +21,20 @@
     "db:migrate-from-postgres": "npx tsx scripts/migrate-postgres-to-mysql.ts",
     "db:export-postgres-dump": "npx tsx scripts/export-postgres-dump.ts",
     "db:import-mysql-dump": "npx tsx scripts/import-mysql-dump.ts",
-    "db:reset-mysql-schema": "npx tsx scripts/reset-mysql-schema.ts"
+    "db:reset-mysql-schema": "npx tsx scripts/reset-mysql-schema.ts",
+    "mobile:sync:android": "cap sync android",
+    "mobile:sync:ios": "cap sync ios",
+    "mobile:open:android": "cap open android",
+    "mobile:open:ios": "cap open ios"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@capacitor/geolocation": "^8.2.2",
+    "@capacitor/ios": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@google/generative-ai": "^0.21.0",
     "@neon/config": "^1.5.0",
     "@neon/env": "^1.3.4",

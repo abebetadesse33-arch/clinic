@@ -24,6 +24,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 import type { MapClinicLocation } from "@/components/map/ClinicLocationsMap";
+import { getCurrentDevicePosition } from "@/lib/mobile/geolocation";
 
 // Dynamic import for Leaflet map component to prevent SSR issues
 const ClinicLocationsMap = dynamic(
@@ -131,33 +132,19 @@ export default function LocationsPage() {
   }, []);
 
   // Auto-GPS Geolocation trigger
-  const handleDetectLocation = () => {
-    if (!navigator.geolocation) {
-      setGpsError("Geolocation is not supported by your browser.");
-      return;
-    }
-
+  const handleDetectLocation = async () => {
     setIsDetectingLocation(true);
     setGpsError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        };
-        setUserCoords(coords);
-        setIsDetectingLocation(false);
-      },
-      (err) => {
-        console.warn("GPS error:", err);
-        // Default to Debre Birhan center if permission denied/mocking
-        setUserCoords({ lat: 9.678, lng: 39.5325 });
-        setIsDetectingLocation(false);
-        setGpsError("GPS simulated from Debre Birhan Town Center.");
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
+    try {
+      const position = await getCurrentDevicePosition();
+      setUserCoords({ lat: position.latitude, lng: position.longitude });
+    } catch (error) {
+      console.warn("GPS error:", error);
+      setGpsError(error instanceof Error ? error.message : "Unable to access this device's location.");
+    } finally {
+      setIsDetectingLocation(false);
+    }
   };
 
   // Enriched locations with distance calculation and filtering

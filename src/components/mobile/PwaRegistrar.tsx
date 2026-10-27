@@ -10,7 +10,7 @@ export default function PwaRegistrar() {
   const [showInstallHint, setShowInstallHint] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
-  const androidApkUrl = "/downloads/ninimed.apk";
+  const androidApkUrl = process.env.NEXT_PUBLIC_ANDROID_APK_URL;
 
   useEffect(() => {
     const isStandalone =
@@ -51,6 +51,7 @@ export default function PwaRegistrar() {
     if (
       isAndroid &&
       isMobile &&
+      androidApkUrl &&
       !isStandalone &&
       !sessionStorage.getItem("ninimed_apk_banner_dismissed") &&
       !sessionStorage.getItem("ninimed_pwa_banner_dismissed")

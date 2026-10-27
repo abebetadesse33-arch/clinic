@@ -1,13 +1,32 @@
 import { CapacitorConfig } from "@capacitor/cli";
 
+const serverUrl =
+  process.env.CAPACITOR_SERVER_URL?.trim() || "https://www.wisdomcourse.com.et";
+
+let parsedServerUrl: URL;
+try {
+  parsedServerUrl = new URL(serverUrl);
+} catch {
+  throw new Error("CAPACITOR_SERVER_URL must be a valid absolute URL.");
+}
+
+const isLocalDevelopmentHost =
+  parsedServerUrl.hostname === "localhost" ||
+  parsedServerUrl.hostname === "127.0.0.1" ||
+  parsedServerUrl.hostname === "10.0.2.2";
+
+if (parsedServerUrl.protocol !== "https:" && !(parsedServerUrl.protocol === "http:" && isLocalDevelopmentHost)) {
+  throw new Error("CAPACITOR_SERVER_URL must use HTTPS, except for local development hosts.");
+}
+
 const config: CapacitorConfig = {
   appId: "org.ninimed.health",
   appName: "NiniMed Health",
   webDir: "public",
   server: {
-    // In production or local test, Capacitor loads from server or androidScheme
+    url: parsedServerUrl.toString(),
     androidScheme: "https",
-    cleartext: true,
+    cleartext: parsedServerUrl.protocol === "http:",
   },
   plugins: {
     SplashScreen: {
@@ -22,9 +41,6 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: "DARK",
       backgroundColor: "#0A1612",
-    },
-    PushNotifications: {
-      presentationOptions: ["badge", "sound", "alert"],
     },
     Geolocation: {
       androidAccuracy: "fine",
