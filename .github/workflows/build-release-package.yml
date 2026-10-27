@@ -1,0 +1,84 @@
+name: Build Plesk release package
+
+# Builds the standalone app for a given public URL and publishes the result as a downloadable
+# artifact (deploy.tar.gz). It does NOT deploy anything and uses no server credentials: download
+# the artifact, upload deploy.tar.gz to the Plesk application root with File Manager, extract it,
+# and restart the Node.js app.
+#
+# Runs on a push to the release/package branch, or manually (Actions > Run workflow).
+
+on:
+  push:
+    branches:
+      - release/package
+  workflow_dispatch:
+    inputs:
+      public_url:
+        description: "Public URL baked into the build (NEXT_PUBLIC_APP_URL)"
+        required: false
+        default: "https://service.echat.et/health"
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PUBLIC_URL: ${{ inputs.public_url || 'https://service.echat.et/health' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile || bun install
+
+      - name: Build Next.js standalone application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: ${{ env.PUBLIC_URL }}
+          NEXT_PUBLIC_BUILD_SHA: ${{ github.sha }}
+          # The build only needs a syntactically valid URL; it does not connect.
+          DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
+
+      - name: Assemble release package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release deploy.tar.gz
+          mkdir -p release/.next/standalone/.next release/tmp
+
+          cp -R .next/standalone/. release/.next/standalone/
+          cp -Rf .next/static release/.next/standalone/.next/static
+          cp -Rf public release/.next/standalone/public 2>/dev/null || true
+
+          mkdir -p release/.next
+          cp -Rf .next/static release/.next/static
+          cp -Rf public release/public 2>/dev/null || true
+          cp -Rf drizzle release/drizzle 2>/dev/null || true
+          touch release/tmp/restart.txt
+
+          cp -f server.js release/server.js
+          cp -f release/server.js release/app.js
+          mkdir -p release/scripts
+          cp -f scripts/server-prelude.js release/scripts/server-prelude.js
+          cp -f scripts/server-prelude.js release/plesk-prelude.js
+          # No .plesk.startup.cjs: it must not exist, see PLESK_DEPLOYMENT.md.
+
+          test -f release/.next/standalone/server.js
+          test -d release/.next/standalone/.next/static
+          tar -czf deploy.tar.gz -C release .
+          echo "Package: $(du -h deploy.tar.gz | cut -f1) for $PUBLIC_URL at ${GITHUB_SHA::12}"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: clinic-release-${{ github.sha }}
+          path: deploy.tar.gz
+          retention-days: 14
+          if-no-files-found: error
