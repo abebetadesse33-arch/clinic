@@ -150,6 +150,12 @@ export default function SignUpPage() {
         return;
       }
 
+      if (data.pendingApproval) {
+        setPendingPayload(null);
+        setSuccessMsg(data.message || "Your registration is waiting for approval.");
+        return;
+      }
+
       if (data.user) {
         login(data.user);
         setCurrentRole(data.user.role);
