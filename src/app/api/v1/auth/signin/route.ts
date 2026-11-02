@@ -111,6 +111,19 @@ export async function POST(req: NextRequest) {
 
     resetRateLimit(`signin:id:${idKey}`);
 
+    if (!dbUser.isActive && dbUser.department === "pending_approval") {
+      return NextResponse.json(
+        { success: false, error: "Your registration is waiting for approval. You can sign in once an administrator approves it." },
+        { status: 403 }
+      );
+    }
+    if (!dbUser.isActive && dbUser.department === "registration_rejected") {
+      return NextResponse.json(
+        { success: false, error: "Your registration was not approved. Please contact an administrator." },
+        { status: 403 }
+      );
+    }
+
     if (!dbUser.isActive) {
       return NextResponse.json(
         { success: false, error: "Account is inactive. Please contact your system administrator." },

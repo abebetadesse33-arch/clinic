@@ -8,6 +8,7 @@ import { dispatchNotification } from "@/lib/notifications/notification-service";
 import { hashPassword } from "@/lib/security/password";
 import { createSession, ensureAuthSchema, setSessionCookie } from "@/lib/security/auth-session";
 import { insertReturning } from "@/lib/db/returning";
+import { PENDING_APPROVAL, registrationMode } from "@/lib/portal-policy";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -54,6 +55,11 @@ export async function POST(req: NextRequest) {
     { key: `ip:${clientIp(req)}`, limit: 10, windowMs: 60 * 60 * 1000 },
   ]);
   if (limited) return limited;
+
+  const mode = registrationMode();
+  if (mode === "closed") {
+    return NextResponse.json({ success: false, error: "Registration is closed. Ask an administrator to add you." }, { status: 403 });
+  }
 
   try {
     const body = await req.json();
@@ -187,6 +193,8 @@ export async function POST(req: NextRequest) {
           role: "patient",
           nationalId: cleanNationalId,
           phone: normalizedPhone,
+          // Someone who registers themselves waits, switched off, until an administrator approves them.
+          ...(mode === "approval" ? { isActive: false, department: PENDING_APPROVAL } : {}),
         });
 
       const [patient] = await insertReturning(tx, patients, {
@@ -208,6 +216,18 @@ export async function POST(req: NextRequest) {
 
       return { createdUser: user, createdPatient: patient };
     });
+
+    if (mode === "approval") {
+      // Nobody is signed in, and no card or welcome message goes out, until the account is approved.
+      return NextResponse.json(
+        {
+          success: true,
+          pendingApproval: true,
+          message: "Your registration is waiting for approval. You can sign in once an administrator approves it.",
+        },
+        { status: 202 }
+      );
+    }
 
     const [preferredBranch] = await db
       .select({ name: clinicLocations.name })

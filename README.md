@@ -174,3 +174,13 @@ docker compose -f docker-compose.dev.yml up --build
 - **FDA SaMD Advisory CDSS**: Human-in-the-loop verification required for all clinical orders.
 - **21 CFR Part 11**: Cryptographic timestamps, digital signature hashes (`DIGISIG`), and immutable audit logs.
 - **HIPAA Security Rule**: Organization-level isolation, encrypted media storage, and comprehensive event tracking.
+
+## On its own, and under service.echat.et
+
+This repository is the app's source of truth: change the code here.
+
+- **On its own** (the default) the app serves from `/` on whatever address it is deployed to. Its pages also answer under `/health` (rewrites in `next.config.mjs`).
+- **service.echat.et/health** is built by [abebetadesse/all-app](https://github.com/abebetadesse/all-app),
+  which copies `main` of this repository into `apps/ninic` (on every push, through
+  `.github/workflows/notify-all-app.yml`, and hourly) and builds it under `/health`. Nothing in this
+  repository needs to change for that.

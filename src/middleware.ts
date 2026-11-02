@@ -93,19 +93,6 @@ function guardApi(request: NextRequest, apiPath: string): NextResponse | null {
   );
 }
 
-/**
- * Redirect to a path on the address the browser actually used. NextResponse.redirect needs an
- * absolute URL, and behind a proxy Next builds it from the server's own host name
- * (https://localhost:<port>), which sends the browser to an address it cannot reach. The proxy's
- * Host / X-Forwarded-* headers carry the public address.
- */
-function redirectTo(request: NextRequest, pathname: string): NextResponse {
-  const first = (value: string | null) => value?.split(",")[0].trim() || "";
-  const host = first(request.headers.get("x-forwarded-host")) || first(request.headers.get("host")) || request.nextUrl.host;
-  const proto = first(request.headers.get("x-forwarded-proto")) || request.nextUrl.protocol.replace(":", "");
-  return NextResponse.redirect(new URL(`${pathname}${request.nextUrl.search}`, `${proto}://${host}`));
-}
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -129,7 +116,9 @@ export function middleware(request: NextRequest) {
 
   // 2. Trailing-slash normalization for /health
   if (pathname === HEALTH_PREFIX) {
-    return redirectTo(request, `${HEALTH_PREFIX}/`);
+    const url = request.nextUrl.clone();
+    url.pathname = `${HEALTH_PREFIX}/`;
+    return NextResponse.redirect(url);
   }
 
   // 3. /health/api/ routes: allow /health/api/health directly, rewrite all other /health/api/v1/ to /api/
@@ -167,11 +156,15 @@ export function middleware(request: NextRequest) {
 
   // 7. If someone accesses /ninimed-home directly, redirect to /health/
   if (pathname === "/ninimed-home" || pathname === "/ninimed-home/") {
-    return redirectTo(request, `${HEALTH_PREFIX}/`);
+    const url = request.nextUrl.clone();
+    url.pathname = `${HEALTH_PREFIX}/`;
+    return NextResponse.redirect(url);
   }
 
   // 8. Redirect all other direct NiniMed page routes to /health/...
-  return redirectTo(request, `${HEALTH_PREFIX}${pathname}`);
+  const url = request.nextUrl.clone();
+  url.pathname = `${HEALTH_PREFIX}${pathname}`;
+  return NextResponse.redirect(url);
 }
 
 export const config = {
